@@ -28,7 +28,8 @@ Make sure you enable:
 
 ## .env Example
 
-See the `.env.example` file for what needs to be filled.
+1.  Copy `.env.template` to a new `.env` file.
+2.  Replace the placeholder values in `.env` with your actual environment variables.
 
 ## Tech Stack
 
