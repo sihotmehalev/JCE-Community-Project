@@ -24,85 +24,107 @@ export default function ProfilePage() {
     fetchUserData();
   }, [user]);
 
-  if (!userData) return <div className="p-6">טוען...</div>;
+  if (!userData) return <div className="max-w-5xl mx-auto p-6">טוען...</div>;
+
+  const ProfileField = ({ label, value, colored }) => (
+    <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+      <span className="text-gray-700"><strong>{label}</strong></span>
+      <span className={colored ? colored : "font-medium"}>
+        {value || "לא צוין"}
+      </span>
+    </div>
+  );
 
   return (
-    <div className="p-6">
-      <div className="flex flex-col items-start gap-2 mb-6">
-        <h1 className="text-2xl font-bold">הפרופיל שלי</h1>
-        <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-          {roleTranslations[userData.role]}
-        </span>
+    <div className="max-w-5xl mx-auto p-6">
+      {/* Header Section */}
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <h1 className="text-2xl font-bold">הפרופיל שלי</h1>
+          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium self-start">
+            {roleTranslations[userData.role]}
+          </span>
+        </div>
       </div>
       
       <div className="grid gap-6">
-        <Card>
-          <CardContent className="p-6">
+        {/* Personal Information Card */}
+        <Card className="shadow-sm">
+          <CardContent className="p-4">
             <h2 className="text-xl font-semibold mb-4">פרטים אישיים</h2>
-            <div className="space-y-2">
-              <p><strong>שם מלא:</strong> {userData.fullName}</p>
-              <p><strong>אימייל:</strong> {userData.email}</p>
-              <p><strong>טלפון:</strong> {userData.phone || "לא צוין"}</p>
-              <p><strong>מגדר:</strong> {userData.gender || "לא צוין"}</p>
-              <p><strong>גיל:</strong> {userData.age || "לא צוין"}</p>
-              <p><strong>מקום מגורים:</strong> {userData.location || "לא צוין"}</p>
-              <p><strong>מצב משפחתי:</strong> {userData.maritalStatus || "לא צוין"}</p>
+            <div className="space-y-3">
+              <ProfileField label="שם מלא:" value={userData.fullName} />
+              <ProfileField label="אימייל:" value={userData.email} />
+              <ProfileField label="טלפון:" value={userData.phone} />
+              <ProfileField label="מגדר:" value={userData.gender} />
+              <ProfileField label="גיל:" value={userData.age} />
+              <ProfileField label="מקום מגורים:" value={userData.location} />
+              <ProfileField label="מצב משפחתי:" value={userData.maritalStatus} />
             </div>
           </CardContent>
         </Card>
 
         {userData.role === "volunteer" ? (
           <>
-            <Card>
-              <CardContent className="p-6">
+            {/* Volunteer Information Card */}
+            <Card className="shadow-sm">
+              <CardContent className="p-4">
                 <h2 className="text-xl font-semibold mb-4">פרטי התנדבות</h2>
-                <div className="space-y-2">
-                  <p><strong>מקצוע:</strong> {userData.profession || "לא צוין"}</p>
-                  <p><strong>ניסיון קודם:</strong> {userData.experience || "לא צוין"}</p>
-                  <p><strong>זמינות:</strong> {userData.availability || "לא צוין"}</p>
-                  <p><strong>חוזקות:</strong> {userData.strengths || "לא צוין"}</p>
-                  <p><strong>מוטיבציה להתנדבות:</strong> {userData.motivation || "לא צוין"}</p>
+                <div className="space-y-3">
+                  <ProfileField label="מקצוע:" value={userData.profession} />
+                  <ProfileField label="ניסיון קודם:" value={userData.experience} />
+                  <ProfileField label="זמינות:" value={userData.availability} />
+                  <ProfileField label="חוזקות:" value={userData.strengths} />
+                  <ProfileField label="מוטיבציה להתנדבות:" value={userData.motivation} />
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-6">
+            {/* Volunteer Status Card */}
+            <Card className="shadow-sm">
+              <CardContent className="p-4">
                 <h2 className="text-xl font-semibold mb-4">סטטוס התנדבות</h2>
-                <div className="space-y-2">
-                  <p className={userData.approved ? "text-green-600" : "text-yellow-600"}>
-                    <strong>סטטוס:</strong> {userData.approved ? "מאושר/ת" : "ממתין/ה לאישור"}
-                  </p>
-                  <p><strong>תאריך הצטרפות:</strong> {userData.createdAt?.toDate().toLocaleDateString('he-IL') || "לא ידוע"}</p>
+                <div className="space-y-3">
+                  <ProfileField 
+                    label="סטטוס:" 
+                    value={userData.approved ? "מאושר/ת" : "ממתין/ה לאישור"} 
+                    colored={userData.approved ? "text-green-600 font-medium" : "text-yellow-600 font-medium"}
+                  />
+                  <ProfileField 
+                    label="תאריך הצטרפות:" 
+                    value={userData.createdAt?.toDate().toLocaleDateString('he-IL')} 
+                  />
                 </div>
               </CardContent>
             </Card>
           </>
         ) : userData.role === "requester" && (
           <>
-            <Card>
-              <CardContent className="p-6">
+            {/* Requester Preferences Card */}
+            <Card className="shadow-sm">
+              <CardContent className="p-4">
                 <h2 className="text-xl font-semibold mb-4">העדפות</h2>
-                <div className="space-y-2">
-                  <p><strong>העדפות לשיחה:</strong> {userData.chatPref?.join(", ") || "לא צוין"}</p>
-                  <p><strong>תדירות מועדפת:</strong> {userData.frequency?.join(", ") || "לא צוין"}</p>
-                  <p><strong>זמנים נוחים:</strong> {userData.preferredTimes || "לא צוין"}</p>
-                  <p><strong>העדפות למתנדב:</strong> {userData.volunteerPrefs || "לא צוין"}</p>
+                <div className="space-y-3">
+                  <ProfileField label="העדפות לשיחה:" value={userData.chatPref?.join(", ")} />
+                  <ProfileField label="תדירות מועדפת:" value={userData.frequency?.join(", ")} />
+                  <ProfileField label="זמנים נוחים:" value={userData.preferredTimes} />
+                  <ProfileField label="העדפות למתנדב:" value={userData.volunteerPrefs} />
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-6">
+            {/* Request Details Card */}
+            <Card className="shadow-sm">
+              <CardContent className="p-4">
                 <h2 className="text-xl font-semibold mb-4">פרטי פנייה</h2>
-                <div className="space-y-2">
-                  <p><strong>סיבת הפנייה:</strong> {userData.reason || "לא צוין"}</p>
-                  <p><strong>צורך בתמיכה:</strong> {userData.needs || "לא צוין"}</p>
+                <div className="space-y-3">
+                  <ProfileField label="סיבת הפנייה:" value={userData.reason} />
+                  <ProfileField label="צורך בתמיכה:" value={userData.needs} />
                   {userData.onBehalfOf !== "עצמי" && userData.onBehalfOf && (
                     <>
-                      <p><strong>פונה עבור:</strong> {userData.onBehalfOf}</p>
-                      <p><strong>פרטי האדם:</strong> {userData.behalfName || "לא צוין"}</p>
-                      <p><strong>מידע נוסף:</strong> {userData.behalfDetails || "לא צוין"}</p>
+                      <ProfileField label="פונה עבור:" value={userData.onBehalfOf} />
+                      <ProfileField label="פרטי האדם:" value={userData.behalfName} />
+                      <ProfileField label="מידע נוסף:" value={userData.behalfDetails} />
                     </>
                   )}
                 </div>

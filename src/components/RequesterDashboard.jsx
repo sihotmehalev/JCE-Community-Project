@@ -58,26 +58,78 @@ export default function RequesterDashboard() {
   };
 
   return (
-    <div className="p-6">
+    <div className="max-w-5xl mx-auto p-6">
+      {/* Header Section */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">שלום {userData?.fullName?.split(' ')[0] || ''} 👋</h1>
-        <Button onClick={() => navigate('/profile')}>
-          הפרופיל שלי
+        <Button 
+          onClick={() => navigate('/profile')}
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          צפה בפרופיל
         </Button>
       </div>
 
-      <Card className="mb-6">
+      {/* Welcome Card */}
+      <Card className="mb-6 shadow-sm">
         <CardContent className="p-4">
-          <h2 className="text-xl font-semibold mb-4">ברוכים הבאים לדשבורד שלך</h2>
-          <p className="mb-2">כאן תוכל/י לצפות בסטטוס ההתאמה שלך ולתקשר עם המתנדב/ת.</p>
-          {volunteer ? (
-            <p className="text-green-600">יש לך התאמה! את/ה יכול/ה לפתוח צ'אט עם {volunteer.fullName} בתחתית המסך.</p>
-          ) : (
-            <p className="text-gray-600">אנחנו עדיין עובדים על מציאת התאמה מושלמת בשבילך. נעדכן אותך ברגע שנמצא!</p>
-          )}
+          <h2 className="text-xl font-semibold mb-2">ברוכים הבאים לדשבורד שלך</h2>
+          <p className="text-gray-600">כאן תוכל/י לצפות בסטטוס ההתאמה שלך ולתקשר עם המתנדב/ת.</p>
         </CardContent>
       </Card>
 
+      {/* Status Card */}
+      <Card className="mb-6 shadow-sm">
+        <CardContent className="p-4">
+          <h2 className="text-xl font-semibold mb-4">סטטוס פנייה</h2>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <span className="text-gray-700">סטטוס התאמה:</span>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                volunteer ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+              }`}>
+                {volunteer ? "הותאם למתנדב" : "ממתין להתאמה"}
+              </span>
+            </div>
+            
+            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <span className="text-gray-700">תאריך פנייה:</span>
+              <span className="font-medium">
+                {userData?.createdAt?.toDate().toLocaleDateString('he-IL') || "לא ידוע"}
+              </span>
+            </div>
+
+            {volunteer && (
+              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-700">מתנדב/ת:</span>
+                <span className="font-medium">{volunteer.fullName}</span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Volunteer Info Section (shown only when matched) */}
+      {volunteer && (
+        <Card className="mb-6 shadow-sm">
+          <CardContent className="p-4">
+            <h2 className="text-xl font-semibold mb-4">פרטי המתנדב/ת</h2>
+            <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-lg font-semibold text-blue-600">
+                  {volunteer.fullName?.charAt(0) || "?"}
+                </span>
+              </div>
+              <div>
+                <h3 className="font-semibold">{volunteer.fullName}</h3>
+                <p className="text-sm text-gray-600">המתנדב/ת זמין/ה לעזור לך. אנא השתמש/י בצ'אט כדי ליצור קשר.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Chat Window */}
       <ChatWindow
         volunteer={volunteer}
         messages={messages}
