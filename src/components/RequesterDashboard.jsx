@@ -1,15 +1,28 @@
 import React, { useEffect, useState } from "react";
 import { auth, db } from "../firebaseConfig";
 import { doc, getDoc, collection, addDoc, onSnapshot, query, orderBy } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
+import { Button } from "./ui/button";
+import { Card, CardContent } from "./ui/card";
+import ChatWindow from "./ui/ChatWindow";
 
 export default function RequesterDashboard() {
   const [volunteer, setVolunteer] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState("");
+  const [userData, setUserData] = useState(null);
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
   const user = auth.currentUser;
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!user) return;
+
+    const fetchUserData = async () => {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        setUserData(userDoc.data());
+      }
+    };
 
     const fetchMatchAndVolunteer = async () => {
       const matchDoc = await getDoc(doc(db, "matches", user.uid));
@@ -21,60 +34,57 @@ export default function RequesterDashboard() {
         const msgRef = collection(db, "messages", user.uid, volunteerId);
         const q = query(msgRef, orderBy("timestamp"));
         onSnapshot(q, (snapshot) => {
-          setMessages(snapshot.docs.map(doc => doc.data()));
+          setMessages(snapshot.docs.map(doc => ({
+            ...doc.data(),
+            isRequester: doc.data().senderId === user.uid
+          })));
         });
       }
     };
 
+    fetchUserData();
     fetchMatchAndVolunteer();
   }, [user]);
 
-  const handleSend = async () => {
-    if (!newMessage.trim()) return;
+  const handleSendMessage = async (text) => {
+    if (!volunteer) return;
     const matchDoc = await getDoc(doc(db, "matches", user.uid));
     const volunteerId = matchDoc.data().volunteerId;
     await addDoc(collection(db, "messages", user.uid, volunteerId), {
-      text: newMessage,
+      text,
       senderId: user.uid,
       timestamp: new Date()
     });
-    setNewMessage("");
   };
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">שלום 👋</h1>
-      {volunteer ? (
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold">המתנדב שלך:</h2>
-          <p>שם: {volunteer.fullName}</p>
-          <p>אימייל: {volunteer.email}</p>
-          <p>טלפון: {volunteer.phone || "לא סופק"}</p>
-        </div>
-      ) : (
-        <p>לא שובצת עדיין למתנדב.</p>
-      )}
-
-      <div className="bg-gray-100 rounded p-4 h-64 overflow-y-scroll mb-4">
-        {messages.map((msg, index) => (
-          <div key={index} className={msg.senderId === user.uid ? "text-right" : "text-left"}>
-            <span className="block bg-white rounded p-2 my-1 inline-block">{msg.text}</span>
-          </div>
-        ))}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">שלום {userData?.fullName?.split(' ')[0] || ''} 👋</h1>
+        <Button onClick={() => navigate('/profile')}>
+          הפרופיל שלי
+        </Button>
       </div>
 
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="כתוב הודעה..."
-          className="flex-1 border rounded px-3 py-2"
-        />
-        <button onClick={handleSend} className="bg-blue-600 text-white px-4 py-2 rounded">
-          שלח
-        </button>
-      </div>
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <h2 className="text-xl font-semibold mb-4">ברוכים הבאים לדשבורד שלך</h2>
+          <p className="mb-2">כאן תוכל/י לצפות בסטטוס ההתאמה שלך ולתקשר עם המתנדב/ת.</p>
+          {volunteer ? (
+            <p className="text-green-600">יש לך התאמה! את/ה יכול/ה לפתוח צ'אט עם {volunteer.fullName} בתחתית המסך.</p>
+          ) : (
+            <p className="text-gray-600">אנחנו עדיין עובדים על מציאת התאמה מושלמת בשבילך. נעדכן אותך ברגע שנמצא!</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <ChatWindow
+        volunteer={volunteer}
+        messages={messages}
+        onSendMessage={handleSendMessage}
+        isMinimized={isChatMinimized}
+        onToggleMinimize={() => setIsChatMinimized(!isChatMinimized)}
+      />
     </div>
   );
 }

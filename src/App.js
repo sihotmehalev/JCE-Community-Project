@@ -8,6 +8,7 @@ import LoginPage from "./components/LoginPage";
 import RequesterDashboard from "./components/RequesterDashboard";
 import VolunteerDashboard from "./components/VolunteerDashboard";
 import AdminDashboard from "./components/AdminDashboard";
+import ProfilePage from "./components/ProfilePage";
 import Navbar from "./components/Navbar";
 import { auth, db } from "./firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
@@ -67,6 +68,15 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["volunteer"]}>
               <VolunteerDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute allowedRoles={["requester", "volunteer"]}>
+              <ProfilePage />
             </ProtectedRoute>
           }
         />
