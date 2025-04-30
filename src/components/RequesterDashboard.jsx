@@ -191,137 +191,85 @@ export default function RequesterDashboard() {
   }
 
   return (
-    <div className="p-6">
-      {/* Header */}
+    <div className="max-w-5xl mx-auto p-6">
+      {/* Header Section */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">
-          {userData?.fullName ? `שלום ${userData.fullName.split(' ')[0]} 👋` : 'שלום'}
-        </h1>
-        <button 
+        <h1 className="text-2xl font-bold">שלום {userData?.fullName?.split(' ')[0] || ''} 👋</h1>
+        <Button 
           onClick={() => navigate('/profile')}
-          className="bg-violet-600 text-white px-4 py-2 rounded flex items-center gap-2"
+          className="bg-blue-600 hover:bg-blue-700 text-white"
         >
-          <span>הפרופיל שלי</span>
-          <span>👤</span>
-        </button>
+          צפה בפרופיל
+        </Button>
       </div>
+
+      {/* Welcome Card */}
+      <Card className="mb-6 shadow-sm">
+        <CardContent className="p-4">
+          <h2 className="text-xl font-semibold mb-2">ברוכים הבאים לדשבורד שלך</h2>
+          <p className="text-gray-600">כאן תוכל/י לצפות בסטטוס ההתאמה שלך ולתקשר עם המתנדב/ת.</p>
+        </CardContent>
+      </Card>
 
       {/* Status Card */}
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">סטטוס פנייה</h2>
-        <div className="space-y-4">
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">סטטוס התאמה:</span>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              !matchData ? "bg-yellow-100 text-yellow-800" :
-              matchData.status === 'pending' ? "bg-yellow-100 text-yellow-800" :
-              matchData.status === 'active' ? "bg-green-100 text-green-800" :
-              matchData.status === 'canceled' ? "bg-red-100 text-red-800" :
-              "bg-gray-100 text-gray-800"
-            }`}>
-              {!matchData ? "ממתין להתאמה" :
-               matchData.status === 'pending' ? "ממתין לאישור המתנדב" :
-               matchData.status === 'active' ? "פעיל" :
-               matchData.status === 'canceled' ? "בוטל" :
-               matchData.status}
-            </span>
-          </div>
-
-          {matchData?.scheduledTime && (
+      <Card className="mb-6 shadow-sm">
+        <CardContent className="p-4">
+          <h2 className="text-xl font-semibold mb-4">סטטוס פנייה</h2>
+          <div className="space-y-4">
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-              <span className="text-gray-700">זמן מפגש מתוכנן:</span>
-              <span className="font-medium">{matchData.scheduledTime}</span>
+              <span className="text-gray-700">סטטוס התאמה:</span>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                volunteer ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+              }`}>
+                {volunteer ? "הותאם למתנדב" : "ממתין להתאמה"}
+              </span>
             </div>
-          )}
+            
+            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <span className="text-gray-700">תאריך פנייה:</span>
+              <span className="font-medium">
+                {userData?.createdAt?.toDate().toLocaleDateString('he-IL') || "לא ידוע"}
+              </span>
+            </div>
 
-          {volunteer && (
-            <div className="mt-6">
-              <h3 className="text-lg font-semibold mb-3">פרטי המתנדב/ת</h3>
-              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p><strong>שם:</strong> {volunteer.fullName}</p>
-                  <p><strong>מקצוע:</strong> {volunteer.profession || 'לא צוין'}</p>
-                </div>
-                <div>
-                  <p><strong>ניסיון:</strong> {volunteer.experience || 'לא צוין'}</p>
-                  {volunteer.specialties && (
-                    <p><strong>התמחות:</strong> {volunteer.specialties}</p>
-                  )}
-                </div>
+            {volunteer && (
+              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-700">מתנדב/ת:</span>
+                <span className="font-medium">{volunteer.fullName}</span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Volunteer Info Section (shown only when matched) */}
+      {volunteer && (
+        <Card className="mb-6 shadow-sm">
+          <CardContent className="p-4">
+            <h2 className="text-xl font-semibold mb-4">פרטי המתנדב/ת</h2>
+            <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-lg font-semibold text-blue-600">
+                  {volunteer.fullName?.charAt(0) || "?"}
+                </span>
+              </div>
+              <div>
+                <h3 className="font-semibold">{volunteer.fullName}</h3>
+                <p className="text-sm text-gray-600">המתנדב/ת זמין/ה לעזור לך. אנא השתמש/י בצ'אט כדי ליצור קשר.</p>
               </div>
             </div>
-          )}
-        </div>
-      </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Chat Window */}
-      {volunteer && matchData?.status === 'active' && (
-        <div className="fixed bottom-0 right-4 w-96 bg-white shadow-lg rounded-t-lg">
-          <div className="p-4 border-b flex justify-between items-center bg-violet-600 text-white rounded-t-lg">
-            <div>
-              <h3 className="font-semibold">{volunteer.fullName}</h3>
-              {isTyping && (
-                <div className="text-xs text-white opacity-75">
-                  מקליד/ה...
-                </div>
-              )}
-            </div>
-            <button onClick={() => setActiveChat(false)} className="text-white">
-              ✕
-            </button>
-          </div>
-          
-          <div className="h-96 p-4 overflow-y-auto flex flex-col gap-2">
-            {messages.map((msg, idx) => (
-              <div
-                key={msg.id || idx}
-                className={`max-w-[80%] ${
-                  msg.senderId === user.uid ? 'ml-auto' : 'mr-auto'
-                }`}
-              >
-                <div className={`rounded-lg p-3 ${
-                  msg.senderId === user.uid
-                    ? 'bg-violet-600 text-white'
-                    : 'bg-gray-100'
-                }`}>
-                  {msg.text}
-                </div>
-                <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                  {msg.timestamp && msg.timestamp.toLocaleTimeString()}
-                  {msg.senderId === user.uid && (
-                    <span className="ml-1">
-                      {msg.read ? '✓✓' : '✓'}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-            <div ref={chatEndRef} />
-          </div>
-
-          <div className="p-4 border-t">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => {
-                  setNewMessage(e.target.value);
-                  handleTyping();
-                }}
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="הקלד הודעה..."
-                className="flex-1 border rounded px-3 py-2"
-              />
-              <button
-                onClick={handleSend}
-                className="bg-violet-600 text-white px-4 py-2 rounded"
-              >
-                שלח
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ChatWindow
+        volunteer={volunteer}
+        messages={messages}
+        onSendMessage={handleSendMessage}
+        isMinimized={isChatMinimized}
+        onToggleMinimize={() => setIsChatMinimized(!isChatMinimized)}
+      />
     </div>
   );
 }
