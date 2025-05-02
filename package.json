@@ -2,6 +2,8 @@
   "name": "talks-from-the-heart",
   "version": "1.0.0",
   "private": true,
+  "homepage": ".",
+  "homepageComment": "Setting homepage to '.' prevents the app from redirecting to /app and uses relative paths for all assets",
   "dependencies": {
     "firebase": "^10.7.1",
     "framer-motion": "^10.16.1",
