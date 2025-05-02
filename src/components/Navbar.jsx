@@ -4,14 +4,14 @@ import { Link } from "react-router-dom";
 
 export default function Navbar() {
   return (
-    <nav className="bg-white/10 backdrop-blur-sm shadow-lg p-4 flex justify-between items-center">
-      <div className="text-xl font-bold text-white">שיחות מהלב</div>
+    <nav className="bg-white/20 backdrop-blur-sm shadow-lg p-4 flex justify-between items-center">
+      <div className="text-xl font-bold text-orange-800">שיחות מהלב</div>
       <div className="space-x-4 rtl:space-x-reverse">
-        <Link to="/" className="bg-white text-black px-3 py-2 rounded-md transition-all duration-200 hover:border-2 hover:border-black">דף הבית</Link>
-        <Link to="/login" className="bg-white text-black px-3 py-2 rounded-md transition-all duration-200 hover:border-2 hover:border-black">התחברות</Link>
-        <Link to="/register-requester" className="bg-white text-black px-3 py-2 rounded-md transition-all duration-200 hover:border-2 hover:border-black">הרשמה כפונה</Link>
-        <Link to="/register-volunteer" className="bg-white text-black px-3 py-2 rounded-md transition-all duration-200 hover:border-2 hover:border-black">הרשמה כמתנדב</Link>
-        <Link to="/about" className="bg-white text-black px-3 py-2 rounded-md transition-all duration-200 hover:border-2 hover:border-black">אודות העמותה</Link>
+        <Link to="/" className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">דף הבית</Link>
+        <Link to="/login" className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">התחברות</Link>
+        <Link to="/register-requester" className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">הרשמה כפונה</Link>
+        <Link to="/register-volunteer" className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">הרשמה כמתנדב</Link>
+        <Link to="/about" className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">אודות העמותה</Link>
       </div>
     </nav>
   );

@@ -11,6 +11,7 @@ import {
   onSnapshot,
   orderBy,
 } from "firebase/firestore";
+import { Button } from "./ui/button";
 
 export default function VolunteerDashboard() {
   const [requesters, setRequesters] = useState([]);
@@ -65,41 +66,50 @@ export default function VolunteerDashboard() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">שלום מתנדב 🙋‍♂️</h1>
+      <h1 className="text-2xl font-bold mb-4 text-orange-800">שלום מתנדב 🙋‍♂️</h1>
 
       {requesters.length === 0 ? (
-        <p>לא שובצת לפונים עדיין.</p>
+        <p className="text-orange-600/80 bg-orange-50/50 p-4 rounded-lg border border-orange-100">לא שובצת לפונים עדיין.</p>
       ) : (
         requesters.map((r) => (
           <div
             key={r.id}
-            className="border p-4 rounded mb-4 bg-white shadow flex flex-col gap-2"
+            className="border border-orange-100 p-4 rounded-lg mb-4 bg-orange-50/50 flex flex-col gap-2"
           >
-            <div>
-              <h2 className="font-semibold text-lg">{r.fullName || "פונה ללא שם"}</h2>
-              <p>אימייל: {r.email}</p>
-              <p>טלפון: {r.phone || "לא סופק"}</p>
-              <p>מגדר: {r.gender}</p>
-              <p>גיל: {r.age}</p>
-              <p>סיבת פנייה: {r.reason}</p>
+            <div className="space-y-2">
+              <h2 className="font-semibold text-lg text-orange-800">{r.fullName || "פונה ללא שם"}</h2>
+              <div className="text-orange-700">
+                <p><span className="font-medium">אימייל:</span> {r.email}</p>
+                <p><span className="font-medium">טלפון:</span> {r.phone || "לא סופק"}</p>
+                <p><span className="font-medium">מגדר:</span> {r.gender}</p>
+                <p><span className="font-medium">גיל:</span> {r.age}</p>
+                <p><span className="font-medium">סיבת פנייה:</span> {r.reason}</p>
+              </div>
             </div>
-            <button
+            <Button
               onClick={() => openChat(r.id)}
-              className="self-start bg-blue-600 text-white px-4 py-2 rounded"
+              variant="outline"
+              className="self-start"
             >
               💬 פתח שיחה
-            </button>
+            </Button>
           </div>
         ))
       )}
 
       {activeChat && (
-        <div className="mt-6 border-t pt-4">
-          <h2 className="text-xl font-bold mb-2">שיחה עם פונה</h2>
-          <div className="bg-gray-100 rounded p-4 h-64 overflow-y-scroll mb-4">
+        <div className="mt-6 border-t border-orange-200 pt-4">
+          <h2 className="text-xl font-bold mb-2 text-orange-800">שיחה עם פונה</h2>
+          <div className="bg-orange-50/30 rounded-lg p-4 h-64 overflow-y-scroll mb-4 border border-orange-100">
             {messages.map((msg, index) => (
               <div key={index} className={msg.senderId === auth.currentUser.uid ? "text-right" : "text-left"}>
-                <span className="block bg-white rounded p-2 my-1 inline-block">{msg.text}</span>
+                <span className={`block rounded-lg p-2 my-1 inline-block max-w-[80%] ${
+                  msg.senderId === auth.currentUser.uid 
+                    ? "bg-orange-600 text-white" 
+                    : "bg-white border border-orange-100"
+                }`}>
+                  {msg.text}
+                </span>
               </div>
             ))}
           </div>
@@ -110,14 +120,9 @@ export default function VolunteerDashboard() {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="כתוב הודעה..."
-              className="flex-1 border rounded px-3 py-2"
+              className="flex-1 border border-orange-200 rounded-md px-3 py-2 focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none"
             />
-            <button
-              onClick={handleSend}
-              className="bg-blue-600 text-white px-4 py-2 rounded"
-            >
-              שלח
-            </button>
+            <Button>שלח</Button>
           </div>
         </div>
       )}

@@ -44,10 +44,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-violet-100">
-      <Card className="w-full max-w-md p-6 shadow-lg rounded-2xl">
+    <div className="flex items-center justify-center p-6">
+      <Card className="w-full max-w-md shadow-lg">
         <CardContent>
-          <h2 className="text-2xl font-bold text-center mb-4">התחברות</h2>
+          <h2 className="text-2xl font-bold text-center mb-4 text-orange-800">התחברות</h2>
           <form className="space-y-4" onSubmit={handleLogin}>
             <input
               type="email"
@@ -55,7 +55,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2 border rounded-md"
+              className="w-full px-4 py-2 border border-orange-200 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none"
             />
             <input
               type="password"
@@ -63,13 +63,13 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-2 border rounded-md"
+              className="w-full px-4 py-2 border border-orange-200 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none"
             />
             <Button className="w-full" disabled={loading}>
               {loading ? "מתחבר..." : "התחבר"}
             </Button>
           </form>
-          {message && <p className="mt-4 text-center text-sm text-red-600">{message}</p>}
+          {message && <p className="mt-4 text-center text-sm text-orange-600">{message}</p>}
         </CardContent>
       </Card>
     </div>

@@ -59,30 +59,79 @@ export default function RegisterVolunteerPage() {
   };
 
   return (
-    <div className="flex justify-center py-8 bg-gradient-to-br from-blue-50 to-violet-100">
-      <Card className="w-full max-w-3xl p-6 shadow-xl">
+    <div className="flex justify-center py-8">
+      <Card className="w-full max-w-3xl shadow-xl">
         <CardContent>
-          <h2 className="text-2xl font-bold text-center mb-4">הרשמה כמתנדב</h2>
+          <h2 className="text-2xl font-bold text-center mb-6 text-orange-800">הרשמה כמתנדב</h2>
           <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={handleSubmit}>
-            <input name="email" type="email" required placeholder="אימייל" value={formData.email} onChange={handleChange} className="border p-2 rounded" />
-            <input name="password" type="password" required placeholder="סיסמה" value={formData.password} onChange={handleChange} className="border p-2 rounded" />
-            <input name="fullName" required placeholder="שם מלא" value={formData.fullName} onChange={handleChange} className="border p-2 rounded col-span-2" />
-            <input name="phone" placeholder="טלפון" value={formData.phone} onChange={handleChange} className="border p-2 rounded" />
-            <input name="location" placeholder="מקום מגורים" value={formData.location} onChange={handleChange} className="border p-2 rounded" />
-            <input name="age" placeholder="גיל" value={formData.age} onChange={handleChange} className="border p-2 rounded" />
-            <input name="gender" placeholder="מגדר" value={formData.gender} onChange={handleChange} className="border p-2 rounded" />
-            <input name="maritalStatus" placeholder="מצב משפחתי" value={formData.maritalStatus} onChange={handleChange} className="border p-2 rounded" />
-            <input name="profession" placeholder="עיסוק נוכחי / תחום עיסוק" value={formData.profession} onChange={handleChange} className="border p-2 rounded col-span-2" />
-            <textarea name="experience" placeholder="ניסיון רלוונטי בעבודה עם אנשים / התנדבות" value={formData.experience} onChange={handleChange} className="border p-2 rounded col-span-2" />
-            <textarea name="availability" placeholder="זמינות משוערת לשיחות בשבוע (ימים / שעות)" value={formData.availability} onChange={handleChange} className="border p-2 rounded col-span-2" />
-            <textarea name="strengths" placeholder="מהם החוזקות שלך כאדם / כמתנדב?" value={formData.strengths} onChange={handleChange} className="border p-2 rounded col-span-2" />
-            <textarea name="motivation" placeholder="מה מביא אותך להתנדב במסגרת כזו?" value={formData.motivation} onChange={handleChange} className="border p-2 rounded col-span-2" />
-            <label className="col-span-2">
-              <input type="checkbox" name="agree" checked={formData.agree} onChange={handleChange} />
-              אני מצהיר/ה כי כל הפרטים נכונים ואני מעוניין/ת להתנדב במסגרת "שיחות מהלב"
+            <input 
+              name="email" 
+              type="email" 
+              required 
+              placeholder="אימייל" 
+              value={formData.email} 
+              onChange={handleChange} 
+              className="border border-orange-200 p-2 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none" 
+            />
+            <input 
+              name="password" 
+              type="password" 
+              required 
+              placeholder="סיסמה" 
+              value={formData.password} 
+              onChange={handleChange} 
+              className="border border-orange-200 p-2 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none" 
+            />
+            <input 
+              name="fullName" 
+              required 
+              placeholder="שם מלא" 
+              value={formData.fullName} 
+              onChange={handleChange} 
+              className="border border-orange-200 p-2 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none col-span-2" 
+            />
+            
+            {/* Personal Information */}
+            <div className="col-span-2 bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
+              <h3 className="font-semibold text-orange-800 mb-2">פרטים אישיים</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input name="phone" placeholder="טלפון" value={formData.phone} onChange={handleChange} className="border border-orange-200 p-2 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none" />
+                <input name="location" placeholder="מקום מגורים" value={formData.location} onChange={handleChange} className="border border-orange-200 p-2 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none" />
+                <input name="age" placeholder="גיל" value={formData.age} onChange={handleChange} className="border border-orange-200 p-2 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none" />
+                <input name="gender" placeholder="מגדר" value={formData.gender} onChange={handleChange} className="border border-orange-200 p-2 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none" />
+                <input name="maritalStatus" placeholder="מצב משפחתי" value={formData.maritalStatus} onChange={handleChange} className="border border-orange-200 p-2 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none" />
+                <input name="profession" placeholder="עיסוק נוכחי / תחום עיסוק" value={formData.profession} onChange={handleChange} className="border border-orange-200 p-2 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none" />
+              </div>
+            </div>
+
+            {/* Experience and Availability */}
+            <div className="col-span-2 bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
+              <h3 className="font-semibold text-orange-800 mb-2">ניסיון וזמינות</h3>
+              <textarea name="experience" placeholder="ניסיון רלוונטי בעבודה עם אנשים / התנדבות" value={formData.experience} onChange={handleChange} className="w-full border border-orange-200 p-2 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none" />
+              <textarea name="availability" placeholder="זמינות משוערת לשיחות בשבוע (ימים / שעות)" value={formData.availability} onChange={handleChange} className="w-full border border-orange-200 p-2 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none" />
+            </div>
+
+            {/* Motivation */}
+            <div className="col-span-2 bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
+              <h3 className="font-semibold text-orange-800 mb-2">מוטיבציה וחוזקות</h3>
+              <textarea name="strengths" placeholder="מהם החוזקות שלך כאדם / כמתנדב?" value={formData.strengths} onChange={handleChange} className="w-full border border-orange-200 p-2 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none" />
+              <textarea name="motivation" placeholder="מה מביא אותך להתנדב במסגרת כזו?" value={formData.motivation} onChange={handleChange} className="w-full border border-orange-200 p-2 rounded-md focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none" />
+            </div>
+
+            <label className="col-span-2 flex items-start gap-2 text-orange-700">
+              <input type="checkbox" name="agree" checked={formData.agree} onChange={handleChange} className="mt-1" />
+              <span>אני מצהיר/ה כי כל הפרטים נכונים ואני מעוניין/ת להתנדב במסגרת "שיחות מהלב"</span>
             </label>
-            <Button className="col-span-2" disabled={loading}>{loading ? "נרשם..." : "הירשם כמתנדב"}</Button>
-            {message && <p className="text-center text-sm text-gray-700 col-span-2">{message}</p>}
+            
+            <Button className="col-span-2" disabled={loading}>
+              {loading ? "נרשם..." : "הירשם כמתנדב"}
+            </Button>
+            
+            {message && (
+              <p className={`text-center text-sm col-span-2 ${message.includes("בהצלחה") ? "text-orange-600" : "text-red-600"}`}>
+                {message}
+              </p>
+            )}
           </form>
         </CardContent>
       </Card>

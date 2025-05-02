@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { auth, db } from "../firebaseConfig";
+import { Button } from "./ui/button";
 import { doc, getDoc, collection, addDoc, onSnapshot, query, orderBy } from "firebase/firestore";
 
 export default function RequesterDashboard() {
@@ -43,22 +44,30 @@ export default function RequesterDashboard() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">שלום 👋</h1>
+      <h1 className="text-2xl font-bold mb-4 text-orange-800">שלום 👋</h1>
       {volunteer ? (
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold">המתנדב שלך:</h2>
-          <p>שם: {volunteer.fullName}</p>
-          <p>אימייל: {volunteer.email}</p>
-          <p>טלפון: {volunteer.phone || "לא סופק"}</p>
+        <div className="mb-6 bg-orange-50/50 p-4 rounded-lg border border-orange-100">
+          <h2 className="text-xl font-semibold text-orange-700 mb-3">המתנדב שלך:</h2>
+          <div className="space-y-2 text-orange-700">
+            <p><span className="font-medium">שם:</span> {volunteer.fullName}</p>
+            <p><span className="font-medium">אימייל:</span> {volunteer.email}</p>
+            <p><span className="font-medium">טלפון:</span> {volunteer.phone || "לא סופק"}</p>
+          </div>
         </div>
       ) : (
-        <p>לא שובצת עדיין למתנדב.</p>
+        <p className="text-orange-600/80 bg-orange-50/50 p-4 rounded-lg border border-orange-100">לא שובצת עדיין למתנדב.</p>
       )}
 
-      <div className="bg-gray-100 rounded p-4 h-64 overflow-y-scroll mb-4">
+      <div className="bg-orange-50/30 rounded-lg p-4 h-64 overflow-y-scroll mb-4 border border-orange-100">
         {messages.map((msg, index) => (
           <div key={index} className={msg.senderId === user.uid ? "text-right" : "text-left"}>
-            <span className="block bg-white rounded p-2 my-1 inline-block">{msg.text}</span>
+            <span className={`block rounded-lg p-2 my-1 inline-block max-w-[80%] ${
+              msg.senderId === user.uid 
+                ? "bg-orange-600 text-white" 
+                : "bg-white border border-orange-100"
+            }`}>
+              {msg.text}
+            </span>
           </div>
         ))}
       </div>
@@ -69,11 +78,9 @@ export default function RequesterDashboard() {
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
           placeholder="כתוב הודעה..."
-          className="flex-1 border rounded px-3 py-2"
+          className="flex-1 border border-orange-200 rounded-md px-3 py-2 focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none"
         />
-        <button onClick={handleSend} className="bg-blue-600 text-white px-4 py-2 rounded">
-          שלח
-        </button>
+        <Button>שלח</Button>
       </div>
     </div>
   );
