@@ -1,6 +1,6 @@
-// App.js - כולל ניתוב ואבטחה לפי תפקידים
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import Layout from "./components/Layout";
 import HomePage from "./components/HomePage";
 import RegisterVolunteerPage from "./components/RegisterVolunteerPage";
 import RegisterRequesterPage from "./components/RegisterRequesterPage";
@@ -8,7 +8,7 @@ import LoginPage from "./components/LoginPage";
 import RequesterDashboard from "./components/RequesterDashboard";
 import VolunteerDashboard from "./components/VolunteerDashboard";
 import AdminDashboard from "./components/AdminDashboard";
-import Navbar from "./components/Navbar";
+import AboutPage from "./components/AboutPage";
 import { auth, db } from "./firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -46,40 +46,42 @@ function ProtectedRoute({ children, allowedRoles }) {
 function App() {
   return (
     <Router>
-      <Navbar />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register-volunteer" element={<RegisterVolunteerPage />} />
-        <Route path="/register-requester" element={<RegisterRequesterPage />} />
+      <Layout>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register-volunteer" element={<RegisterVolunteerPage />} />
+          <Route path="/register-requester" element={<RegisterRequesterPage />} />
+          <Route path="/about" element={<AboutPage />} />
 
-        <Route
-          path="/requester-dashboard"
-          element={
-            <ProtectedRoute allowedRoles={["requester"]}>
-              <RequesterDashboard />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/requester-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={["requester"]}>
+                <RequesterDashboard />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/volunteer-dashboard"
-          element={
-            <ProtectedRoute allowedRoles={["volunteer"]}>
-              <VolunteerDashboard />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/volunteer-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={["volunteer"]}>
+                <VolunteerDashboard />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute allowedRoles={["admin"]}>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Layout>
     </Router>
   );
 }
