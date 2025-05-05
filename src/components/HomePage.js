@@ -1,10 +1,13 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 
 export default function HomePage() {
+  const navigate = useNavigate();
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4">
       <motion.div
@@ -20,10 +23,17 @@ export default function HomePage() {
           מרחב בטוח להתחבר, להחלים ולצמוח. אם אתה זקוק לעזרה או רוצה לעזור לאחרים - אנחנו כאן בשבילך, באהבה ובדאגה.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button className="text-lg px-6 py-4 rounded-2xl shadow-md">
+          <Button
+            onClick={() => navigate("/register-requester")}
+            className="text-lg px-6 py-4 rounded-2xl shadow-md"
+          >
             אני צריך עזרה
           </Button>
-          <Button variant="outline" className="text-lg px-6 py-4 rounded-2xl">
+          <Button
+            onClick={() => navigate("/register-volunteer")}
+            variant="outline"
+            className="text-lg px-6 py-4 rounded-2xl"
+          >
             אני רוצה להתנדב
           </Button>
         </div>
