@@ -7,7 +7,7 @@ export default function Test({ children }) {
             <Navbar />
 
             {/* Main Content */}
-            <main className="container mx-auto px-4 py-8">
+            <main className="container mx-auto px-4 py-4 mt-8">
                 <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-xl p-6">
                     {children}
                 </div>
