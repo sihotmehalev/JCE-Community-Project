@@ -2,13 +2,12 @@ import React, { useState } from "react";
 import { auth, db } from "../firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
+import { Button } from "./ui/button";
 
-export default function RegisterPage() {
+export default function RegisterLayout({ title, additionalFields, role, setRole }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("requester");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -39,7 +38,7 @@ export default function RegisterPage() {
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-violet-100">
       <Card className="w-full max-w-md p-6 shadow-xl rounded-2xl">
         <CardContent>
-          <h2 className="text-2xl font-bold text-center mb-4">הרשמה</h2>
+          <h2 className="text-2xl font-bold text-center mb-4">{title}</h2>
           <form className="space-y-4" onSubmit={handleRegister}>
             <input
               type="email"
@@ -57,14 +56,7 @@ export default function RegisterPage() {
               required
               className="w-full px-4 py-2 border rounded-md"
             />
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full px-4 py-2 border rounded-md"
-            >
-              <option value="requester">פונה</option>
-              <option value="volunteer">מתנדב</option>
-            </select>
+            {additionalFields}
             <Button className="w-full" disabled={loading}>
               {loading ? "נרשם..." : "צור חשבון"}
             </Button>
