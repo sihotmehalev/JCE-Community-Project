@@ -9,6 +9,8 @@ import RequesterDashboard from "./components/RequesterDashboard";
 import VolunteerDashboard from "./components/VolunteerDashboard";
 import AdminDashboard from "./components/AdminDashboard";
 import AboutPage from "./components/AboutPage";
+import ProfilePage from "./components/ProfilePage";
+import Navbar from "./components/Navbar";
 import { auth, db } from "./firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -72,16 +74,24 @@ function App() {
             }
           />
 
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </Layout>
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute allowedRoles={["requester", "volunteer"]}>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
     </Router>
   );
 }
