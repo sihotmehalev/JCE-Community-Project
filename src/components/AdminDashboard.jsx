@@ -1,7 +1,7 @@
 // AdminDashboard.jsx - ניהול מתנדבים ופונים
 import React, { useEffect, useState } from "react";
 import { db } from "../firebaseConfig";
-import { collection, getDocs, updateDoc, doc, setDoc } from "firebase/firestore";
+import { collection, getDocs, updateDoc, doc, setDoc, writeBatch } from "firebase/firestore";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 
@@ -9,19 +9,51 @@ export default function AdminDashboard() {
   const [volunteers, setVolunteers] = useState([]);
   const [requesters, setRequesters] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
-    const querySnapshot = await getDocs(collection(db, "users"));
-    const all = [], v = [], r = [];
-    querySnapshot.forEach(docSnap => {
-      const data = { id: docSnap.id, ...docSnap.data() };
-      all.push(data);
-      if (data.role === "volunteer") v.push(data);
-      if (data.role === "requester") r.push(data);
-    });
-    setAllUsers(all);
-    setVolunteers(v);
-    setRequesters(r);
+    setLoading(true);
+    try {
+      // Fetch volunteers
+      const volunteersSnap = await getDocs(collection(db, "Users", "Info", "Volunteers"));
+      const v = volunteersSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        role: "volunteer"
+      }));
+
+      // Fetch requesters
+      const requestersSnap = await getDocs(collection(db, "Users", "Info", "Requesters"));
+      const r = requestersSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        role: "requester"
+      }));
+
+      // Fetch admins (both levels)
+      const adminsFirst = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "FirstLevel"));
+      const adminsSecond = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "SecondLevel"));
+      
+      const a = [
+        ...adminsFirst.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          role: "admin-first"
+        })),
+        ...adminsSecond.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          role: "admin-second"
+        }))
+      ];
+
+      setVolunteers(v);
+      setRequesters(r);
+      setAllUsers([...v, ...r, ...a]);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -29,14 +61,51 @@ export default function AdminDashboard() {
   }, []);
 
   const approveVolunteer = async (id) => {
-    await updateDoc(doc(db, "users", id), { approved: true });
-    fetchData();
+    try {
+      await updateDoc(doc(db, "Users", "Info", "Volunteers", id), { approved: true });
+      fetchData();
+    } catch (error) {
+      console.error("Error approving volunteer:", error);
+    }
   };
 
   const matchRequesterToVolunteer = async (requesterId, volunteerId) => {
-    await setDoc(doc(db, "matches", requesterId), { volunteerId });
-    alert("שויך בהצלחה!");
+    try {
+      const batch = writeBatch(db);
+      
+      // Create the match document
+      const matchRef = doc(db, "matches", requesterId);
+      batch.set(matchRef, { 
+        volunteerId,
+        status: "active",
+        startDate: new Date(),
+        createdAt: new Date()
+      });
+
+      // Update the volunteer's activeMatchIds
+      const volunteerRef = doc(db, "Users", "Info", "Volunteers", volunteerId);
+      batch.update(volunteerRef, {
+        activeMatchIds: [...(volunteers.find(v => v.id === volunteerId)?.activeMatchIds || []), requesterId]
+      });
+
+      // Update the requester's activeMatchIds
+      const requesterRef = doc(db, "Users", "Info", "Requesters", requesterId);
+      batch.update(requesterRef, {
+        activeMatchIds: [volunteerId]
+      });
+
+      await batch.commit();
+      alert("שויך בהצלחה!");
+      fetchData();
+    } catch (error) {
+      console.error("Error matching users:", error);
+      alert("שגיאה בשיוך: " + error.message);
+    }
   };
+
+  if (loading) {
+    return <div className="p-6">טוען...</div>;
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -53,7 +122,7 @@ export default function AdminDashboard() {
               {volunteers.filter(v => !v.approved).map(v => (
                 <li key={v.id} className="flex justify-between bg-orange-50/50 p-2 rounded border border-orange-100">
                   <span className="text-orange-800">{v.fullName} ({v.email})</span>
-                  <Button variant="outline">אשר</Button>
+                  <Button variant="outline" onClick={() => approveVolunteer(v.id)}>אשר</Button>
                 </li>
               ))}
             </ul>

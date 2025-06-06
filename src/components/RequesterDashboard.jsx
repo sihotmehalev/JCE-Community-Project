@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { auth, db } from "../firebaseConfig";
-import { Button } from "./ui/button";
 import { doc, getDoc, collection, addDoc, onSnapshot, query, orderBy } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";

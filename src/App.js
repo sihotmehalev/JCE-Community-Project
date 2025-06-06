@@ -21,6 +21,20 @@ function ProtectedRoute({ children, allowedRoles }) {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
+    const checkAdminRole = async (uid) => {
+      // Check FirstLevel admins
+      const firstLevelRef = doc(db, "Users", "Info", "Admins", "Level", "FirstLevel", uid);
+      let snapFirst = await getDoc(firstLevelRef);
+      if (snapFirst.exists()) return "admin-first";
+
+      // Check SecondLevel admins
+      const secondLevelRef = doc(db, "Users", "Info", "Admins", "Level", "SecondLevel", uid);
+      let snapSecond = await getDoc(secondLevelRef);
+      if (snapSecond.exists()) return "admin-second";
+
+      return null;
+    };
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
         setUser(null);
@@ -28,19 +42,48 @@ function ProtectedRoute({ children, allowedRoles }) {
         setLoading(false);
         return;
       }
+
       setUser(currentUser);
-      const docRef = doc(db, "users", currentUser.uid);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setRole(docSnap.data().role);
+      
+      // First check if user is an admin
+      const adminRole = await checkAdminRole(currentUser.uid);
+      if (adminRole) {
+        setRole(adminRole);
+        setLoading(false);
+        return;
       }
+
+      // Check other roles
+      const roles = {
+        volunteer: "Volunteers",
+        requester: "Requesters"
+      };
+
+      for (const [roleType, collection] of Object.entries(roles)) {
+        const docRef = doc(db, "Users", "Info", collection, currentUser.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setRole(roleType);
+          break;
+        }
+      }
+
       setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
   if (loading) return <div className="p-4 text-center">טוען...</div>;
-  if (!user || !allowedRoles.includes(role)) return <Navigate to="/login" />;
+  
+  // Modify the role check to handle admin levels
+  const hasAllowedRole = allowedRoles.some(allowedRole => {
+    if (allowedRole === "admin") {
+      return role === "admin-first" || role === "admin-second";
+    }
+    return role === allowedRole;
+  });
+  
+  if (!user || !hasAllowedRole) return <Navigate to="/login" />;
 
   return children;
 }
@@ -55,6 +98,15 @@ function App() {
           <Route path="/register-volunteer" element={<RegisterVolunteerPage />} />
           <Route path="/register-requester" element={<RegisterRequesterPage />} />
           <Route path="/about" element={<AboutPage />} />
+
+          <Route
+            path="/admin-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={["admin-first", "admin-second"]}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/requester-dashboard"
@@ -74,24 +126,16 @@ function App() {
             }
           />
 
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute allowedRoles={["requester", "volunteer"]}>
-              <ProfilePage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute allowedRoles={["admin"]}>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute allowedRoles={["requester", "volunteer", "admin-first", "admin-second"]}>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Layout>
     </Router>
   );
 }

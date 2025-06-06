@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { auth, db } from "../firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, increment, writeBatch } from "firebase/firestore";
 import RegisterLayout from "./RegisterLayout";
 
 export default function RegisterVolunteerPage() {
@@ -36,12 +36,25 @@ export default function RegisterVolunteerPage() {
     try {
       const userCred = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const uid = userCred.user.uid;
-      await setDoc(doc(db, "users", uid), {
+      
+      const batch = writeBatch(db);
+      
+      // Add user data to Users/Info/Volunteers collection
+      const userDocRef = doc(db, "Users", "Info", "Volunteers", uid);
+      batch.set(userDocRef, {
         ...formData,
-        role: "volunteer",
         approved: false,
         createdAt: new Date(),
       });
+
+      // Increment the Volunteers counter in Users/Info
+      const counterRef = doc(db, "Users", "Info");
+      batch.set(counterRef, {
+        Volunteers: increment(1)
+      }, { merge: true });
+
+      await batch.commit();
+      
       setMessage("נרשמת בהצלחה! בקשתך תיבדק על ידי מנהל המערכת.");
     } catch (error) {
       console.error(error);

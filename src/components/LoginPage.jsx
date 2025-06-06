@@ -13,28 +13,60 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const checkUserRole = async (uid) => {
+    // Check FirstLevel admins
+    const firstLevelRef = doc(db, "Users", "Info", "Admins", "Level", "FirstLevel", uid);
+    let snapFirst = await getDoc(firstLevelRef);
+    if (snapFirst.exists()) return { role: "admin-first", data: snapFirst.data() };
+
+    // Check SecondLevel admins
+    const secondLevelRef = doc(db, "Users", "Info", "Admins", "Level", "SecondLevel", uid);
+    let snapSecond = await getDoc(secondLevelRef);
+    if (snapSecond.exists()) return { role: "admin-second", data: snapSecond.data() };
+
+    // Check Volunteers
+    const volunteerRef = doc(db, "Users", "Info", "Volunteers", uid);
+    let snapVolunteer = await getDoc(volunteerRef);
+    if (snapVolunteer.exists()) return { role: "volunteer", data: snapVolunteer.data() };
+
+    // Check Requesters
+    const requesterRef = doc(db, "Users", "Info", "Requesters", uid);
+    let snapRequester = await getDoc(requesterRef);
+    if (snapRequester.exists()) return { role: "requester", data: snapRequester.data() };
+
+    return null;
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       const userCred = await signInWithEmailAndPassword(auth, email, password);
-      const uid = userCred.user.uid;
-      const userRef = doc(db, "users", uid);
-      const userSnap = await getDoc(userRef);
+      const userInfo = await checkUserRole(userCred.user.uid);
 
-      if (!userSnap.exists()) throw new Error("User record not found");
+      if (!userInfo) {
+        throw new Error("User record not found");
+      }
 
-      const data = userSnap.data();
-      if (data.role === "admin") {
-        navigate("/admin");
-      } else if (data.role === "requester") {
-        navigate("/requester-dashboard");
-      } else if (data.role === "volunteer") {
-        if (!data.approved) {
-          setMessage("הבקשה שלך עדיין ממתינה לאישור מנהל.");
-        } else {
-          navigate("/volunteer-dashboard");
-        }
+      const { role, data } = userInfo;
+
+      switch (role) {
+        case "admin-first":
+        case "admin-second":
+          navigate("/admin-dashboard");
+          break;
+        case "requester":
+          navigate("/requester-dashboard");
+          break;
+        case "volunteer":
+          if (!data.approved) {
+            setMessage("הבקשה שלך עדיין ממתינה לאישור מנהל.");
+          } else {
+            navigate("/volunteer-dashboard");
+          }
+          break;
+        default:
+          throw new Error("Invalid user role");
       }
     } catch (err) {
       console.error(err);

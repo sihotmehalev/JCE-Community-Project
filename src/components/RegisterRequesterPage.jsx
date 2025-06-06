@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { auth, db } from "../firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, increment, writeBatch } from "firebase/firestore";
 import RegisterLayout from "./RegisterLayout";
 
 export default function RegisterRequesterPage() {
@@ -33,29 +33,64 @@ export default function RegisterRequesterPage() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === "checkbox" ? (checked ? [...prev[name], value] : prev[name].filter(v => v !== value)) : value
-    }));
+    
+    setFormData(prev => {
+      if (type === "checkbox") {
+        // Handle checkbox groups (chatPref and frequency)
+        if (name === "chatPref" || name === "frequency") {
+          const array = Array.isArray(prev[name]) ? prev[name] : [];
+          return {
+            ...prev,
+            [name]: checked ? [...array, value] : array.filter(v => v !== value)
+          };
+        }
+        // Handle regular checkboxes (agree1, agree2, agree3)
+        return {
+          ...prev,
+          [name]: checked
+        };
+      }
+      // Handle all other input types
+      return {
+        ...prev,
+        [name]: value
+      };
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    
+    // Check if all agreements are checked
     if (!formData.agree1 || !formData.agree2 || !formData.agree3) {
-      setMessage("יש לאשר את כל תנאי השימוש");
+      setMessage("יש לאשר את כל התנאים כדי להמשיך");
+      setLoading(false);
       return;
     }
-    setLoading(true);
+
     try {
       const userCred = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const uid = userCred.user.uid;
-      await setDoc(doc(db, "users", uid), {
+      
+      const batch = writeBatch(db);
+      
+      // Add user data to Users/Info/Requesters collection
+      const userDocRef = doc(db, "Users", "Info", "Requesters", uid);
+      batch.set(userDocRef, {
         ...formData,
-        role: "requester",
-        approved: true,
         createdAt: new Date(),
       });
-      setMessage("נרשמת בהצלחה! תועבר לדף ההתחברות.");
+
+      // Increment the Requesters counter in Users/Info
+      const counterRef = doc(db, "Users", "Info");
+      batch.set(counterRef, {
+        Requesters: increment(1)
+      }, { merge: true });
+
+      await batch.commit();
+      
+      setMessage("נרשמת בהצלחה!");
     } catch (error) {
       console.error(error);
       setMessage("שגיאה: " + error.message);
