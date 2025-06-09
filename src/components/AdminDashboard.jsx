@@ -4,8 +4,15 @@ import { db } from "../firebaseConfig";
 import { collection, getDocs, updateDoc, doc, setDoc, writeBatch } from "firebase/firestore";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
+import { HoverCard } from "./ui/HoverCard"; //popup card for user info
 
 export default function AdminDashboard() {
+  const [selectedRequester, setSelectedRequester] = useState(null);
+  const [selectedVolunteer, setSelectedVolunteer] = useState(null);
+  const [requesterSearch, setRequesterSearch] = useState("");
+  const [volunteerSearch, setVolunteerSearch] = useState("");
+  const [requesterFilter, setRequesterFilter] = useState("");
+  const [volunteerFilter, setVolunteerFilter] = useState(""); 
   const [volunteers, setVolunteers] = useState([]);
   const [requesters, setRequesters] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
@@ -131,31 +138,153 @@ export default function AdminDashboard() {
       </Card>
 
       {/* שיוך פונה למתנדב */}
-      <Card>
-        <CardContent>
-          <h3 className="font-semibold mb-2 text-orange-700">שיוך פונים למתנדבים</h3>
-          <ul className="space-y-4">
-            {requesters.map(req => (
-              <li key={req.id} className="border border-orange-100 bg-orange-50/50 p-4 rounded-lg">
-                <p className="mb-2"><strong className="text-orange-800">{req.fullName}</strong> <span className="text-orange-600">({req.email})</span></p>
-                <select 
-                  onChange={(e) => matchRequesterToVolunteer(req.id, e.target.value)} 
-                  defaultValue=""
-                  className="w-full p-2 border border-orange-200 rounded-md bg-white text-orange-800 focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none"
-                >
-                  <option disabled value="">בחר מתנדב לשיוך</option>
-                  {volunteers.filter(v => v.approved).map(v => (
-                    <option key={v.id} value={v.id}>{v.fullName}</option>
-                  ))}
-                </select>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+<Card> {/* Matching Card */}
+  <CardContent>
+    <h3 className="font-semibold mb-2 text-orange-700">
+      שיוך פונים למתנדבים
+      <span className="ml-2 text-orange-500 text-base font-normal">
+        ({requesters.length})
+      </span>
+    </h3> 
+    <div className="flex gap-8">
+      {/* Requesters List */}
+      <div className="w-1/2 border rounded p-4 bg-orange-50/50">
+        <div className="flex items-center gap-2 mb-2">
+          <input
+            type="text"
+            placeholder="חיפוש פונה..."
+            value={requesterSearch}
+  
+            onChange={e => setRequesterSearch(e.target.value)}
+            className="border rounded px-2 py-1 w-full"
+          />
+          <select
+            value={requesterFilter}
+            onChange={e => setRequesterFilter(e.target.value)}
+            className="border rounded px-2 py-1"
+          >
+            <option value="">סנן לפי</option>
+            {/* Add filter options here in the future */}
+          </select>
+        </div>
+        <h4 className="font-bold mb-2 text-orange-700">פונים ממתינים לשיוך</h4>
+        <ul className="space-y-2">
+          {requesters
+            .filter(req =>
+              req.fullName?.toLowerCase().includes(requesterSearch.toLowerCase()) ||
+              req.email?.toLowerCase().includes(requesterSearch.toLowerCase())
+            )
+            .length === 0 ? (
+            <li>אין פונים ממתינים לשיוך.</li>
+          ) : (
+            requesters
+              .filter(req =>
+                req.fullName?.toLowerCase().includes(requesterSearch.toLowerCase()) ||
+                req.email?.toLowerCase().includes(requesterSearch.toLowerCase())
+              )
+              .map(req => (
+                <li key={req.id} className="flex items-center gap-2 bg-white p-2 rounded shadow">
+                  <input
+                    type="checkbox"
+                    checked={selectedRequester === req.id}
+                    disabled={selectedRequester && selectedRequester !== req.id}
+                    onChange={() => {
+                      setSelectedRequester(req.id === selectedRequester ? null : req.id);
+                      setSelectedVolunteer(null); // Reset volunteer selection on requester change
+                    }}
+                  />
+                  <span>
+                    <HoverCard user={req}>
+                      <strong className="text-orange-800">{req.fullName}</strong> <span className="text-orange-600">({req.email})</span>
+                    </HoverCard>
+                  </span>
+                </li>
+              ))
+          )}
+        </ul>
+      </div>
+      {/* Volunteers List */}
+      <div className="w-1/2 border rounded p-4 bg-orange-50/50">
+        <div className="flex items-center gap-2 mb-2">
+          <input
+            type="text"
+            placeholder="חיפוש מתנדב..."
+            value={volunteerSearch}
+            onChange={e => setVolunteerSearch(e.target.value)}
+            className="border rounded px-2 py-1 w-full"
+          />
+          <select
+            value={volunteerFilter}
+            onChange={e => setVolunteerFilter(e.target.value)}
+            className="border rounded px-2 py-1"
+          >
+            <option value="">סנן לפי</option>
+            {/* Add filter options here in the future */}
+          </select>
+        </div>
+        <h4 className="font-bold mb-2 text-orange-700">כל המתנדבים</h4>
+        <ul className="space-y-2">
+          {volunteers
+            .filter(v => v.approved)
+            .filter(v =>
+              v.fullName?.toLowerCase().includes(volunteerSearch.toLowerCase()) ||
+              v.email?.toLowerCase().includes(volunteerSearch.toLowerCase())
+            )
+            .length === 0 ? (
+            <li>אין מתנדבים מאושרים.</li>
+          ) : (
+            volunteers
+              .filter(v => v.approved)
+              .filter(v =>
+                v.fullName?.toLowerCase().includes(volunteerSearch.toLowerCase()) ||
+                v.email?.toLowerCase().includes(volunteerSearch.toLowerCase())
+              )
+              .map(v => (
+                <li key={v.id} className="flex items-center gap-2 bg-white p-2 rounded shadow">
+                  <input
+                    type="checkbox"
+                    checked={selectedVolunteer === v.id}
+                    disabled={
+                      !selectedRequester ||
+                      (selectedVolunteer && selectedVolunteer !== v.id)
+                    }
+                    onChange={() => setSelectedVolunteer(v.id === selectedVolunteer ? null : v.id)}
+                  />
+                  <span>
+                    <HoverCard user={v}>
+                      <strong className="text-orange-800">{v.fullName}</strong> <span className="text-orange-600">({v.email})</span>
+                    </HoverCard>
+                  </span>
+                </li>
+              ))
+          )}
+        </ul>
+      </div>
+    </div>
+    <div className="mt-4 flex justify-center">
+      <Button
+        className={`${
+          !(selectedRequester && selectedVolunteer)
+            ? "bg-gray-400 text-white cursor-not-allowed"
+            : "bg-blue-600 hover:bg-blue-700 text-white"
+        }`}
+        disabled={!(selectedRequester && selectedVolunteer)}
+        onClick={() => {
+          if (selectedRequester && selectedVolunteer) {
+            matchRequesterToVolunteer(selectedRequester, selectedVolunteer);
+            setSelectedRequester(null);
+            setSelectedVolunteer(null);
+          }
+        }}
+      >
+        התאמה
+      </Button>
+    </div>
+  </CardContent>
+</Card>
 
       {/* כל המשתמשים */}
-      <Card>
+      <Card> {/* Users Card */}
         <CardContent>
           <h3 className="font-semibold mb-2 text-orange-700">משתמשים רשומים</h3>
           <div className="overflow-x-auto">
