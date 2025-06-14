@@ -1,131 +1,480 @@
-import React, { useEffect, useState } from "react";
+// VolunteerDashboard.jsx
+import React, { useEffect, useRef, useState } from "react";
 import { auth, db } from "../firebaseConfig";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
   doc,
+  setDoc,
+  updateDoc,
+  addDoc,
   getDoc,
+  onSnapshot,
   query,
   where,
-  getDocs,
-  addDoc,
-  onSnapshot,
   orderBy,
+  serverTimestamp,
 } from "firebase/firestore";
 import { Button } from "./ui/button";
 
+/* ────────────────────────── helpers ────────────────────────── */
+
+// one-shot fetch of a requester's public profile
+const fetchRequester = async (uid) => {
+  if (!uid) {
+    console.warn("fetchRequester called with invalid UID. Returning null.");
+    return null;
+  }
+  const snap = await getDoc(
+    doc(db, "Users", "Info", "Requesters", uid)
+  );
+  return snap.exists() ? { id: uid, ...snap.data() } : null;
+};
+
+/* ────────────────────────── main component ────────────────────────── */
+
 export default function VolunteerDashboard() {
-  const [requesters, setRequesters] = useState([]);
-  const [activeChat, setActiveChat] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState("");
+  /* -------- auth gate -------- */
+  const [authChecked, setAuthChecked] = useState(false);
+  const [user, setUser]               = useState(null);
 
   useEffect(() => {
-    const fetchMatches = async () => {
-      const q = query(
-        collection(db, "matches"),
-        where("volunteerId", "==", auth.currentUser.uid)
-      );
-      const querySnapshot = await getDocs(q);
-      const requesterIds = querySnapshot.docs.map((doc) => doc.id);
-
-      const requesterData = [];
-      for (let id of requesterIds) {
-        const userSnap = await getDoc(doc(db, "users", id));
-        if (userSnap.exists()) {
-          requesterData.push({ id, ...userSnap.data() });
-        }
-      }
-      setRequesters(requesterData);
-    };
-
-    fetchMatches();
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthChecked(true);
+      if (!u) window.location.replace("/login");
+    });
+    return unsub;
   }, []);
 
-  const openChat = (requesterId) => {
-    setActiveChat(requesterId);
-    const q = query(
-      collection(db, "messages", requesterId, auth.currentUser.uid),
-      orderBy("timestamp")
+  /* -------- UI state -------- */
+  const [loading, setLoading]         = useState(true);
+  const [volProfile, setVolProfile]   = useState({});
+  const [personal, setPersonal]       = useState(true);
+  const [direct, setDirect]           = useState([]);
+  const [pool, setPool]               = useState([]);
+  const [matches, setMatches]         = useState([]);
+  const [adminApprovalRequests, setAdminApprovalRequests] = useState([]);
+  const [activeMatchId, setActiveMatchId] = useState(null);
+  const [messages, setMessages]       = useState([]);
+  const [newMsg, setNewMsg]           = useState("");
+  const [userData, setUserData]        = useState(null);
+
+  /* listener refs */
+  const unsubDirect = useRef(null);
+  const unsubPool   = useRef(null);
+  const unsubMatch  = useRef(null);
+  const unsubAdminApproval = useRef(null);
+  const unsubChat   = useRef(null);
+
+  /* -------- bootstrap volunteer profile -------- */
+  useEffect(() => {
+    if (!authChecked || !user) return;
+
+    const volRef = doc(db, "Users", "Info", "Volunteers", user.uid);
+
+    const unsubVol = onSnapshot(
+      volRef,
+      async (snap) => {
+        if (!snap.exists()) {
+          // first login → create skeleton profile
+          await setDoc(volRef, {
+            approved: false,
+            personal: true,
+            createdAt: serverTimestamp(),
+          });
+          return;                 // wait for next snapshot
+        }
+        const data = snap.data();
+        setVolProfile(data);
+        setPersonal(data.personal ?? true);
+        setUserData(data);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Volunteer doc error:", err);
+        setLoading(false);
+      }
     );
-    onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map((doc) => doc.data()));
-    });
+
+    return () => unsubVol();
+  }, [authChecked, user]);
+
+  /* -------- attach / detach pool listeners -------- */
+  useEffect(() => {
+    if (loading || !user) return;
+
+    // ---- active matches (always) ----
+    unsubMatch.current?.();
+    unsubMatch.current = onSnapshot(
+      query(
+        collection(db, "Matches"),
+        where("volunteerId", "==", user.uid),
+        where("status",      "==", "active")
+      ),
+      async (snap) => {
+        const arr = [];
+        for (const d of snap.docs) {
+          const m  = d.data();
+          const rq = await fetchRequester(m.requesterId);
+          arr.push({ id: d.id, ...m, requester: rq });
+        }
+        setMatches(arr);
+      }
+    );
+
+    // ---- personal-only sections ----
+    if (personal) {
+      // direct Requests
+      unsubDirect.current = onSnapshot(
+        query(
+          collection(db, "Requests"),
+          where("volunteerId", "==", user.uid),
+          where("status",      "==", "waiting_for_first_approval")
+        ),
+        async (snap) => {
+          const arr = [];
+          for (const d of snap.docs) {
+            const rqData = d.data();
+            const rqUser = await fetchRequester(rqData.requesterId);
+            if (rqUser && rqUser.personal === false) {
+              arr.push({ id: d.id, ...rqData, requester: rqUser });
+            }
+          }
+          setDirect(arr);
+        }
+      );
+
+      // Requests waiting for admin approval (new section)
+      unsubAdminApproval.current = onSnapshot(
+        query(
+          collection(db, "Requests"),
+          where("volunteerId", "==", user.uid),
+          where("status",      "==", "waiting_for_admin_approval")
+        ),
+        async (snap) => {
+          const arr = [];
+          for (const d of snap.docs) {
+            const rqData = d.data();
+            const rqUser = await fetchRequester(rqData.requesterId);
+            // Assuming these requests also come from requesters with personal: false, or this filter is not needed here
+            if (rqUser) { // No personal filter needed here, as these are assigned requests
+              arr.push({ id: d.id, ...rqData, requester: rqUser });
+            }
+          }
+          setAdminApprovalRequests(arr);
+        }
+      );
+
+      // open pool
+      unsubPool.current = onSnapshot(
+        query(
+          collection(db, "Requests"),
+          where("volunteerId", "in", [null, ""]),
+          where("status",      "==", "waiting_for_first_approval")
+        ),
+        async (snap) => {
+          const arr = [];
+          for (const d of snap.docs) {
+            const rqData = d.data();
+            const rqUser = await fetchRequester(rqData.requesterId);
+            if (rqUser && rqUser.personal === false) {
+              arr.push({ id: d.id, ...rqData, requester: rqUser });
+            }
+          }
+          setPool(arr);
+        }
+      );
+    } else {
+      unsubDirect.current?.(); unsubDirect.current = null; setDirect([]);
+      unsubPool.current?.();   unsubPool.current   = null; setPool([]);
+      unsubAdminApproval.current?.(); unsubAdminApproval.current = null; setAdminApprovalRequests([]); // Clear on personal mode off
+    }
+
+    return () => {
+      unsubMatch.current?.();
+      unsubDirect.current?.();
+      unsubPool.current?.();
+      unsubAdminApproval.current?.(); // Unsubscribe new listener
+    };
+  }, [personal, loading, user]);
+
+  /* -------- handlers -------- */
+  const flipPersonal = async () => {
+    if (!user) return;
+    const newVal = !personal;
+    setPersonal(newVal); // optimistic
+    await setDoc(
+      doc(db, "Users", "Info", "Volunteers", user.uid),
+      { personal: newVal },
+      { merge: true }
+    );
   };
 
-  const handleSend = async () => {
-    if (!newMessage.trim() || !activeChat) return;
-
-    await addDoc(collection(db, "messages", activeChat, auth.currentUser.uid), {
-      text: newMessage,
-      senderId: auth.currentUser.uid,
-      timestamp: new Date(),
-    });
-
-    setNewMessage("");
+  const handleRequestAction = async (req, action) => {
+    const ref = doc(db, "Requests", req.id);
+    if (action === "accept") {
+      await updateDoc(ref, { status: "waiting_for_admin_approval" });
+    } else if (action === "decline") {
+      await updateDoc(ref, { status: "declined" });
+    } else if (action === "take") {
+      await updateDoc(ref, {
+        volunteerId: user.uid,
+        senderRole:  "volunteer",
+        status:      "waiting_for_admin_approval",
+      });
+    } else if (action === "withdraw") {
+      await updateDoc(ref, {
+        volunteerId: null,
+        status:      "waiting_for_first_approval",
+      });
+    }
   };
+
+  const openChat = (matchId) => {
+    setActiveMatchId(matchId);
+    unsubChat.current?.();
+    unsubChat.current = onSnapshot(
+      query(
+        collection(db, "conversations", matchId, "messages"),
+        orderBy("timestamp")
+      ),
+      (snap) => setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
+  };
+
+  const closeChat = () => {
+    setActiveMatchId(null);
+    unsubChat.current?.();
+    unsubChat.current = null;
+    setMessages([]); // Clear messages when closing chat
+  };
+
+  const sendMessage = async () => {
+    if (!newMsg.trim() || !activeMatchId) return;
+    await addDoc(
+      collection(db, "conversations", activeMatchId, "messages"),
+      {
+        text:      newMsg.trim(),
+        senderId:  user.uid,
+        timestamp: serverTimestamp(),
+      }
+    );
+    setNewMsg("");
+  };
+
+  /* -------- render -------- */
+  if (!authChecked || loading) {
+    return <p className="p-6 text-orange-700">…טוען לוח מתנדב</p>;
+  }
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4 text-orange-800">שלום מתנדב 🙋‍♂️</h1>
-
-      {requesters.length === 0 ? (
-        <p className="text-orange-600/80 bg-orange-50/50 p-4 rounded-lg border border-orange-100">לא שובצת לפונים עדיין.</p>
-      ) : (
-        requesters.map((r) => (
-          <div
-            key={r.id}
-            className="border border-orange-100 p-4 rounded-lg mb-4 bg-orange-50/50 flex flex-col gap-2"
+      {/* header + toggle */}
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="text-2xl font-bold text-orange-800">
+          שלום {userData?.fullName?.split(' ')[0] || ''} 👋
+        </h1>
+        <div className="flex-1" />
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-orange-700">בחירה עצמית</span>
+          <button
+            onClick={flipPersonal}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${
+              personal ? 'bg-orange-600 border-orange-400' : 'bg-gray-200 border-orange-400'
+            }`}
           >
-            <div className="space-y-2">
-              <h2 className="font-semibold text-lg text-orange-800">{r.fullName || "פונה ללא שם"}</h2>
-              <div className="text-orange-700">
-                <p><span className="font-medium">אימייל:</span> {r.email}</p>
-                <p><span className="font-medium">טלפון:</span> {r.phone || "לא סופק"}</p>
-                <p><span className="font-medium">מגדר:</span> {r.gender}</p>
-                <p><span className="font-medium">גיל:</span> {r.age}</p>
-                <p><span className="font-medium">סיבת פנייה:</span> {r.reason}</p>
-              </div>
-            </div>
-            <Button
-              onClick={() => openChat(r.id)}
-              variant="outline"
-              className="self-start"
-            >
-              💬 פתח שיחה
-            </Button>
-          </div>
-        ))
-      )}
-
-      {activeChat && (
-        <div className="mt-6 border-t border-orange-200 pt-4">
-          <h2 className="text-xl font-bold mb-2 text-orange-800">שיחה עם פונה</h2>
-          <div className="bg-orange-50/30 rounded-lg p-4 h-64 overflow-y-scroll mb-4 border border-orange-100">
-            {messages.map((msg, index) => (
-              <div key={index} className={msg.senderId === auth.currentUser.uid ? "text-right" : "text-left"}>
-                <span className={`block rounded-lg p-2 my-1 inline-block max-w-[80%] ${
-                  msg.senderId === auth.currentUser.uid 
-                    ? "bg-orange-600 text-white" 
-                    : "bg-white border border-orange-100"
-                }`}>
-                  {msg.text}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="כתוב הודעה..."
-              className="flex-1 border border-orange-200 rounded-md px-3 py-2 focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none"
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${
+                personal ? '-translate-x-1' : '-translate-x-6'
+              }`}
             />
-            <Button>שלח</Button>
-          </div>
+          </button>
+          <span className="text-sm text-orange-700">שיוך ע״י מנהל</span>
         </div>
+      </div>
+
+      {/* personal mode */}
+      {personal && (
+        <>
+          <Section title="בקשות ישירות" empty="אין בקשות ישירות">
+            {direct.map((r) => (
+              <RequestCard
+                key={r.id}
+                req={r}
+                variant="direct"
+                onAction={handleRequestAction}
+              />
+            ))}
+          </Section>
+
+          <Section title="דפדוף בפונים פתוחים" empty="אין פונים זמינים">
+            {pool.map((r) => (
+              <RequestCard
+                key={r.id}
+                req={r}
+                variant="pool"
+                onAction={handleRequestAction}
+              />
+            ))}
+          </Section>
+        </>
       )}
+
+      {/* Requests waiting for admin approval */}
+      <Section title="בקשות ממתינות לאישור מנהל" empty="אין בקשות הממתינות לאישור">
+        {adminApprovalRequests.map((r) => (
+          <RequestCard
+            key={r.id}
+            req={r}
+            variant="admin_approval" // Can reuse direct variant or create new if needed
+            onAction={handleRequestAction}
+          />
+        ))}
+      </Section>
+
+      {/* matches */}
+      <Section title="שיבוצים פעילים" empty="אין שיבוצים פעילים">
+        {matches.map((m) => (
+          <MatchCard
+            key={m.id}
+            match={m}
+            onOpenChat={() => openChat(m.id)}
+            onCloseChat={closeChat}
+            activeMatchId={activeMatchId}
+          />
+        ))}
+      </Section>
+
+      {/* chat */}
+      {activeMatchId && (
+        <ChatPanel
+          messages={messages}
+          newMsg={newMsg}
+          setNewMsg={setNewMsg}
+          onSend={sendMessage}
+          chatPartnerName={matches.find(m => m.id === activeMatchId)?.requester?.fullName || 'שיחה'}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ────────────────────────── presentational helpers ───────────────────────── */
+
+const Section = ({ title, empty, children }) => (
+  <>
+    <h2 className="text-xl font-semibold text-orange-800 mb-2">{title}</h2>
+    {React.Children.count(children) === 0 ? (
+      <Empty text={empty} />
+    ) : (
+      <div className="space-y-4">{children}</div>
+    )}
+  </>
+);
+
+const Empty = ({ text }) => (
+  <p className="bg-orange-100 border border-orange-100 rounded-lg py-4 px-6 text-orange-700">
+    {text}
+  </p>
+);
+
+function RequestCard({ req, variant, onAction }) {
+  const { requester } = req;
+  return (
+    <div className="border border-orange-100 bg-orange-100 rounded-lg p-4">
+      <p className="font-semibold text-orange-800 text-lg mb-1">
+        {requester?.fullName || "פונה ללא שם"}
+      </p>
+      <p className="text-orange-700 text-sm mb-2">
+        גיל: {requester?.age ?? "—"} · מגדר: {requester?.gender ?? "—"}
+      </p>
+      <p className="text-orange-700 mb-3 truncate">
+        סיבה: {requester?.reason ?? "—"}
+      </p>
+
+      {variant === "direct" ? (
+        <div className="flex gap-2">
+          <Button onClick={() => onAction(req, "accept")}>אשר</Button>
+          <Button variant="outline" onClick={() => onAction(req, "decline")}>
+            דחה
+          </Button>
+        </div>
+      ) : variant === "admin_approval" ? (
+        <div className="flex gap-2">
+          <Button variant="destructive" onClick={() => onAction(req, "withdraw")}>בטל בקשה</Button>
+        </div>
+      ) : (
+        <Button onClick={() => onAction(req, "take")}>קח פונה זה</Button>
+      )}
+    </div>
+  );
+}
+
+function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
+  const { requester } = match;
+  const isChatOpen = activeMatchId === match.id;
+  return (
+    <div className="border border-orange-100 bg-white rounded-lg p-4 flex justify-between items-center">
+      <div>
+        <p className="font-semibold text-orange-800 text-lg mb-1">
+          {requester?.fullName || "פונה ללא שם"}
+        </p>
+        <p className="text-orange-700 text-sm">
+          סשנים שהושלמו: {match.totalSessions ?? 0}
+        </p>
+      </div>
+      <Button onClick={isChatOpen ? onCloseChat : onOpenChat}>
+        {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
+      </Button>
+    </div>
+  );
+}
+
+function ChatPanel({ messages, newMsg, setNewMsg, onSend, chatPartnerName }) {
+  const bottomRef = useRef(null);
+
+  // auto-scroll on new message
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  return (
+    <div className="mt-8 border-t border-orange-200 pt-4">
+      <h2 className="text-xl font-bold mb-3 text-orange-800">שיחה עם {chatPartnerName}</h2>
+
+      <div className="h-64 overflow-y-scroll bg-orange-100 border border-orange-100 rounded-lg p-3 mb-3">
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            className={
+              m.senderId === auth.currentUser.uid ? "text-right" : "text-left"
+            }
+          >
+            <span
+              className={`inline-block rounded-lg px-3 py-1 my-1 max-w-[80%] ${
+                m.senderId === auth.currentUser.uid
+                  ? "bg-orange-600 text-white"
+                  : "bg-white border border-orange-100"
+              }`}
+            >
+              {m.text}
+            </span>
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="flex gap-2">
+        <input
+          className="flex-1 border border-orange-200 rounded-md px-3 py-2 focus:ring-orange-400 focus:border-orange-400 outline-none"
+          placeholder="כתוב הודעה..."
+          value={newMsg}
+          onChange={(e) => setNewMsg(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && onSend()}
+        />
+        <Button onClick={onSend}>שלח</Button>
+      </div>
     </div>
   );
 }

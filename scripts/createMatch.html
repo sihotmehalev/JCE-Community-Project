@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create Test Match</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+</head>
+<body>
+  <h2>Create Test Match</h2>
+  <div id="auth-section">
+    <h3>Admin Login</h3>
+    <input type="email" id="adminEmail" value="a1@a.com" placeholder="Admin Email" />
+    <input type="password" id="adminPassword" placeholder="Admin Password" />
+    <button onclick="login()">Login as Admin</button>
+  </div>
+  
+  <div id="requester-section" style="display: none; margin-top: 20px;">
+    <h3>Create Requester</h3>
+    <div>
+      <input type="email" id="requesterEmail" value="david.cohen@example.com" placeholder="Requester Email" />
+      <input type="password" id="requesterPassword" value="123456" placeholder="Requester Password" />
+    </div>
+    <div style="margin-top: 10px;">
+      <input type="text" id="fullName" value="דוד כהן" placeholder="Full Name" />
+      <input type="text" id="phone" value="050-1234567" placeholder="Phone" />
+      <input type="number" id="age" value="25" placeholder="Age" />
+    </div>
+    <div style="margin-top: 10px;">
+      <select id="gender">
+        <option value="זכר">זכר</option>
+        <option value="נקבה">נקבה</option>
+      </select>
+      <input type="text" id="reason" value="חרדה חברתית ולחץ בעבודה" placeholder="Reason" />
+    </div>
+    <button onclick="createRequesterAndMatch()" style="margin-top: 10px;">Create Requester & Match</button>
+  </div>
+
+  <div id="result" style="margin-top: 20px;"></div>
+
+  <script>
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyBuXIZQb-c5N4_gnMrblt2Fw488a9nXkLI",
+      authDomain: "talksfromtheheartbeta.firebaseapp.com",
+      projectId: "talksfromtheheartbeta",
+      storageBucket: "talksfromtheheartbeta.firebasestorage.app",
+      messagingSenderId: "320132338131",
+      appId: "1:320132338131:web:1ecadfdc23bd7e77731f26",
+      measurementId: "G-QQQ4EW03S6"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    // Login as admin
+    async function login() {
+      const email = document.getElementById('adminEmail').value;
+      const password = document.getElementById('adminPassword').value;
+      
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        document.getElementById("result").innerHTML = "<p>✅ Logged in as admin successfully!</p>";
+        document.getElementById("requester-section").style.display = "block";
+      } catch (error) {
+        document.getElementById("result").innerHTML = "<p>❌ Login Error: " + error.message + "</p>";
+      }
+    }
+
+    // Create requester and match
+    async function createRequesterAndMatch() {
+      try {
+        const requesterEmail = document.getElementById('requesterEmail').value;
+        const requesterPassword = document.getElementById('requesterPassword').value;
+        const fullName = document.getElementById('fullName').value;
+        const phone = document.getElementById('phone').value;
+        const gender = document.getElementById('gender').value;
+        const age = document.getElementById('age').value;
+        const reason = document.getElementById('reason').value;
+
+        // 1. Create authentication for requester
+        const userCredential = await auth.createUserWithEmailAndPassword(requesterEmail, requesterPassword);
+        const requesterId = userCredential.user.uid;
+
+        // 2. Create requester profile
+        await db.collection("users").doc(requesterId).set({
+          fullName,
+          email: requesterEmail,
+          phone,
+          gender,
+          age: Number(age),
+          reason,
+          role: "requester",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        document.getElementById("result").innerHTML += "<p>✅ Created requester account: " + requesterId + "</p>";
+
+        // 3. Create match with volunteer
+        const matchRef = await db.collection("matches").add({
+          volunteerId: "313ZASUUWXddiD88RhfNRSLLOvG2",
+          requesterId,
+          status: "pending",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          scheduledTime: "יום ראשון, 18:00"
+        });
+
+        document.getElementById("result").innerHTML += "<p>✅ Created match: " + matchRef.id + "</p>";
+        document.getElementById("result").innerHTML += "<p>✅ All done! The requester can now log in with:</p>";
+        document.getElementById("result").innerHTML += "<p>Email: " + requesterEmail + "<br>Password: " + requesterPassword + "</p>";
+
+      } catch (error) {
+        console.error("Error:", error);
+        document.getElementById("result").innerHTML += "<p>❌ Error: " + error.message + "</p>";
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+    #auth-section, #requester-section {
+      margin-bottom: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    input, select {
+      padding: 8px;
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+    button {
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    h3 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      color: #333;
+    }
+  </style>
+</body>
+</html> 
