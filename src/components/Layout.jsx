@@ -7,16 +7,14 @@ export default function Test({ children }) {
             <Navbar />
 
             {/* Main Content */}
-            <main className="flex-1 container mx-auto px-4 py-4 mt-8">
-                <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-xl p-6">
-                    {children}
-                </div>
+            <main className="container mx-auto px-4 py-4 flex-grow flex flex-col items-center justify-center">
+                {children}
             </main>
 
             {/* Footer */}
             <footer className="bg-orange-100/30 backdrop-blur-sm py-4 mt-auto">
                 <div className="container mx-auto px-4 text-center text-orange-800">
-                    <p>Talks from the Heart</p>
+                    <p>© 2026 Talks from the Heart. All rights reserved.</p>
                 </div>
             </footer>
         </div>

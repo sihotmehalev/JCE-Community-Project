@@ -9,12 +9,12 @@ export default function HomePage() {
   const navigate = useNavigate();
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4">
+    <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-xl p-32 mx-auto">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
-        className="text-center max-w-2xl"
+        className="text-center max-w-2xl mx-auto mb-10"
       >
         <h1 className="text-5xl font-bold text-orange-800 mb-6">
           שיחות מהלב
@@ -43,7 +43,7 @@ export default function HomePage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1, duration: 1 }}
-        className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl"
+        className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl"
       >
         <Card className="rounded-2xl shadow-lg transform hover:scale-105 transition-transform duration-200">
           <CardContent className="p-6">
@@ -70,13 +70,6 @@ export default function HomePage() {
           </CardContent>
         </Card>
       </motion.div>
-
-      <footer className="mt-24 text-orange-600/80 text-sm">
-        <div className="flex items-center justify-center gap-2">
-          <Sparkles className="w-4 h-4" />
-          נבנה באהבה ובדאגה - 2025
-        </div>
-      </footer>
-    </main>
+    </div>
   );
 }
