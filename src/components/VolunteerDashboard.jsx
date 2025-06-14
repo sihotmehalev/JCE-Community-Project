@@ -127,18 +127,12 @@ export default function VolunteerDashboard() {
           where("status",      "==", "waiting_for_first_approval")
         ),
         async (snap) => {
-          console.log("UnsubDirect Snapshot Docs:", snap.docs.map(d => d.data()));
           const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
             const rqUser = await fetchRequester(rqData.requesterId);
-            console.log("  Direct Requester Data (rqUser):", rqUser);
-            console.log("  Direct Request Data (rqData):", rqData);
             if (rqUser && rqUser.personal === false) {
-              console.log("    Adding direct request to array:", d.id);
               arr.push({ id: d.id, ...rqData, requester: rqUser });
-            } else {
-              console.log("    Skipping direct request:", d.id, "- Requester personal is not false or rqUser is null.");
             }
           }
           setDirect(arr);
@@ -153,18 +147,12 @@ export default function VolunteerDashboard() {
           where("status",      "==", "waiting_for_first_approval")
         ),
         async (snap) => {
-          console.log("UnsubPool Snapshot Docs:", snap.docs.map(d => d.data()));
           const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
             const rqUser = await fetchRequester(rqData.requesterId);
-            console.log("  Requester Data (rqUser):", rqUser);
-            console.log("  Request Data (rqData):", rqData);
             if (rqUser && rqUser.personal === false) {
-              console.log("    Adding request to pool:", d.id);
               arr.push({ id: d.id, ...rqData, requester: rqUser });
-            } else {
-              console.log("    Skipping request:", d.id, "- Requester personal is not false or rqUser is null.");
             }
           }
           setPool(arr);
