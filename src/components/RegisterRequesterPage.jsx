@@ -138,6 +138,7 @@ export default function RegisterRequesterPage() {
         gender: formData.gender === "אחר" ? customInputs.gender : formData.gender,
         maritalStatus: formData.maritalStatus === "אחר" ? customInputs.maritalStatus : formData.maritalStatus,
         preferredTimes: formData.preferredTimes === "אחר" ? customInputs.preferredTimes : formData.preferredTimes,
+        personal: true,
         createdAt: new Date(),
       };
 
