@@ -50,6 +50,7 @@ export default function VolunteerDashboard() {
   const [direct, setDirect]           = useState([]);
   const [pool, setPool]               = useState([]);
   const [matches, setMatches]         = useState([]);
+  const [adminApprovalRequests, setAdminApprovalRequests] = useState([]);
   const [activeMatchId, setActiveMatchId] = useState(null);
   const [messages, setMessages]       = useState([]);
   const [newMsg, setNewMsg]           = useState("");
@@ -59,6 +60,7 @@ export default function VolunteerDashboard() {
   const unsubDirect = useRef(null);
   const unsubPool   = useRef(null);
   const unsubMatch  = useRef(null);
+  const unsubAdminApproval = useRef(null);
   const unsubChat   = useRef(null);
 
   /* -------- bootstrap volunteer profile -------- */
@@ -139,6 +141,27 @@ export default function VolunteerDashboard() {
         }
       );
 
+      // Requests waiting for admin approval (new section)
+      unsubAdminApproval.current = onSnapshot(
+        query(
+          collection(db, "Requests"),
+          where("volunteerId", "==", user.uid),
+          where("status",      "==", "waiting_for_admin_approval")
+        ),
+        async (snap) => {
+          const arr = [];
+          for (const d of snap.docs) {
+            const rqData = d.data();
+            const rqUser = await fetchRequester(rqData.requesterId);
+            // Assuming these requests also come from requesters with personal: false, or this filter is not needed here
+            if (rqUser) { // No personal filter needed here, as these are assigned requests
+              arr.push({ id: d.id, ...rqData, requester: rqUser });
+            }
+          }
+          setAdminApprovalRequests(arr);
+        }
+      );
+
       // open pool
       unsubPool.current = onSnapshot(
         query(
@@ -161,12 +184,14 @@ export default function VolunteerDashboard() {
     } else {
       unsubDirect.current?.(); unsubDirect.current = null; setDirect([]);
       unsubPool.current?.();   unsubPool.current   = null; setPool([]);
+      unsubAdminApproval.current?.(); unsubAdminApproval.current = null; setAdminApprovalRequests([]); // Clear on personal mode off
     }
 
     return () => {
       unsubMatch.current?.();
       unsubDirect.current?.();
       unsubPool.current?.();
+      unsubAdminApproval.current?.(); // Unsubscribe new listener
     };
   }, [personal, loading, user]);
 
@@ -193,6 +218,11 @@ export default function VolunteerDashboard() {
         volunteerId: user.uid,
         senderRole:  "volunteer",
         status:      "waiting_for_admin_approval",
+      });
+    } else if (action === "withdraw") {
+      await updateDoc(ref, {
+        volunteerId: null,
+        status:      "waiting_for_first_approval",
       });
     }
   };
@@ -280,6 +310,18 @@ export default function VolunteerDashboard() {
         </>
       )}
 
+      {/* Requests waiting for admin approval */}
+      <Section title="בקשות ממתינות לאישור מנהל" empty="אין בקשות הממתינות לאישור">
+        {adminApprovalRequests.map((r) => (
+          <RequestCard
+            key={r.id}
+            req={r}
+            variant="admin_approval" // Can reuse direct variant or create new if needed
+            onAction={handleRequestAction}
+          />
+        ))}
+      </Section>
+
       {/* matches */}
       <Section title="שיבוצים פעילים" empty="אין שיבוצים פעילים">
         {matches.map((m) => (
@@ -343,6 +385,10 @@ function RequestCard({ req, variant, onAction }) {
           <Button variant="outline" onClick={() => onAction(req, "decline")}>
             דחה
           </Button>
+        </div>
+      ) : variant === "admin_approval" ? (
+        <div className="flex gap-2">
+          <Button variant="destructive" onClick={() => onAction(req, "withdraw")}>בטל בקשה</Button>
         </div>
       ) : (
         <Button onClick={() => onAction(req, "take")}>קח פונה זה</Button>
