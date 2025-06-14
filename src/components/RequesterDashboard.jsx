@@ -13,6 +13,9 @@ import {
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import { Button } from "./ui/button";
+import { Card, CardContent } from "./ui/card";
+import ChatWindow from "./ui/ChatWindow";
 
 export default function RequesterDashboard() {
   const [volunteer, setVolunteer] = useState(null);
@@ -25,6 +28,7 @@ export default function RequesterDashboard() {
   const [matchData, setMatchData] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState(null);
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
   const chatEndRef = useRef(null);
   const user = auth.currentUser;
   const navigate = useNavigate();
@@ -144,7 +148,7 @@ export default function RequesterDashboard() {
     }
   };
 
-  const handleSend = async () => {
+  const handleSendMessage = async () => {
     if (!newMessage.trim() || !volunteer?.id) return;
 
     const timestamp = serverTimestamp();
