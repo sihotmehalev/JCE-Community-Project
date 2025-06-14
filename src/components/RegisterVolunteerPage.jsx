@@ -6,6 +6,52 @@ import { doc, setDoc, getDoc, increment, writeBatch } from "firebase/firestore";
 import RegisterLayout from "./RegisterLayout";
 
 export default function RegisterVolunteerPage() {
+  const genderOptions = ['זכר', 'נקבה', 'אחר'];
+  const maritalStatusOptions = ['רווק/ה', 'נשוי/אה', 'גרוש/ה', 'אלמן/ה', 'אחר'];
+  const professionOptions = [
+    'עובד/ת סוציאלי/ת',
+    'פסיכולוג/ית',
+    'פסיכותרפיסט/ית',
+    'יועץ/ת חינוכי/ת',
+    'מטפל/ת באומנות',
+    'מטפל/ת CBT',
+    'מטפל/ת משפחתי/ת',
+    'מטפל/ת זוגי/ת',
+    'מאמן/ת אישי/ת',
+    'מחנך/ת',
+    'רב/נית',
+    'יועץ/ת רוחני/ת',
+    'סטודנט/ית למקצועות הטיפול',
+    'מתנדב/ת בעל/ת ניסיון בהקשבה והכלה',
+    'אחר'
+  ];
+  
+  const availableDaysOptions = [
+    'ראשון',
+    'שני',
+    'שלישי',
+    'רביעי',
+    'חמישי',
+    'שישי',
+    'שבת'
+  ];
+  
+  const availableHoursOptions = [
+    'בוקר (8:00-12:00)',
+    'צהריים (12:00-16:00)',
+    'אחה"צ (16:00-20:00)',
+    'ערב (20:00-24:00)',
+    'אחר'
+  ];
+  
+  const experienceOptions = [
+    'אין ניסיון קודם',
+    'התנדבות קודמת בתחום דומה',
+    'עבודה מקצועית בתחום הטיפול',
+    'ניסיון בהקשבה והכלה',
+    'אחר'
+  ];
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -17,35 +63,137 @@ export default function RegisterVolunteerPage() {
     maritalStatus: "",
     profession: "",
     experience: "",
-    availability: "",
+    availableDays: [],
+    availableHours: [],
     strengths: "",
     motivation: "",
     agree: false
   });
+
+  const [customInputs, setCustomInputs] = useState({
+    gender: '',
+    maritalStatus: '',
+    profession: '',
+    experience: '',
+    availableHours: ''
+  });
+
+  const [showCustomInput, setShowCustomInput] = useState({
+    gender: false,
+    maritalStatus: false,
+    profession: false,
+    experience: false,
+    availableHours: false
+  });
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    
+    if (name.startsWith('custom_')) {
+      const originalField = name.replace('custom_', '');
+      setCustomInputs(prev => ({
+        ...prev,
+        [originalField]: value
+      }));
+      return;
+    }
+    
+    setFormData(prev => {
+      if (type === "checkbox") {
+        // Handle arrays for availableDays and availableHours
+        if (name === "availableDays" || name === "availableHours") {
+          const array = Array.isArray(prev[name]) ? prev[name] : [];
+          return {
+            ...prev,
+            [name]: checked ? [...array, value] : array.filter(v => v !== value)
+          };
+        }
+        // Handle regular checkboxes
+        return {
+          ...prev,
+          [name]: checked
+        };
+      }
+      
+      // Handle select inputs
+      if (type === "select-one") {
+        if (["gender", "maritalStatus", "profession", "experience"].includes(name)) {
+          setShowCustomInput(prevShow => ({
+            ...prevShow,
+            [name]: value === "אחר"
+          }));
+          
+          if (value !== "אחר") {
+            // Clear custom input when a regular option is selected
+            setCustomInputs(prevCustom => ({
+              ...prevCustom,
+              [name]: ''
+            }));
+            return {
+              ...prev,
+              [name]: value
+            };
+          } else {
+            // Keep "אחר" as the field value when custom input is enabled
+            return {
+              ...prev,
+              [name]: "אחר"
+            };
+          }
+        }
+        
+        return {
+          ...prev,
+          [name]: value
+        };
+      }
+      
+      return {
+        ...prev,
+        [name]: value
+      };
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+
+    if (!formData.agree) {
+      setMessage("יש לאשר את ההצהרה כדי להמשיך");
+      setLoading(false);
+      return;
+    }
+
     try {
       const userCred = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const uid = userCred.user.uid;
       
       const batch = writeBatch(db);
       
+      // Merge custom input values for fields with "אחר"
+      const finalData = {
+        ...formData,
+        gender: formData.gender === "אחר" ? customInputs.gender : formData.gender,
+        maritalStatus: formData.maritalStatus === "אחר" ? customInputs.maritalStatus : formData.maritalStatus,
+        profession: formData.profession === "אחר" ? customInputs.profession : formData.profession,
+        experience: formData.experience === "אחר" ? customInputs.experience : formData.experience,
+        availableHours: formData.availableHours.includes('אחר') 
+          ? [...formData.availableHours.filter(h => h !== 'אחר'), customInputs.availableHours] 
+          : formData.availableHours,
+        approved: false,
+        isAvailable: true,
+        activeMatchIds: [],
+        requestIds: [],
+        createdAt: new Date(),
+      };
+
       // Add user data to Users/Info/Volunteers collection
       const userDocRef = doc(db, "Users", "Info", "Volunteers", uid);
-      batch.set(userDocRef, {
-        ...formData,
-        approved: false,
-        createdAt: new Date(),
-      });
+      batch.set(userDocRef, finalData);
 
       // Increment the Volunteers counter in Users/Info
       const counterRef = doc(db, "Users", "Info");
@@ -93,6 +241,11 @@ export default function RegisterVolunteerPage() {
             required
             className={inputClassName}
           />
+        </div>
+
+        {/* Personal Information */}
+        <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
+          <h3 className="font-semibold text-orange-800 mb-2">פרטים אישיים</h3>
           <input
             type="text"
             name="fullName"
@@ -102,27 +255,37 @@ export default function RegisterVolunteerPage() {
             required
             className={inputClassName}
           />
-        </div>
+          
+          {/* Stack all fields vertically */}
+          <div className="space-y-4">
+            {/* Gender Field */}
+            <div>
+              <select
+                name="gender"
+                value={formData.gender || ""}
+                onChange={handleChange}
+                required
+                className={`${inputClassName} bg-white`}
+              >
+                <option value="" disabled>בחר/י מגדר</option>
+                {genderOptions.map(option => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+              {showCustomInput.gender && (
+                <div className="mt-2">
+                  <input
+                    name="custom_gender"
+                    placeholder="פרט/י מגדר"
+                    value={customInputs.gender}
+                    onChange={handleChange}
+                    className={inputClassName}
+                  />
+                </div>
+              )}
+            </div>
 
-        {/* Personal Information */}
-        <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
-          <h3 className="font-semibold text-orange-800 mb-2">פרטים אישיים</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              type="tel"
-              name="phone"
-              placeholder="טלפון"
-              value={formData.phone}
-              onChange={handleChange}
-              className={inputClassName}
-            />
-            <input
-              name="location"
-              placeholder="מקום מגורים"
-              value={formData.location}
-              onChange={handleChange}
-              className={inputClassName}
-            />
+            {/* Age Field */}
             <input
               name="age"
               placeholder="גיל"
@@ -130,24 +293,75 @@ export default function RegisterVolunteerPage() {
               onChange={handleChange}
               className={inputClassName}
             />
+
+            {/* Marital Status Field */}
+            <div>
+              <select
+                name="maritalStatus"
+                value={formData.maritalStatus || ""}
+                onChange={handleChange}
+                required
+                className={`${inputClassName} bg-white`}
+              >
+                <option value="" disabled>בחר/י מצב משפחתי</option>
+                {maritalStatusOptions.map(option => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+              {showCustomInput.maritalStatus && (
+                <div className="mt-2">
+                  <input
+                    name="custom_maritalStatus"
+                    placeholder="פרט/י מצב משפחתי"
+                    value={customInputs.maritalStatus}
+                    onChange={handleChange}
+                    className={inputClassName}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Profession Field */}
+            <div>
+              <select
+                name="profession"
+                value={formData.profession || ""}
+                onChange={handleChange}
+                required
+                className={`${inputClassName} bg-white`}
+              >
+                <option value="" disabled>בחר/י מקצוע</option>
+                {professionOptions.map(option => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+              {showCustomInput.profession && (
+                <div className="mt-2">
+                  <input
+                    name="custom_profession"
+                    placeholder="פרט/י מקצוע"
+                    value={customInputs.profession}
+                    onChange={handleChange}
+                    className={inputClassName}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Phone Field */}
             <input
-              name="gender"
-              placeholder="מגדר"
-              value={formData.gender}
+              name="phone"
+              placeholder="טלפון"
+              value={formData.phone}
               onChange={handleChange}
               className={inputClassName}
             />
+
+            {/* Location Field */}
             <input
-              name="maritalStatus"
-              placeholder="מצב משפחתי"
-              value={formData.maritalStatus}
-              onChange={handleChange}
-              className={inputClassName}
-            />
-            <input
-              name="profession"
-              placeholder="עיסוק נוכחי / תחום עיסוק"
-              value={formData.profession}
+              name="location"
+              placeholder="מקום מגורים"
+              value={formData.location}
               onChange={handleChange}
               className={inputClassName}
             />
@@ -157,22 +371,89 @@ export default function RegisterVolunteerPage() {
         {/* Experience and Availability */}
         <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
           <h3 className="font-semibold text-orange-800 mb-2">ניסיון וזמינות</h3>
-          <textarea
-            name="experience"
-            placeholder="ניסיון רלוונטי בעבודה עם אנשים / התנדבות"
-            value={formData.experience}
-            onChange={handleChange}
-            rows="4"
-            className={inputClassName}
-          />
-          <textarea
-            name="availability"
-            placeholder="זמינות משוערת לשיחות בשבוע (ימים / שעות)"
-            value={formData.availability}
-            onChange={handleChange}
-            rows="2"
-            className={inputClassName}
-          />
+          
+          {/* Experience Field */}
+          <div>
+            <select
+              name="experience"
+              value={formData.experience || ""}
+              onChange={handleChange}
+              required
+              className={`${inputClassName} bg-white`}
+            >
+              <option value="" disabled>בחר/י רמת ניסיון</option>
+              {experienceOptions.map(option => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+            {showCustomInput.experience && (
+              <div className="mt-2">
+                <textarea
+                  name="custom_experience"
+                  placeholder="פרט/י את הניסיון שלך"
+                  value={customInputs.experience}
+                  onChange={handleChange}
+                  rows="3"
+                  className={inputClassName}
+                />
+              </div>
+            )}
+          </div>
+          
+          {/* Available Days */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              ימים זמינים בשבוע
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {availableDaysOptions.map(day => (
+                <label key={day} className="inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    name="availableDays"
+                    value={day}
+                    checked={formData.availableDays.includes(day)}
+                    onChange={handleChange}
+                    className="rounded border-orange-300 text-orange-600 focus:ring-orange-400"
+                  />
+                  <span className="mr-2 text-sm">{day}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Available Hours */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              שעות זמינות
+            </label>
+            <div className="space-y-2">
+              {availableHoursOptions.map(hour => (
+                <label key={hour} className="inline-flex items-center w-full">
+                  <input
+                    type="checkbox"
+                    name="availableHours"
+                    value={hour}
+                    checked={formData.availableHours.includes(hour)}
+                    onChange={handleChange}
+                    className="rounded border-orange-300 text-orange-600 focus:ring-orange-400"
+                  />
+                  <span className="mr-2 text-sm">{hour}</span>
+                </label>
+              ))}
+            </div>
+            {formData.availableHours.includes('אחר') && (
+              <div className="mt-2">
+                <input
+                  name="custom_availableHours"
+                  placeholder="פרט/י שעות זמינות"
+                  value={customInputs.availableHours}
+                  onChange={handleChange}
+                  className={inputClassName}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Motivation and Strengths */}
