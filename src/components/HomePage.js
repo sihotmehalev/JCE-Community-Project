@@ -76,6 +76,12 @@ export default function HomePage() {
           <Sparkles className="w-4 h-4" />
           נבנה באהבה ובדאגה - 2025
         </div>
+        <Button
+          onClick={() => navigate("/test-event")}
+          className="mt-4 bg-orange-600 hover:bg-orange-700"
+        >
+          בדיקת אירועים
+        </Button>
       </footer>
     </main>
   );

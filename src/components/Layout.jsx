@@ -1,7 +1,7 @@
 import React from 'react';
 import Navbar from './Navbar';
 
-export default function Test({ children }) {
+export default function Layout({ children }) {
     return (
         <div className="min-h-screen bg-gradient-to-br from-red-200 via-orange-200 to-red-300">
             <Navbar />
