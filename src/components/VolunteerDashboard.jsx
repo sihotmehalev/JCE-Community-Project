@@ -119,19 +119,27 @@ export default function VolunteerDashboard() {
 
     // ---- personal-only sections ----
     if (personal) {
-      // direct requests
+      // direct Requests
       unsubDirect.current = onSnapshot(
         query(
-          collection(db, "requests"),
+          collection(db, "Requests"),
           where("volunteerId", "==", user.uid),
           where("status",      "==", "waiting_for_first_approval")
         ),
         async (snap) => {
+          console.log("UnsubDirect Snapshot Docs:", snap.docs.map(d => d.data()));
           const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
             const rqUser = await fetchRequester(rqData.requesterId);
-            arr.push({ id: d.id, ...rqData, requester: rqUser });
+            console.log("  Direct Requester Data (rqUser):", rqUser);
+            console.log("  Direct Request Data (rqData):", rqData);
+            if (rqUser && rqUser.personal === false) {
+              console.log("    Adding direct request to array:", d.id);
+              arr.push({ id: d.id, ...rqData, requester: rqUser });
+            } else {
+              console.log("    Skipping direct request:", d.id, "- Requester personal is not false or rqUser is null.");
+            }
           }
           setDirect(arr);
         }
@@ -140,16 +148,24 @@ export default function VolunteerDashboard() {
       // open pool
       unsubPool.current = onSnapshot(
         query(
-          collection(db, "requests"),
-          where("volunteerId", "==", null),
+          collection(db, "Requests"),
+          where("volunteerId", "in", [null, ""]),
           where("status",      "==", "waiting_for_first_approval")
         ),
         async (snap) => {
+          console.log("UnsubPool Snapshot Docs:", snap.docs.map(d => d.data()));
           const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
             const rqUser = await fetchRequester(rqData.requesterId);
-            arr.push({ id: d.id, ...rqData, requester: rqUser });
+            console.log("  Requester Data (rqUser):", rqUser);
+            console.log("  Request Data (rqData):", rqData);
+            if (rqUser && rqUser.personal === false) {
+              console.log("    Adding request to pool:", d.id);
+              arr.push({ id: d.id, ...rqData, requester: rqUser });
+            } else {
+              console.log("    Skipping request:", d.id, "- Requester personal is not false or rqUser is null.");
+            }
           }
           setPool(arr);
         }
@@ -179,12 +195,13 @@ export default function VolunteerDashboard() {
   };
 
   const handleRequestAction = async (req, action) => {
-    const ref = doc(db, "requests", req.id);
+    const ref = doc(db, "Requests", req.id);
     if (action === "accept") {
       await updateDoc(ref, { status: "waiting_for_admin_approval" });
     } else if (action === "decline") {
       await updateDoc(ref, { status: "declined" });
     } else if (action === "postpone") {
+      // TODO: handle postpone logic
       await updateDoc(ref, {
         status: "postponed",
         postponedUntil: serverTimestamp(),
@@ -319,7 +336,7 @@ const Section = ({ title, empty, children }) => (
 );
 
 const Empty = ({ text }) => (
-  <p className="bg-orange-50/60 border border-orange-100 rounded-lg py-4 px-6 text-orange-700">
+  <p className="bg-orange-100 border border-orange-100 rounded-lg py-4 px-6 text-orange-700">
     {text}
   </p>
 );
@@ -327,7 +344,7 @@ const Empty = ({ text }) => (
 function RequestCard({ req, variant, onAction }) {
   const { requester } = req;
   return (
-    <div className="border border-orange-100 bg-orange-50/40 rounded-lg p-4">
+    <div className="border border-orange-100 bg-orange-100 rounded-lg p-4">
       <p className="font-semibold text-orange-800 text-lg mb-1">
         {requester?.fullName || "פונה ללא שם"}
       </p>
@@ -384,7 +401,7 @@ function ChatPanel({ messages, newMsg, setNewMsg, onSend }) {
     <div className="mt-8 border-t border-orange-200 pt-4">
       <h2 className="text-xl font-bold mb-3 text-orange-800">שיחה</h2>
 
-      <div className="h-64 overflow-y-scroll bg-orange-50/30 border border-orange-100 rounded-lg p-3 mb-3">
+      <div className="h-64 overflow-y-scroll bg-orange-100 border border-orange-100 rounded-lg p-3 mb-3">
         {messages.map((m) => (
           <div
             key={m.id}
