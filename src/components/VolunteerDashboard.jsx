@@ -21,6 +21,10 @@ import { Button } from "./ui/button";
 
 // one-shot fetch of a requester's public profile
 const fetchRequester = async (uid) => {
+  if (!uid) {
+    console.warn("fetchRequester called with invalid UID. Returning null.");
+    return null;
+  }
   const snap = await getDoc(
     doc(db, "Users", "Info", "Requesters", uid)
   );
@@ -104,7 +108,7 @@ export default function VolunteerDashboard() {
     unsubMatch.current?.();
     unsubMatch.current = onSnapshot(
       query(
-        collection(db, "matches"),
+        collection(db, "Matches"),
         where("volunteerId", "==", user.uid),
         where("status",      "==", "active")
       ),
@@ -239,6 +243,13 @@ export default function VolunteerDashboard() {
     );
   };
 
+  const closeChat = () => {
+    setActiveMatchId(null);
+    unsubChat.current?.();
+    unsubChat.current = null;
+    setMessages([]); // Clear messages when closing chat
+  };
+
   const sendMessage = async () => {
     if (!newMsg.trim() || !activeMatchId) return;
     await addDoc(
@@ -329,6 +340,8 @@ export default function VolunteerDashboard() {
             key={m.id}
             match={m}
             onOpenChat={() => openChat(m.id)}
+            onCloseChat={closeChat}
+            activeMatchId={activeMatchId}
           />
         ))}
       </Section>
@@ -340,6 +353,7 @@ export default function VolunteerDashboard() {
           newMsg={newMsg}
           setNewMsg={setNewMsg}
           onSend={sendMessage}
+          chatPartnerName={matches.find(m => m.id === activeMatchId)?.requester?.fullName || 'שיחה'}
         />
       )}
     </div>
@@ -397,8 +411,9 @@ function RequestCard({ req, variant, onAction }) {
   );
 }
 
-function MatchCard({ match, onOpenChat }) {
+function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
   const { requester } = match;
+  const isChatOpen = activeMatchId === match.id;
   return (
     <div className="border border-orange-100 bg-white rounded-lg p-4 flex justify-between items-center">
       <div>
@@ -409,12 +424,14 @@ function MatchCard({ match, onOpenChat }) {
           סשנים שהושלמו: {match.totalSessions ?? 0}
         </p>
       </div>
-      <Button onClick={onOpenChat}>💬 פתח שיחה</Button>
+      <Button onClick={isChatOpen ? onCloseChat : onOpenChat}>
+        {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
+      </Button>
     </div>
   );
 }
 
-function ChatPanel({ messages, newMsg, setNewMsg, onSend }) {
+function ChatPanel({ messages, newMsg, setNewMsg, onSend, chatPartnerName }) {
   const bottomRef = useRef(null);
 
   // auto-scroll on new message
@@ -424,7 +441,7 @@ function ChatPanel({ messages, newMsg, setNewMsg, onSend }) {
 
   return (
     <div className="mt-8 border-t border-orange-200 pt-4">
-      <h2 className="text-xl font-bold mb-3 text-orange-800">שיחה</h2>
+      <h2 className="text-xl font-bold mb-3 text-orange-800">שיחה עם {chatPartnerName}</h2>
 
       <div className="h-64 overflow-y-scroll bg-orange-100 border border-orange-100 rounded-lg p-3 mb-3">
         {messages.map((m) => (
