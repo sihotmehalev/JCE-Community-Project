@@ -200,12 +200,6 @@ export default function VolunteerDashboard() {
       await updateDoc(ref, { status: "waiting_for_admin_approval" });
     } else if (action === "decline") {
       await updateDoc(ref, { status: "declined" });
-    } else if (action === "postpone") {
-      // TODO: handle postpone logic
-      await updateDoc(ref, {
-        status: "postponed",
-        postponedUntil: serverTimestamp(),
-      });
     } else if (action === "take") {
       await updateDoc(ref, {
         volunteerId: user.uid,
@@ -358,11 +352,8 @@ function RequestCard({ req, variant, onAction }) {
       {variant === "direct" ? (
         <div className="flex gap-2">
           <Button onClick={() => onAction(req, "accept")}>אשר</Button>
-          <Button variant="secondary" onClick={() => onAction(req, "decline")}>
+          <Button variant="outline" onClick={() => onAction(req, "decline")}>
             דחה
-          </Button>
-          <Button variant="outline" onClick={() => onAction(req, "postpone")}>
-            השהה
           </Button>
         </div>
       ) : (
