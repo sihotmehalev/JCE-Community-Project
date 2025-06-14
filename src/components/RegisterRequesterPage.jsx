@@ -31,8 +31,32 @@ export default function RegisterRequesterPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  const genderOptions = ['זכר', 'נקבה', 'אחר'];
+  const maritalStatusOptions = ['רווק/ה', 'נשוי/אה', 'גרוש/ה', 'אלמן/ה', 'אחר'];
+  const preferredTimesOptions = ['בוקר', 'צהריים', 'ערב', 'גמיש', 'אחר'];
+
+  const [customInputs, setCustomInputs] = useState({
+    gender: '',
+    maritalStatus: '',
+    preferredTimes: ''
+  });
+
+  const [showCustomInput, setShowCustomInput] = useState({
+    gender: false,
+    maritalStatus: false,
+    preferredTimes: false
+  });
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+      if (name.startsWith('custom_')) {
+      const originalField = name.replace('custom_', '');
+      setCustomInputs(prev => ({
+        ...prev,
+        [originalField]: value
+      }));
+      return;
+    }
     
     setFormData(prev => {
       if (type === "checkbox") {
@@ -50,6 +74,40 @@ export default function RegisterRequesterPage() {
           [name]: checked
         };
       }
+        // Handle select inputs
+      if (type === "select-one") {
+        if (name === "gender" || name === "maritalStatus" || name === "preferredTimes") {
+          setShowCustomInput(prevShow => ({
+            ...prevShow,
+            [name]: value === "אחר"
+          }));
+          
+          if (value !== "אחר") {
+            // Clear custom input when a regular option is selected
+            setCustomInputs(prevCustom => ({
+              ...prevCustom,
+              [name]: ''
+            }));
+            // Use the selected value directly
+            return {
+              ...prev,
+              [name]: value
+            };
+          } else {
+            // Keep "אחר" as the field value when custom input is enabled
+            return {
+              ...prev,
+              [name]: "אחר"
+            };
+          }
+        }
+        
+        return {
+          ...prev,
+          [name]: value
+        };
+      }
+      
       // Handle all other input types
       return {
         ...prev,
@@ -72,15 +130,20 @@ export default function RegisterRequesterPage() {
     try {
       const userCred = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const uid = userCred.user.uid;
+        const batch = writeBatch(db);
       
-      const batch = writeBatch(db);
-      
+      // Merge custom input values for fields with "אחר"
+      const finalData = {
+        ...formData,
+        gender: formData.gender === "אחר" ? customInputs.gender : formData.gender,
+        maritalStatus: formData.maritalStatus === "אחר" ? customInputs.maritalStatus : formData.maritalStatus,
+        preferredTimes: formData.preferredTimes === "אחר" ? customInputs.preferredTimes : formData.preferredTimes,
+        createdAt: new Date(),
+      };
+
       // Add user data to Users/Info/Requesters collection
       const userDocRef = doc(db, "Users", "Info", "Requesters", uid);
-      batch.set(userDocRef, {
-        ...formData,
-        createdAt: new Date(),
-      });
+      batch.set(userDocRef, finalData);
 
       // Increment the Requesters counter in Users/Info
       const counterRef = doc(db, "Users", "Info");
@@ -173,14 +236,36 @@ export default function RegisterRequesterPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              name="gender"
-              placeholder="מגדר"
-              value={formData.gender}
-              onChange={handleChange}
-              className={inputClassName}
-            />
+          {/* Fixed layout - each field in separate row to prevent shifts */}
+          <div className="space-y-4">
+            {/* Gender field */}
+            <div>
+              <select
+                name="gender"
+                value={formData.gender || ""}
+                onChange={handleChange}
+                required
+                className={`${inputClassName} bg-white`}
+              >
+                <option value="" disabled>בחר/י מגדר</option>
+                {genderOptions.map(option => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+              {showCustomInput.gender && (
+                <div className="mt-2">
+                  <input
+                    name="custom_gender"
+                    placeholder="פרט/י מגדר"
+                    value={customInputs.gender}
+                    onChange={handleChange}
+                    className={inputClassName}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Age field */}
             <input
               name="age"
               placeholder="גיל"
@@ -188,13 +273,35 @@ export default function RegisterRequesterPage() {
               onChange={handleChange}
               className={inputClassName}
             />
-            <input
-              name="maritalStatus"
-              placeholder="מצב משפחתי"
-              value={formData.maritalStatus}
-              onChange={handleChange}
-              className={inputClassName}
-            />
+
+            {/* Marital Status field */}
+            <div>
+              <select
+                name="maritalStatus"
+                value={formData.maritalStatus || ""}
+                onChange={handleChange}
+                required
+                className={`${inputClassName} bg-white`}
+              >
+                <option value="" disabled>בחר/י מצב משפחתי</option>
+                {maritalStatusOptions.map(option => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+              {showCustomInput.maritalStatus && (
+                <div className="mt-2">
+                  <input
+                    name="custom_maritalStatus"
+                    placeholder="פרט/י מצב משפחתי"
+                    value={customInputs.maritalStatus}
+                    onChange={handleChange}
+                    className={inputClassName}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Location field */}
             <input
               name="location"
               placeholder="מקום מגורים"
@@ -202,8 +309,9 @@ export default function RegisterRequesterPage() {
               onChange={handleChange}
               className={inputClassName}
             />
+
+            {/* Phone field */}
             <input
-              type="tel"
               name="phone"
               placeholder="טלפון"
               value={formData.phone}
@@ -273,13 +381,29 @@ export default function RegisterRequesterPage() {
               ))}
             </div>
           </fieldset>
-          <input
-            name="preferredTimes"
-            placeholder="זמנים נוחים לשיחה"
-            value={formData.preferredTimes}
-            onChange={handleChange}
-            className={inputClassName}
-          />
+          <div className="space-y-2">
+            <select
+              name="preferredTimes"
+              value={formData.preferredTimes || ""}
+              onChange={handleChange}
+              required
+              className={`${inputClassName} bg-white`}
+            >
+              <option value="" disabled>בחר/י זמנים מועדפים</option>
+              {preferredTimesOptions.map(option => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+            {showCustomInput.preferredTimes && (
+              <input
+                name="custom_preferredTimes"
+                placeholder="פרט/י זמנים מועדפים"
+                value={customInputs.preferredTimes}
+                onChange={handleChange}
+                className={inputClassName}
+              />
+            )}
+          </div>
           <textarea
             name="volunteerPrefs"
             placeholder="העדפות במתנדב/ת (מגדר, גיל, רקע וכו')"
@@ -300,7 +424,7 @@ export default function RegisterRequesterPage() {
               onChange={handleChange}
               className="mt-1 rounded border-orange-300 text-orange-600 focus:ring-orange-400"
             />
-            <span className="text-sm">ידוע לי שאין מדובר בטיפול מקצועי</span>
+            <span className="text-sm">ידוע לי שבמסגרת הפרויקט לא ניתנים טיפול פסיכולוגי וייעוץ מקצועי ומתנדבים לא נושאים באחריות של אנשי מקצוע</span>
           </label>
           <label className="flex items-start gap-2 text-orange-700">
             <input
@@ -310,7 +434,7 @@ export default function RegisterRequesterPage() {
               onChange={handleChange}
               className="mt-1 rounded border-orange-300 text-orange-600 focus:ring-orange-400"
             />
-            <span className="text-sm">ידוע לי שלא תמיד יימצא מענה</span>
+            <span className="text-sm">ידוע לי שתהליך טיפול בפנייה והתאמת מענה יכול לקחת זמן ויכול להיות שלא יהיה מענה מתאים</span>
           </label>
           <label className="flex items-start gap-2 text-orange-700">
             <input
@@ -320,7 +444,7 @@ export default function RegisterRequesterPage() {
               onChange={handleChange}
               className="mt-1 rounded border-orange-300 text-orange-600 focus:ring-orange-400"
             />
-            <span className="text-sm">אני לוקח/ת אחריות על הפנייה</span>
+            <span className="text-sm">ידוע לי שפנייה לפרויקט הינה מתוך בחירה, לפי שיקול דעת ובאחריות הפונים בלבד</span>
           </label>
         </div>
 
