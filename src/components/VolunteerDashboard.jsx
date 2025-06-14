@@ -15,8 +15,7 @@ import {
   updateDoc, // Updates fields in an existing document
   serverTimestamp,
 } from "firebase/firestore";
-import { Loader2 } from "lucide-react"; // For loading spinner
-import DateTimePicker from "./ui/DateTimePicker"; // Import the new component
+import { Button } from "./ui/button";
 
 export default function VolunteerDashboard() {
   // State variables
@@ -370,254 +369,67 @@ export default function VolunteerDashboard() {
   // Render the dashboard UI
   return (
     <div className="p-6">
-      {/* Header with title and profile button */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">
-          {volunteerName ? `שלום ${volunteerName} 🙋‍♂️` : "שלום מתנדב 🙋‍♂️"}
-        </h1>
-        <button 
-          onClick={() => navigate('/profile')}
-          className="bg-violet-600 text-white px-4 py-2 rounded flex items-center gap-2"
-        >
-          <span>הפרופיל שלי</span>
-          <span>👤</span>
-        </button>
-      </div>
+      <h1 className="text-2xl font-bold mb-4 text-orange-800">שלום מתנדב 🙋‍♂️</h1>
 
-      {/* Search and Filter */}
-      <div className="mb-6 flex gap-4">
-        <input
-          type="text"
-          placeholder="חיפוש לפי שם, אימייל, או סיבה..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 border rounded px-4 py-2"
-        />
-        <select
-          value={selectedStatus}
-          onChange={(e) => setSelectedStatus(e.target.value)}
-          className="border rounded px-4 py-2"
-        >
-          <option value="all">כל הסטטוסים</option>
-          <option value="pending">ממתין לאישור</option>
-          <option value="active">פעיל</option>
-          <option value="canceled">מבוטל</option>
-          <option value="rejected">נדחה</option>
-        </select>
-      </div>
-
-      {/* Waiting requests section (toggleable) */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowAllRequests(!showAllRequests)}
-          className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg mb-4"
-        >
-          {showAllRequests ? "הסתר בקשות ממתינות" : "הצג בקשות ממתינות"}
-        </button>
-
-        {showAllRequests && (
-          <div className="mt-4">
-            <h2 className="text-xl font-semibold mb-3">בקשות ממתינות</h2>
-            {waitingRequests.length === 0 ? (
-              <p className="text-gray-500">אין בקשות ממתינות כרגע</p>
-            ) : (
-              <div className="grid gap-4">
-                {/* List of waiting requests */}
-                {waitingRequests.map((request) => (
-                  <div key={request.id} className="border p-4 rounded bg-gray-50 shadow-sm">
-                    <div className="flex justify-between">
-                      <h3 className="font-medium">{request.requesterInfo.fullName || "פונה ללא שם"}</h3>
-                      <span className="text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">ממתין</span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">סיבת פנייה: {request.requesterInfo.reason}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Assigned requesters section */}
-      <h2 className="text-xl font-semibold mb-3">הפונים שלי</h2>
-      {filteredRequesters.length === 0 ? (
-        <p className="text-gray-500">לא נמצאו התאמות {searchTerm && "עבור החיפוש הנוכחי"}</p>
+      {requesters.length === 0 ? (
+        <p className="text-orange-600/80 bg-orange-50/50 p-4 rounded-lg border border-orange-100">לא שובצת לפונים עדיין.</p>
       ) : (
-        <div className="grid gap-4">
-          {filteredRequesters.map((r) => (
-            <div
-              key={r.id}
-              className={`border p-4 rounded bg-white shadow-sm transition-all ${
-                r.status === 'canceled' || r.status === 'rejected' ? 'opacity-60' : ''
-              }`}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <h3 className="font-semibold text-lg">{r.fullName || "ללא שם"}</h3>
-                  <p className="text-sm text-gray-600">{r.email}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {r.unreadMessages > 0 && (
-                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                      {r.unreadMessages}
-                    </span>
-                  )}
-                  <span className={`text-sm px-2 py-1 rounded-full ${
-                    r.status === 'active' ? 'bg-green-100 text-green-800' :
-                    r.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    r.status === 'canceled' ? 'bg-red-100 text-red-800' :
-                    r.status === 'rejected' ? 'bg-gray-100 text-gray-800' :
-                    'bg-blue-100 text-blue-800'
-                  }`}>
-                    {r.status === 'active' ? 'פעיל' :
-                     r.status === 'pending' ? 'ממתין לאישור' :
-                     r.status === 'canceled' ? 'בוטל' :
-                     r.status === 'rejected' ? 'נדחה' :
-                     r.status}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                <div>
-                  <p><strong>טלפון:</strong> {r.phone || "לא צוין"}</p>
-                  <p><strong>מגדר:</strong> {r.gender}</p>
-                </div>
-                <div>
-                  <p><strong>גיל:</strong> {r.age}</p>
-                  <p><strong>סיבת פנייה:</strong> {r.reason}</p>
-                </div>
-                {r.scheduledTime && (
-                  <div className="col-span-2">
-                    <p><strong>זמן מפגש:</strong> {r.scheduledTime}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {r.status === 'pending' ? (
-                  <>
-                    <button
-                      onClick={() => acceptMatch(r.matchId)}
-                      className="bg-green-600 text-white px-4 py-2 rounded"
-                    >
-                      ✓ קבל התאמה
-                    </button>
-                    <button
-                      onClick={() => rejectMatch(r.matchId)}
-                      className="bg-red-600 text-white px-4 py-2 rounded"
-                    >
-                      ✕ דחה התאמה
-                    </button>
-                  </>
-                ) : r.status === 'active' && (
-                  <>
-                    <button
-                      onClick={() => openChat(r.id)}
-                      className="bg-blue-600 text-white px-4 py-2 rounded"
-                    >
-                      💬 פתח שיחה
-                    </button>
-                    <button
-                      onClick={() => changeSchedule(r.matchId)}
-                      className="bg-green-600 text-white px-4 py-2 rounded"
-                    >
-                      🕒 שנה זמן
-                    </button>
-                    <button
-                      onClick={() => cancelRequest(r.matchId)}
-                      className="bg-red-600 text-white px-4 py-2 rounded"
-                    >
-                      ❌ בטל בקשה
-                    </button>
-                  </>
-                )}
+        requesters.map((r) => (
+          <div
+            key={r.id}
+            className="border border-orange-100 p-4 rounded-lg mb-4 bg-orange-50/50 flex flex-col gap-2"
+          >
+            <div className="space-y-2">
+              <h2 className="font-semibold text-lg text-orange-800">{r.fullName || "פונה ללא שם"}</h2>
+              <div className="text-orange-700">
+                <p><span className="font-medium">אימייל:</span> {r.email}</p>
+                <p><span className="font-medium">טלפון:</span> {r.phone || "לא סופק"}</p>
+                <p><span className="font-medium">מגדר:</span> {r.gender}</p>
+                <p><span className="font-medium">גיל:</span> {r.age}</p>
+                <p><span className="font-medium">סיבת פנייה:</span> {r.reason}</p>
               </div>
             </div>
-          ))}
-        </div>
+            <Button
+              onClick={() => openChat(r.id)}
+              variant="outline"
+              className="self-start"
+            >
+              💬 פתח שיחה
+            </Button>
+          </div>
+        ))
       )}
 
       {/* Enhanced Chat Window */}
       {activeChat && (
-        <div className="fixed bottom-0 right-4 w-96 bg-white shadow-lg rounded-t-lg">
-          <div className="p-4 border-b flex justify-between items-center bg-violet-600 text-white rounded-t-lg">
-            <div>
-              <h3 className="font-semibold">
-                {requesters.find(r => r.id === activeChat)?.fullName || "שיחה"}
-              </h3>
-              {isTyping && (
-                <div className="text-xs text-white opacity-75">
-                  מקליד/ה...
-                </div>
-              )}
-            </div>
-            <button onClick={() => setActiveChat(null)} className="text-white">
-              ✕
-            </button>
-          </div>
-          
-          <div className="h-96 p-4 overflow-y-auto flex flex-col gap-2">
-            {messages.map((msg, idx) => (
-              <div
-                key={msg.id || idx}
-                className={`max-w-[80%] ${
-                  msg.senderId === auth.currentUser.uid ? 'ml-auto' : 'mr-auto'
-                }`}
-              >
-                <div className={`rounded-lg p-3 ${
-                  msg.senderId === auth.currentUser.uid
-                    ? 'bg-violet-600 text-white'
-                    : 'bg-gray-100'
+        <div className="mt-6 border-t border-orange-200 pt-4">
+          <h2 className="text-xl font-bold mb-2 text-orange-800">שיחה עם פונה</h2>
+          <div className="bg-orange-50/30 rounded-lg p-4 h-64 overflow-y-scroll mb-4 border border-orange-100">
+            {messages.map((msg, index) => (
+              <div key={index} className={msg.senderId === auth.currentUser.uid ? "text-right" : "text-left"}>
+                <span className={`block rounded-lg p-2 my-1 inline-block max-w-[80%] ${
+                  msg.senderId === auth.currentUser.uid 
+                    ? "bg-orange-600 text-white" 
+                    : "bg-white border border-orange-100"
                 }`}>
                   {msg.text}
-                </div>
-                <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                  {msg.timestamp && msg.timestamp.toLocaleTimeString()}
-                  {msg.senderId === auth.currentUser.uid && (
-                    <span className="ml-1">
-                      {msg.read ? '✓✓' : '✓'}
-                    </span>
-                  )}
-                </div>
+                </span>
               </div>
             ))}
             <div ref={chatEndRef} />
           </div>
 
-          <div className="p-4 border-t">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => {
-                  setNewMessage(e.target.value);
-                  handleTyping();
-                }}
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="הקלד הודעה..."
-                className="flex-1 border rounded px-3 py-2"
-              />
-              <button
-                onClick={handleSend}
-                className="bg-violet-600 text-white px-4 py-2 rounded"
-              >
-                שלח
-              </button>
-            </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="כתוב הודעה..."
+              className="flex-1 border border-orange-200 rounded-md px-3 py-2 focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none"
+            />
+            <Button>שלח</Button>
           </div>
         </div>
-      )}
-
-      {showDatePicker && (
-        <DateTimePicker
-          onSelect={handleDateTimeSelect}
-          onCancel={() => {
-            setShowDatePicker(false);
-            setActiveDatePickerMatchId(null);
-          }}
-          initialDateTime={requesters.find(r => r.matchId === activeDatePickerMatchId)?.scheduledTime}
-        />
       )}
     </div>
   );

@@ -6,21 +6,64 @@ import { Card, CardContent } from "./ui/card";
 const roleTranslations = {
   volunteer: "מתנדב/ת",
   requester: "פונה",
-  admin: "מנהל/ת"
+  "admin-first": "מנהל/ת דרג א",
+  "admin-second": "מנהל/ת דרג ב"
+};
+
+const collectionForRole = {
+  volunteer: "Volunteers",
+  requester: "Requesters",
+  "admin-first": ["Admins", "Level", "FirstLevel"],
+  "admin-second": ["Admins", "Level", "SecondLevel"]
 };
 
 export default function ProfilePage() {
   const [userData, setUserData] = useState(null);
+  const [role, setRole] = useState(null);
   const user = auth.currentUser;
 
   useEffect(() => {
+    const checkAdminRole = async (uid) => {
+      // Check FirstLevel admins
+      const firstLevelRef = doc(db, "Users", "Info", "Admins", "Level", "FirstLevel", uid);
+      let snapFirst = await getDoc(firstLevelRef);
+      if (snapFirst.exists()) return "admin-first";
+
+      // Check SecondLevel admins
+      const secondLevelRef = doc(db, "Users", "Info", "Admins", "Level", "SecondLevel", uid);
+      let snapSecond = await getDoc(secondLevelRef);
+      if (snapSecond.exists()) return "admin-second";
+
+      return null;
+    };
+
     const fetchUserData = async () => {
       if (!user) return;
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
+
+      // First check if user is an admin
+      const adminRole = await checkAdminRole(user.uid);
+      if (adminRole) {
+        const pathParts = collectionForRole[adminRole];
+        const userDoc = await getDoc(doc(db, "Users", "Info", ...pathParts, user.uid));
+        if (userDoc.exists()) {
+          setUserData({ ...userDoc.data(), role: adminRole });
+          setRole(adminRole);
+        }
+        return;
+      }
+
+      // Check Volunteers and Requesters collections
+      for (const roleType of ["volunteer", "requester"]) {
+        const collection = collectionForRole[roleType];
+        const userDoc = await getDoc(doc(db, "Users", "Info", collection, user.uid));
+        if (userDoc.exists()) {
+          setUserData({ ...userDoc.data(), role: roleType });
+          setRole(roleType);
+          break;
+        }
       }
     };
+
     fetchUserData();
   }, [user]);
 

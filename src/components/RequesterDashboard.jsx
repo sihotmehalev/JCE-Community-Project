@@ -241,7 +241,6 @@ export default function RequesterDashboard() {
           </div>
         </CardContent>
       </Card>
-
       {/* Volunteer Info Section (shown only when matched) */}
       {volunteer && (
         <Card className="mb-6 shadow-sm">
