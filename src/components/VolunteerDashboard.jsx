@@ -1,437 +1,421 @@
-// Main volunteer dashboard component - provides an interface for volunteers to manage their matches with help requesters
-import React, { useEffect, useState, useRef } from "react";
-import { auth, db } from "../firebaseConfig"; // Firebase authentication and database references
-import { useNavigate } from "react-router-dom"; // For programmatic navigation between pages
+// VolunteerDashboard.jsx
+import React, { useEffect, useRef, useState } from "react";
+import { auth, db } from "../firebaseConfig";
+import { onAuthStateChanged } from "firebase/auth";
 import {
-  collection, // Creates reference to a Firestore collection
-  doc, // Creates reference to a Firestore document
-  getDoc, // Fetches a single document
-  query, // Creates a database query
-  where, // Adds a filter to a query
-  getDocs, // Fetches multiple documents from a query
-  addDoc, // Adds a new document to a collection
-  onSnapshot, // Sets up real-time listener for changes
-  orderBy, // Orders query results
-  updateDoc, // Updates fields in an existing document
+  collection,
+  doc,
+  setDoc,
+  updateDoc,
+  addDoc,
+  getDoc,
+  onSnapshot,
+  query,
+  where,
+  orderBy,
   serverTimestamp,
 } from "firebase/firestore";
 import { Button } from "./ui/button";
-import { Loader2 } from "lucide-react";
+
+/* ────────────────────────── helpers ────────────────────────── */
+
+// one-shot fetch of a requester's public profile
+const fetchRequester = async (uid) => {
+  const snap = await getDoc(
+    doc(db, "Users", "Info", "Requesters", uid)
+  );
+  return snap.exists() ? { id: uid, ...snap.data() } : null;
+};
+
+/* ────────────────────────── main component ────────────────────────── */
 
 export default function VolunteerDashboard() {
-  // State variables
-  const [requesters, setRequesters] = useState([]); // Stores the requester matches assigned to this volunteer
-  const [activeChat, setActiveChat] = useState(null); // Tracks which chat is currently active
-  const [messages, setMessages] = useState([]); // Stores messages for the active chat
-  const [newMessage, setNewMessage] = useState(""); // Stores draft message being typed
-  const [showAllRequests, setShowAllRequests] = useState(false); // Controls visibility of waiting requests section
-  const [waitingRequests, setWaitingRequests] = useState([]); // Stores requests waiting to be matched
-  const [volunteerName, setVolunteerName] = useState(""); // Stores the current volunteer's name
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("all");
-  const navigate = useNavigate(); // Hook for programmatic navigation
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [activeDatePickerMatchId, setActiveDatePickerMatchId] = useState(null);
-  const [isTyping, setIsTyping] = useState(false);
-  const [typingTimeout, setTypingTimeout] = useState(null);
-  const chatEndRef = useRef(null);
+  /* -------- auth gate -------- */
+  const [authChecked, setAuthChecked] = useState(false);
+  const [user, setUser]               = useState(null);
 
-  // Effect to load data when component mounts
   useEffect(() => {
-    const loadDashboardData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        await Promise.all([
-          fetchVolunteerProfile(),
-          fetchMatches(),
-          fetchWaitingRequests()
-        ]);
-      } catch (error) {
-        console.error("Error loading dashboard:", error);
-        setError("Failed to load dashboard data. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadDashboardData();
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthChecked(true);
+      if (!u) window.location.replace("/login");
+    });
+    return unsub;
   }, []);
 
-  // Fetches the current volunteer's profile
-  const fetchVolunteerProfile = async () => {
-    if (!auth.currentUser?.uid) {
-      throw new Error("User not authenticated");
-    }
+  /* -------- UI state -------- */
+  const [loading, setLoading]         = useState(true);
+  const [volProfile, setVolProfile]   = useState({});
+  const [personal, setPersonal]       = useState(true);
+  const [direct, setDirect]           = useState([]);
+  const [pool, setPool]               = useState([]);
+  const [matches, setMatches]         = useState([]);
+  const [activeMatchId, setActiveMatchId] = useState(null);
+  const [messages, setMessages]       = useState([]);
+  const [newMsg, setNewMsg]           = useState("");
+  const [userData, setUserData]        = useState(null);
 
-    const volunteerDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
-    if (volunteerDoc.exists()) {
-      const data = volunteerDoc.data();
-      setVolunteerName(data.fullName || auth.currentUser.email || "");
-    }
-  };
+  /* listener refs */
+  const unsubDirect = useRef(null);
+  const unsubPool   = useRef(null);
+  const unsubMatch  = useRef(null);
+  const unsubChat   = useRef(null);
 
-  // Fetches all matches for the current volunteer
-  const fetchMatches = async () => {
-    if (!auth.currentUser?.uid) {
-      throw new Error("User not authenticated");
-    }
-
-    const q = query(
-      collection(db, "matches"),
-      where("volunteerId", "==", auth.currentUser.uid)
-    );
-    const querySnapshot = await getDocs(q);
-    
-    const requesterIds = querySnapshot.docs.map((docSnapshot) => ({
-      id: docSnapshot.data().requesterId,
-      matchId: docSnapshot.id,
-      status: docSnapshot.data().status || "active",
-      scheduledTime: docSnapshot.data().scheduledTime,
-      lastUpdated: docSnapshot.data().updatedAt,
-      createdAt: docSnapshot.data().createdAt,
-    })).filter(item => item.id);
-
-    const requesterData = await Promise.all(
-      requesterIds.map(async (item) => {
-        const userSnap = await getDoc(doc(db, "users", item.id));
-        if (userSnap.exists()) {
-          return { 
-            ...item,
-            ...userSnap.data(),
-            unreadMessages: 0 // Will be updated by chat listener
-          };
-        }
-        return null;
-      })
-    );
-
-    setRequesters(requesterData.filter(Boolean));
-  };
-
-  // Fetches waiting requests
-  const fetchWaitingRequests = async () => {
-    const q = query(
-      collection(db, "requests"),
-      where("status", "==", "waiting")
-    );
-    const querySnapshot = await getDocs(q);
-    const waitingRequestsData = await Promise.all(
-      querySnapshot.docs.map(async (docSnapshot) => {
-        const data = docSnapshot.data();
-        const requesterSnap = await getDoc(doc(db, "users", data.requesterId));
-        if (requesterSnap.exists()) {
-          return {
-            id: docSnapshot.id,
-            requesterId: data.requesterId,
-            ...data,
-            requesterInfo: requesterSnap.data()
-          };
-        }
-        return null;
-      })
-    );
-    
-    setWaitingRequests(waitingRequestsData.filter(Boolean));
-  };
-
-  // Accept a new match
-  const acceptMatch = async (matchId) => {
-    try {
-      await updateDoc(doc(db, "matches", matchId), {
-        status: "active",
-        acceptedAt: serverTimestamp(),
-      });
-      
-      // Update local state
-      setRequesters(requesters.map(r => 
-        r.matchId === matchId ? {...r, status: "active"} : r
-      ));
-    } catch (error) {
-      console.error("Error accepting match:", error);
-      alert("Failed to accept match. Please try again.");
-    }
-  };
-
-  // Reject a match
-  const rejectMatch = async (matchId) => {
-    if (!window.confirm("Are you sure you want to reject this match?")) return;
-    
-    try {
-      await updateDoc(doc(db, "matches", matchId), {
-        status: "rejected",
-        rejectedAt: serverTimestamp(),
-        rejectedBy: auth.currentUser.uid
-      });
-      
-      // Update local state
-      setRequesters(requesters.map(r => 
-        r.matchId === matchId ? {...r, status: "rejected"} : r
-      ));
-    } catch (error) {
-      console.error("Error rejecting match:", error);
-      alert("Failed to reject match. Please try again.");
-    }
-  };
-
-  // Filter requesters based on search and status
-  const filteredRequesters = requesters.filter(r => {
-    const matchesSearch = r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         r.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         r.reason?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = selectedStatus === "all" || r.status === selectedStatus;
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  // Function to scroll chat to bottom
-  const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  // Effect to scroll chat to bottom when messages change
+  /* -------- bootstrap volunteer profile -------- */
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (!authChecked || !user) return;
 
-  // Handle typing indicator
-  const handleTyping = () => {
-    if (activeChat) {
-      // Clear existing timeout
-      if (typingTimeout) {
-        clearTimeout(typingTimeout);
-      }
+    const volRef = doc(db, "Users", "Info", "Volunteers", user.uid);
 
-      // Update typing status in Firestore
-      updateDoc(doc(db, "matches", requesters.find(r => r.id === activeChat)?.matchId), {
-        [`${auth.currentUser.uid}_typing`]: true,
-        [`${auth.currentUser.uid}_lastTyping`]: serverTimestamp()
-      });
-
-      // Set new timeout to clear typing status
-      const timeout = setTimeout(() => {
-        updateDoc(doc(db, "matches", requesters.find(r => r.id === activeChat)?.matchId), {
-          [`${auth.currentUser.uid}_typing`]: false
-        });
-      }, 2000);
-
-      setTypingTimeout(timeout);
-    }
-  };
-
-  // Enhanced openChat function with typing indicator listener
-  const openChat = (requesterId) => {
-    setActiveChat(requesterId);
-    const matchDoc = requesters.find(r => r.id === requesterId)?.matchId;
-    
-    if (!matchDoc) return;
-
-    // Listen for messages
-    const q = query(
-      collection(db, "messages", requesterId, auth.currentUser.uid),
-      orderBy("timestamp")
-    );
-    
-    onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate()
-      }));
-      setMessages(msgs);
-      
-      // Mark messages as read
-      snapshot.docs.forEach(doc => {
-        if (doc.data().senderId !== auth.currentUser.uid && !doc.data().read) {
-          updateDoc(doc.ref, { read: true });
+    const unsubVol = onSnapshot(
+      volRef,
+      async (snap) => {
+        if (!snap.exists()) {
+          // first login → create skeleton profile
+          await setDoc(volRef, {
+            approved: false,
+            personal: true,
+            createdAt: serverTimestamp(),
+          });
+          return;                 // wait for next snapshot
         }
-      });
-      
-      // Update unread count
-      setRequesters(prev => prev.map(r => 
-        r.id === requesterId ? {...r, unreadMessages: 0} : r
-      ));
-    });
-
-    // Listen for typing indicator
-    onSnapshot(doc(db, "matches", matchDoc), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        const requesterTyping = data[`${requesterId}_typing`];
-        setIsTyping(requesterTyping);
+        const data = snap.data();
+        setVolProfile(data);
+        setPersonal(data.personal ?? true);
+        setUserData(data);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Volunteer doc error:", err);
+        setLoading(false);
       }
-    });
-  };
-
-  // Enhanced handleSend function
-  const handleSend = async () => {
-    if (!newMessage.trim() || !activeChat) return;
-
-    const timestamp = serverTimestamp();
-    
-    // Add the message to Firestore
-    await addDoc(collection(db, "messages", activeChat, auth.currentUser.uid), {
-      text: newMessage,
-      senderId: auth.currentUser.uid,
-      timestamp,
-      read: false
-    });
-
-    // Clear typing indicator
-    const matchDoc = requesters.find(r => r.id === activeChat)?.matchId;
-    if (matchDoc) {
-      await updateDoc(doc(db, "matches", matchDoc), {
-        [`${auth.currentUser.uid}_typing`]: false
-      });
-    }
-
-    // Clear the message input field
-    setNewMessage("");
-  };
-
-  // Handles cancellation of a match between volunteer and requester
-  const cancelRequest = async (matchId) => {
-    if (window.confirm("האם אתה בטוח שברצונך לבטל את הבקשה?")) {
-      try {
-        // Update the match status in Firestore
-        await updateDoc(doc(db, "matches", matchId), {
-          status: "canceled",
-          canceledAt: new Date(),
-          canceledBy: auth.currentUser.uid
-        });
-        
-        // Update the local state to reflect the cancellation
-        setRequesters(requesters.map(r => 
-          r.matchId === matchId ? {...r, status: "canceled"} : r
-        ));
-      } catch (error) {
-        console.error("Error canceling request:", error);
-        alert("אירעה שגיאה בביטול הבקשה");
-      }
-    }
-  };
-
-  // Handles rescheduling a meeting time
-  const changeSchedule = (matchId) => {
-    setActiveDatePickerMatchId(matchId);
-    setShowDatePicker(true);
-  };
-
-  const handleDateTimeSelect = async (newDateTime) => {
-    try {
-      await updateDoc(doc(db, "matches", activeDatePickerMatchId), {
-        scheduledTime: newDateTime,
-        updatedAt: serverTimestamp()
-      });
-      
-      // Update local state
-      setRequesters(prev => prev.map(r => 
-        r.matchId === activeDatePickerMatchId 
-          ? { ...r, scheduledTime: newDateTime }
-          : r
-      ));
-      
-      setShowDatePicker(false);
-      setActiveDatePickerMatchId(null);
-      alert("זמן הפגישה עודכן בהצלחה!");
-    } catch (error) {
-      console.error("Error updating schedule:", error);
-      alert("אירעה שגיאה בעדכון זמן הפגישה");
-    }
-  };
-
-  // Render loading state
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
-      </div>
     );
+
+    return () => unsubVol();
+  }, [authChecked, user]);
+
+  /* -------- attach / detach pool listeners -------- */
+  useEffect(() => {
+    if (loading || !user) return;
+
+    // ---- active matches (always) ----
+    unsubMatch.current?.();
+    unsubMatch.current = onSnapshot(
+      query(
+        collection(db, "matches"),
+        where("volunteerId", "==", user.uid),
+        where("status",      "==", "active")
+      ),
+      async (snap) => {
+        const arr = [];
+        for (const d of snap.docs) {
+          const m  = d.data();
+          const rq = await fetchRequester(m.requesterId);
+          arr.push({ id: d.id, ...m, requester: rq });
+        }
+        setMatches(arr);
+      }
+    );
+
+    // ---- personal-only sections ----
+    if (personal) {
+      // direct requests
+      unsubDirect.current = onSnapshot(
+        query(
+          collection(db, "requests"),
+          where("volunteerId", "==", user.uid),
+          where("status",      "==", "waiting_for_first_approval")
+        ),
+        async (snap) => {
+          const arr = [];
+          for (const d of snap.docs) {
+            const rqData = d.data();
+            const rqUser = await fetchRequester(rqData.requesterId);
+            arr.push({ id: d.id, ...rqData, requester: rqUser });
+          }
+          setDirect(arr);
+        }
+      );
+
+      // open pool
+      unsubPool.current = onSnapshot(
+        query(
+          collection(db, "requests"),
+          where("volunteerId", "==", null),
+          where("status",      "==", "waiting_for_first_approval")
+        ),
+        async (snap) => {
+          const arr = [];
+          for (const d of snap.docs) {
+            const rqData = d.data();
+            const rqUser = await fetchRequester(rqData.requesterId);
+            arr.push({ id: d.id, ...rqData, requester: rqUser });
+          }
+          setPool(arr);
+        }
+      );
+    } else {
+      unsubDirect.current?.(); unsubDirect.current = null; setDirect([]);
+      unsubPool.current?.();   unsubPool.current   = null; setPool([]);
+    }
+
+    return () => {
+      unsubMatch.current?.();
+      unsubDirect.current?.();
+      unsubPool.current?.();
+    };
+  }, [personal, loading, user]);
+
+  /* -------- handlers -------- */
+  const flipPersonal = async () => {
+    if (!user) return;
+    const newVal = !personal;
+    setPersonal(newVal); // optimistic
+    await setDoc(
+      doc(db, "Users", "Info", "Volunteers", user.uid),
+      { personal: newVal },
+      { merge: true }
+    );
+  };
+
+  const handleRequestAction = async (req, action) => {
+    const ref = doc(db, "requests", req.id);
+    if (action === "accept") {
+      await updateDoc(ref, { status: "waiting_for_admin_approval" });
+    } else if (action === "decline") {
+      await updateDoc(ref, { status: "declined" });
+    } else if (action === "postpone") {
+      await updateDoc(ref, {
+        status: "postponed",
+        postponedUntil: serverTimestamp(),
+      });
+    } else if (action === "take") {
+      await updateDoc(ref, {
+        volunteerId: user.uid,
+        senderRole:  "volunteer",
+        status:      "waiting_for_admin_approval",
+      });
+    }
+  };
+
+  const openChat = (matchId) => {
+    setActiveMatchId(matchId);
+    unsubChat.current?.();
+    unsubChat.current = onSnapshot(
+      query(
+        collection(db, "conversations", matchId, "messages"),
+        orderBy("timestamp")
+      ),
+      (snap) => setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
+  };
+
+  const sendMessage = async () => {
+    if (!newMsg.trim() || !activeMatchId) return;
+    await addDoc(
+      collection(db, "conversations", activeMatchId, "messages"),
+      {
+        text:      newMsg.trim(),
+        senderId:  user.uid,
+        timestamp: serverTimestamp(),
+      }
+    );
+    setNewMsg("");
+  };
+
+  /* -------- render -------- */
+  if (!authChecked || loading) {
+    return <p className="p-6 text-orange-700">…טוען לוח מתנדב</p>;
   }
 
-  // Render error state
-  if (error) {
-    return (
-      <div className="p-6 text-center">
-        <div className="text-red-600 mb-4">{error}</div>
-        <button
-          onClick={() => window.location.reload()}
-          className="bg-violet-600 text-white px-4 py-2 rounded"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
-  // Render the dashboard UI
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4 text-orange-800">שלום מתנדב 🙋‍♂️</h1>
-
-      {requesters.length === 0 ? (
-        <p className="text-orange-600/80 bg-orange-50/50 p-4 rounded-lg border border-orange-100">לא שובצת לפונים עדיין.</p>
-      ) : (
-        requesters.map((r) => (
-          <div
-            key={r.id}
-            className="border border-orange-100 p-4 rounded-lg mb-4 bg-orange-50/50 flex flex-col gap-2"
+      {/* header + toggle */}
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="text-2xl font-bold text-orange-800">
+          שלום {userData?.fullName?.split(' ')[0] || ''} 👋
+        </h1>
+        <div className="flex-1" />
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-orange-700">בחירה עצמית</span>
+          <button
+            onClick={flipPersonal}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${
+              personal ? 'bg-orange-600 border-orange-400' : 'bg-gray-200 border-orange-400'
+            }`}
           >
-            <div className="space-y-2">
-              <h2 className="font-semibold text-lg text-orange-800">{r.fullName || "פונה ללא שם"}</h2>
-              <div className="text-orange-700">
-                <p><span className="font-medium">אימייל:</span> {r.email}</p>
-                <p><span className="font-medium">טלפון:</span> {r.phone || "לא סופק"}</p>
-                <p><span className="font-medium">מגדר:</span> {r.gender}</p>
-                <p><span className="font-medium">גיל:</span> {r.age}</p>
-                <p><span className="font-medium">סיבת פנייה:</span> {r.reason}</p>
-              </div>
-            </div>
-            <Button
-              onClick={() => openChat(r.id)}
-              variant="outline"
-              className="self-start"
-            >
-              💬 פתח שיחה
-            </Button>
-          </div>
-        ))
-      )}
-
-      {/* Enhanced Chat Window */}
-      {activeChat && (
-        <div className="mt-6 border-t border-orange-200 pt-4">
-          <h2 className="text-xl font-bold mb-2 text-orange-800">שיחה עם פונה</h2>
-          <div className="bg-orange-50/30 rounded-lg p-4 h-64 overflow-y-scroll mb-4 border border-orange-100">
-            {messages.map((msg, index) => (
-              <div key={index} className={msg.senderId === auth.currentUser.uid ? "text-right" : "text-left"}>
-                <span className={`block rounded-lg p-2 my-1 inline-block max-w-[80%] ${
-                  msg.senderId === auth.currentUser.uid 
-                    ? "bg-orange-600 text-white" 
-                    : "bg-white border border-orange-100"
-                }`}>
-                  {msg.text}
-                </span>
-              </div>
-            ))}
-            <div ref={chatEndRef} />
-          </div>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="כתוב הודעה..."
-              className="flex-1 border border-orange-200 rounded-md px-3 py-2 focus:border-orange-400 focus:ring-1 focus:ring-orange-400 outline-none"
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${
+                personal ? '-translate-x-1' : '-translate-x-6'
+              }`}
             />
-            <Button>שלח</Button>
-          </div>
+          </button>
+          <span className="text-sm text-orange-700">שיוך ע״י מנהל</span>
         </div>
+      </div>
+
+      {/* personal mode */}
+      {personal && (
+        <>
+          <Section title="בקשות ישירות" empty="אין בקשות ישירות">
+            {direct.map((r) => (
+              <RequestCard
+                key={r.id}
+                req={r}
+                variant="direct"
+                onAction={handleRequestAction}
+              />
+            ))}
+          </Section>
+
+          <Section title="דפדוף בפונים פתוחים" empty="אין פונים זמינים">
+            {pool.map((r) => (
+              <RequestCard
+                key={r.id}
+                req={r}
+                variant="pool"
+                onAction={handleRequestAction}
+              />
+            ))}
+          </Section>
+        </>
       )}
+
+      {/* matches */}
+      <Section title="שיבוצים פעילים" empty="אין שיבוצים פעילים">
+        {matches.map((m) => (
+          <MatchCard
+            key={m.id}
+            match={m}
+            onOpenChat={() => openChat(m.id)}
+          />
+        ))}
+      </Section>
+
+      {/* chat */}
+      {activeMatchId && (
+        <ChatPanel
+          messages={messages}
+          newMsg={newMsg}
+          setNewMsg={setNewMsg}
+          onSend={sendMessage}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ────────────────────────── presentational helpers ───────────────────────── */
+
+const Section = ({ title, empty, children }) => (
+  <>
+    <h2 className="text-xl font-semibold text-orange-800 mb-2">{title}</h2>
+    {React.Children.count(children) === 0 ? (
+      <Empty text={empty} />
+    ) : (
+      <div className="space-y-4">{children}</div>
+    )}
+  </>
+);
+
+const Empty = ({ text }) => (
+  <p className="bg-orange-50/60 border border-orange-100 rounded-lg py-4 px-6 text-orange-700">
+    {text}
+  </p>
+);
+
+function RequestCard({ req, variant, onAction }) {
+  const { requester } = req;
+  return (
+    <div className="border border-orange-100 bg-orange-50/40 rounded-lg p-4">
+      <p className="font-semibold text-orange-800 text-lg mb-1">
+        {requester?.fullName || "פונה ללא שם"}
+      </p>
+      <p className="text-orange-700 text-sm mb-2">
+        גיל: {requester?.age ?? "—"} · מגדר: {requester?.gender ?? "—"}
+      </p>
+      <p className="text-orange-700 mb-3 truncate">
+        סיבה: {requester?.reason ?? "—"}
+      </p>
+
+      {variant === "direct" ? (
+        <div className="flex gap-2">
+          <Button onClick={() => onAction(req, "accept")}>אשר</Button>
+          <Button variant="secondary" onClick={() => onAction(req, "decline")}>
+            דחה
+          </Button>
+          <Button variant="outline" onClick={() => onAction(req, "postpone")}>
+            השהה
+          </Button>
+        </div>
+      ) : (
+        <Button onClick={() => onAction(req, "take")}>קח פונה זה</Button>
+      )}
+    </div>
+  );
+}
+
+function MatchCard({ match, onOpenChat }) {
+  const { requester } = match;
+  return (
+    <div className="border border-orange-100 bg-white rounded-lg p-4 flex justify-between items-center">
+      <div>
+        <p className="font-semibold text-orange-800 text-lg mb-1">
+          {requester?.fullName || "פונה ללא שם"}
+        </p>
+        <p className="text-orange-700 text-sm">
+          סשנים שהושלמו: {match.totalSessions ?? 0}
+        </p>
+      </div>
+      <Button onClick={onOpenChat}>💬 פתח שיחה</Button>
+    </div>
+  );
+}
+
+function ChatPanel({ messages, newMsg, setNewMsg, onSend }) {
+  const bottomRef = useRef(null);
+
+  // auto-scroll on new message
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  return (
+    <div className="mt-8 border-t border-orange-200 pt-4">
+      <h2 className="text-xl font-bold mb-3 text-orange-800">שיחה</h2>
+
+      <div className="h-64 overflow-y-scroll bg-orange-50/30 border border-orange-100 rounded-lg p-3 mb-3">
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            className={
+              m.senderId === auth.currentUser.uid ? "text-right" : "text-left"
+            }
+          >
+            <span
+              className={`inline-block rounded-lg px-3 py-1 my-1 max-w-[80%] ${
+                m.senderId === auth.currentUser.uid
+                  ? "bg-orange-600 text-white"
+                  : "bg-white border border-orange-100"
+              }`}
+            >
+              {m.text}
+            </span>
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="flex gap-2">
+        <input
+          className="flex-1 border border-orange-200 rounded-md px-3 py-2 focus:ring-orange-400 focus:border-orange-400 outline-none"
+          placeholder="כתוב הודעה..."
+          value={newMsg}
+          onChange={(e) => setNewMsg(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && onSend()}
+        />
+        <Button onClick={onSend}>שלח</Button>
+      </div>
     </div>
   );
 }
