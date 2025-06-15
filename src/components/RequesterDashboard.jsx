@@ -336,17 +336,8 @@ export default function RequesterDashboard() {
         // Update the existing request with the selected volunteer
         await updateDoc(doc(db, "Requests", requestDoc.id), {
           volunteerId: volunteerId,
+          initiatedBy: user.uid,
           status: "waiting_for_admin_approval",
-          updatedAt: serverTimestamp(),
-        });
-      } else {
-        // Create a new request document if none exists
-        await addDoc(collection(db, "Requests"), {
-          requesterId: user.uid,
-          volunteerId: volunteerId,
-          senderRole: "requester",
-          status: "waiting_for_admin_approval",
-          createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
       }

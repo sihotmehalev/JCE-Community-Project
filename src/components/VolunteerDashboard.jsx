@@ -1,6 +1,6 @@
 // VolunteerDashboard.jsx
 import React, { useEffect, useRef, useState } from "react";
-import { User, Calendar, Clock, MessageCircle } from "lucide-react";
+import { User, Calendar, Clock, MessageCircle, Plus, X } from "lucide-react";
 import { auth, db } from "../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -61,6 +61,8 @@ export default function VolunteerDashboard() {
   const [messages, setMessages]       = useState([]);
   const [newMsg, setNewMsg]           = useState("");
   const [userData, setUserData]        = useState(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState(null);
 
   /* listener refs */
   const unsubDirect = useRef(null);
@@ -228,7 +230,7 @@ export default function VolunteerDashboard() {
     } else if (action === "take") {
       await updateDoc(ref, {
         volunteerId: user.uid,
-        senderRole:  "volunteer",
+        initiatedBy: user.uid,
         status:      "waiting_for_admin_approval",
       });
     } else if (action === "withdraw") {
@@ -271,6 +273,41 @@ export default function VolunteerDashboard() {
     setNewMsg("");
   };
 
+  const openScheduleModal = (match) => {
+    setSelectedMatch(match);
+    setShowScheduleModal(true);
+  };
+
+  const closeScheduleModal = () => {
+    setSelectedMatch(null);
+    setShowScheduleModal(false);
+  };
+
+  const handleScheduleSession = async ({ match, scheduledTime, duration, location, notes, onSuccess, onError }) => {
+    try {
+      const sessionData = {
+        matchId: match.id,
+        volunteerId: match.volunteerId,
+        requesterId: match.requesterId,
+        scheduledTime: new Date(scheduledTime),
+        status: "scheduled",
+        notes: notes,
+        durationMinutes: duration,
+        location: location,
+        createdAt: serverTimestamp(),
+      };
+
+      await addDoc(collection(db, "Sessions"), sessionData);
+      console.log("Session scheduled successfully");
+      onSuccess?.();
+      return true;
+    } catch (error) {
+      console.error("Error scheduling session:", error);
+      onError?.(error);
+      return false;
+    }
+  };
+
   /* -------- render -------- */
   if (!authChecked || loading) {
     return <LoadingSpinner />;
@@ -283,6 +320,13 @@ export default function VolunteerDashboard() {
         <h1 className="text-2xl font-bold text-orange-800">
           שלום {userData?.fullName?.split(' ')[0] || ''} 👋
         </h1>
+        <Button
+                  variant="outline"
+                  className="mr-2"
+                  onClick={() => window.location.href = '/profile'}
+                >
+                  הפרופיל שלי
+                </Button>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
           <span className="text-sm text-orange-700">בחירה עצמית</span>
@@ -349,6 +393,7 @@ export default function VolunteerDashboard() {
             match={m}
             onOpenChat={() => openChat(m.id)}
             onCloseChat={closeChat}
+            onScheduleSession={() => openScheduleModal(m)}
             activeMatchId={activeMatchId}
           />
         ))}
@@ -362,6 +407,15 @@ export default function VolunteerDashboard() {
           setNewMsg={setNewMsg}
           onSend={sendMessage}
           chatPartnerName={matches.find(m => m.id === activeMatchId)?.requester?.fullName || 'שיחה'}
+        />
+      )}
+
+      {/* Schedule Session Modal */}
+      {showScheduleModal && selectedMatch && (
+        <SessionScheduler
+          match={selectedMatch}
+          onClose={closeScheduleModal}
+          handleScheduleSession={handleScheduleSession}
         />
       )}
     </div>
@@ -488,22 +542,192 @@ function RequestCard({ req, variant, onAction }) {
   );
 }
 
-function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
+function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMatchId }) {
   const { requester } = match;
   const isChatOpen = activeMatchId === match.id;
+  const [sessions, setSessions] = useState([]);    useEffect(() => {
+    console.log(`[SessionsDebug] Setting up sessions listener for match ID: ${match.id}`);
+    const sessionsRef = collection(db, "Sessions");
+    return onSnapshot(
+      query(
+        sessionsRef,
+        where("matchId", "==", match.id),
+        orderBy("scheduledTime", "asc")
+      ),
+      (snapshot) => {
+        console.log(`[SessionsDebug] Got ${snapshot.docs.length} sessions for match ${match.id}`);
+        const sessionData = snapshot.docs.map(doc => {
+          const data = doc.data();
+          console.log(`[SessionsDebug] Session ${doc.id} raw data:`, {
+            ...data,
+            scheduledTime: data.scheduledTime?.toDate()?.toISOString()
+          });
+          return {
+            id: doc.id,
+            ...data,
+            scheduledTime: data.scheduledTime?.toDate() // Convert Firestore Timestamp to Date
+          };
+        });
+        console.log(`[SessionsDebug] Processed sessions for match ${match.id}:`, 
+          sessionData.map(s => ({
+            id: s.id,
+            scheduledTime: s.scheduledTime?.toISOString(),
+            location: s.location,
+            status: s.status
+          }))
+        );
+        setSessions(sessionData);
+      },
+      (error) => {
+        console.error(`[SessionsDebug] Error in sessions listener for match ${match.id}:`, error);
+      }
+    );
+  }, [match.id]);
+  // Separate upcoming and completed sessions
+  const { upcomingSessions, completedSessions } = sessions.reduce((acc, session) => {
+    const now = new Date();
+    console.log(`[SessionsDebug] Categorizing session ${session.id}:`, {
+      scheduledTime: session.scheduledTime?.toISOString(),
+      isUpcoming: session.scheduledTime > now,
+      now: now.toISOString()
+    });
+    
+    if (session.scheduledTime > now) {
+      acc.upcomingSessions.push(session);
+    } else {
+      acc.completedSessions.push(session);
+    }
+    return acc;
+  }, { upcomingSessions: [], completedSessions: [] });
+
+  console.log(`[SessionsDebug] Final categorization for match ${match.id}:`, {
+    totalSessions: sessions.length,
+    upcomingSessions: upcomingSessions.length,
+    completedSessions: completedSessions.length
+  });
+
+  const formatSessionTime = (date) => {
+    return new Date(date).toLocaleString('he-IL', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric'
+    });
+  };
   return (
-    <div className="border border-orange-100 bg-white rounded-lg p-4 flex justify-between items-center">
-      <div>
-        <p className="font-semibold text-orange-800 text-lg mb-1">
-          {requester?.fullName || "פונה ללא שם"}
-        </p>
-        <p className="text-orange-700 text-sm">
-          סשנים שהושלמו: {match.totalSessions ?? 0}
-        </p>
+    <div className="border border-orange-100 bg-white rounded-lg p-4">
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <p className="font-semibold text-orange-800 text-lg mb-1">
+            {requester?.fullName || "פונה ללא שם"}
+          </p>
+          <p className="text-orange-700 text-sm">
+            סשנים שהושלמו: {completedSessions.length}
+          </p>
+        </div>
       </div>
-      <Button onClick={isChatOpen ? onCloseChat : onOpenChat}>
-        {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
-      </Button>
+
+      {/* Upcoming Sessions */}
+      {upcomingSessions.length > 0 && (
+        <div className="mb-4">
+          <h4 className="text-sm font-semibold text-orange-700 mb-2">מפגשים מתוכננים:</h4>
+          <div className="space-y-2">
+            {upcomingSessions.map(session => (
+              <div key={session.id} className="bg-orange-50 p-2 rounded-md text-sm">
+                <div className="font-medium">{formatSessionTime(session.scheduledTime)}</div>
+                <div className="text-orange-600">
+                  {session.location === 'video' ? '🎥 שיחת וידאו' :
+                   session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
+                  {' • '}{session.durationMinutes} דקות
+                </div>
+                {session.notes && (
+                  <div className="text-orange-500 mt-1">
+                    {session.notes}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+        <div className="flex gap-2 flex-wrap">
+        <Button onClick={isChatOpen ? onCloseChat : onOpenChat}>
+          {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={onScheduleSession}
+          className="flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          קבע מפגש
+        </Button>
+      </div>
+
+      {/* Upcoming Sessions */}
+      {upcomingSessions.length > 0 && (
+        <div className="mt-4">
+          <h4 className="text-sm font-semibold text-orange-800 mb-2">מפגשים מתוכננים:</h4>
+          <div className="space-y-2">
+            {upcomingSessions.map(session => (
+              <div key={session.id} className="bg-orange-50 p-3 rounded-md text-sm border border-orange-100">
+                <div className="font-medium text-orange-800">
+                  {new Date(session.scheduledTime).toLocaleString('he-IL', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </div>
+                <div className="text-orange-600 mt-1">
+                  {session.location === 'video' ? '🎥 שיחת וידאו' :
+                   session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
+                  {' • '}{session.durationMinutes} דקות
+                </div>
+                {session.notes && (
+                  <div className="text-orange-500 mt-1">
+                    {session.notes}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Completed Sessions */}
+      {completedSessions.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-orange-100">
+          <h4 className="text-sm font-semibold text-orange-700 mb-2">
+            מפגשים אחרונים שהתקיימו:
+          </h4>
+          <div className="space-y-2">
+            {completedSessions.slice(-3).map(session => (
+              <div key={session.id} className="bg-gray-50 p-3 rounded-md text-sm border border-gray-100">
+                <div className="font-medium text-gray-800">
+                  {new Date(session.scheduledTime).toLocaleString('he-IL', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </div>
+                <div className="text-gray-600">
+                  {session.location === 'video' ? '🎥 שיחת וידאו' :
+                   session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
+                  {' • '}{session.durationMinutes} דקות
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -552,6 +776,157 @@ function ChatPanel({ messages, newMsg, setNewMsg, onSend, chatPartnerName }) {
         />
         <Button onClick={onSend}>שלח</Button>
       </div>
+    </div>
+  );
+}
+
+function SessionScheduler({ match, onClose, handleScheduleSession }) {
+  const [scheduledTime, setScheduledTime] = useState("");
+  const [duration, setDuration] = useState(60);
+  const [location, setLocation] = useState("video");
+  const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!scheduledTime) {
+      setError("נא לבחור זמן למפגש");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    const success = await handleScheduleSession({
+      match,
+      scheduledTime,
+      duration,
+      location,
+      notes,
+      onSuccess: () => {
+        alert("המפגש נקבע בהצלחה!");
+        onClose();
+      },
+      onError: (error) => {
+        setError("אירעה שגיאה בקביעת המפגש. נא לנסות שוב.");
+        console.error(error);
+      }
+    });
+
+    setIsSubmitting(false);
+  };
+
+  const durationOptions = [
+    { value: 30, label: "30 דקות" },
+    { value: 45, label: "45 דקות" },
+    { value: 60, label: "שעה" },
+    { value: 90, label: "שעה וחצי" },
+  ];
+
+  const locationOptions = [
+    { value: "video", label: "שיחת וידאו" },
+    { value: "phone", label: "שיחת טלפון" },
+    { value: "in_person", label: "פגישה פיזית" },
+  ];
+
+  return (
+    <div className="bg-white p-4 rounded-lg border border-orange-200">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-orange-800">קביעת מפגש חדש</h3>
+        <button 
+          onClick={onClose}
+          className="text-orange-400 hover:text-orange-600"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 text-red-600 p-2 rounded-md mb-4">
+          {error}
+        </div>
+      )}
+      
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-orange-700 mb-1">
+            <Calendar className="inline-block w-4 h-4 ml-1" />
+            תאריך ושעה
+          </label>
+          <input
+            type="datetime-local"
+            value={scheduledTime}
+            onChange={(e) => setScheduledTime(e.target.value)}
+            className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-orange-700 mb-1">
+            <Clock className="inline-block w-4 h-4 ml-1" />
+            משך המפגש
+          </label>
+          <select
+            value={duration}
+            onChange={(e) => setDuration(Number(e.target.value))}
+            className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
+          >
+            {durationOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-orange-700 mb-1">
+            <MessageCircle className="inline-block w-4 h-4 ml-1" />
+            אופן המפגש
+          </label>
+          <select
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
+          >
+            {locationOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-orange-700 mb-1">
+            <MessageCircle className="inline-block w-4 h-4 ml-1" />
+            הערות למפגש
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
+            placeholder="הערות או נושאים לדיון..."
+          />
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
+          >
+            {isSubmitting ? 'קובע מפגש...' : 'קבע מפגש'}
+          </Button>
+          <Button type="button" variant="outline" onClick={onClose}>
+            ביטול
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }
