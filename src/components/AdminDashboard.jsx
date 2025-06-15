@@ -89,7 +89,6 @@ export default function AdminDashboard() {
   const [activeMatches, setActiveMatches] = useState([]);
   const [activeMatchSearch, setActiveMatchSearch] = useState("");
   const [activeMatchCurrentPage, setActiveMatchCurrentPage] = useState(1);
-  const [matchStatusFilter, setMatchStatusFilter] = useState("all"); // 'all', 'active', 'completed', 'cancelled'
   const [matchRequesterFilter, setMatchRequesterFilter] = useState("all"); // filter by requester ID
   const [matchVolunteerFilter, setMatchVolunteerFilter] = useState("all"); // filter by volunteer ID
   const [matchSortColumn, setMatchSortColumn] = useState(null);
@@ -107,7 +106,7 @@ export default function AdminDashboard() {
   // useEffect for resetting activeMatchCurrentPage when filters or search change
   useEffect(() => {
     setActiveMatchCurrentPage(1);
-  }, [activeMatchSearch, matchStatusFilter, matchRequesterFilter, matchVolunteerFilter, matchSortColumn, matchSortOrder]);
+  }, [activeMatchSearch, matchSortColumn, matchSortOrder]);
 
   // Function to determine panel widths dynamically
   const getPanelWidths = () => {
@@ -594,17 +593,15 @@ export default function AdminDashboard() {
                       <p className="text-sm text-orange-600">{v.email} | {v.profession}</p>
                     </div>
                     <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={() => approveVolunteer(v.id)}
-                        className="bg-green-600 text-white hover:bg-green-800"
                       >
                         אשר מתנדב
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={() => declineVolunteer(v.id)}
-                        className="bg-red-600 text-white hover:bg-red-700"
                       >
                         דחה מתנדב
                       </Button>
@@ -664,17 +661,17 @@ export default function AdminDashboard() {
                     <div className="border-t pt-3">
                       <p className="mb-3"><strong>תוכן הבקשה:</strong> {request.messageRequest}</p>
                       <div className="flex gap-2">
-                        <Button 
-                          className="bg-green-600 text-white hover:bg-green-700"
+                        <Button
+                          variant="outline"
                           onClick={() => approveRequest(request.id, request)}
                         >
                           אשר התאמה
                         </Button>
-                        <Button 
-                          className="bg-red-600 text-white hover:bg-red-700"
+                        <Button
+                          variant="outline"
                           onClick={() => declineRequest(request.id, false)}
                         >
-                          דחה
+                          דחה התאמה
                         </Button>
                       </div>
                     </div>
@@ -915,7 +912,6 @@ export default function AdminDashboard() {
                       <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('requesterInfo.fullName')}>פונה{matchSortColumn === 'requesterInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                       <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב{matchSortColumn === 'volunteerInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                       <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('messageRequest')}>תוכן הבקשה{matchSortColumn === 'messageRequest' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                      <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('status')}>סטטוס{matchSortColumn === 'status' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                       <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('startDate')}>תאריך התחלה{matchSortColumn === 'startDate' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                       <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('meetingFrequency')}>תדירות פגישות{matchSortColumn === 'meetingFrequency' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     </tr>
@@ -927,6 +923,11 @@ export default function AdminDashboard() {
                         match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
                         match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
                       )
+                      .filter(match => {
+                        if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
+                        if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
+                        return true;
+                      })
                       .sort((a, b) => {
                         if (!matchSortColumn) return 0;
 
@@ -942,6 +943,9 @@ export default function AdminDashboard() {
                         } else if (matchSortColumn === 'startDate') {
                           aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
                           bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
+                        } else if (matchSortColumn === 'messageRequest' || matchSortColumn === 'meetingFrequency') {
+                          aValue = a[matchSortColumn] || '';
+                          bValue = b[matchSortColumn] || '';
                         } else {
                           aValue = a[matchSortColumn];
                           bValue = b[matchSortColumn];
@@ -967,9 +971,6 @@ export default function AdminDashboard() {
                           </td>
                           <td className="border border-orange-100 p-2 text-orange-700">
                             {match.messageRequest || 'N/A'}
-                          </td>
-                          <td className="border border-orange-100 p-2 text-orange-700">
-                            {match.status}
                           </td>
                           <td className="border border-orange-100 p-2 text-orange-700">
                             {match.startDate ? new Date(match.startDate.seconds * 1000).toLocaleDateString() : 'N/A'}
@@ -998,6 +999,11 @@ export default function AdminDashboard() {
                     match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
                     match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
                   )
+                  .filter(match => {
+                    if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
+                    if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
+                    return true;
+                  })
                   .sort((a, b) => {
                     if (!matchSortColumn) return 0;
 
@@ -1013,6 +1019,9 @@ export default function AdminDashboard() {
                     } else if (matchSortColumn === 'startDate') {
                       aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
                       bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
+                    } else if (matchSortColumn === 'messageRequest' || matchSortColumn === 'meetingFrequency') {
+                      aValue = a[matchSortColumn] || '';
+                      bValue = b[matchSortColumn] || '';
                     } else {
                       aValue = a[matchSortColumn];
                       bValue = b[matchSortColumn];
@@ -1032,6 +1041,11 @@ export default function AdminDashboard() {
                     match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
                     match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
                   )
+                  .filter(match => {
+                    if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
+                    if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
+                    return true;
+                  })
                   .sort((a, b) => {
                     if (!matchSortColumn) return 0;
 
@@ -1047,6 +1061,9 @@ export default function AdminDashboard() {
                     } else if (matchSortColumn === 'startDate') {
                       aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
                       bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
+                    } else if (matchSortColumn === 'messageRequest' || matchSortColumn === 'meetingFrequency') {
+                      aValue = a[matchSortColumn] || '';
+                      bValue = b[matchSortColumn] || '';
                     } else {
                       aValue = a[matchSortColumn];
                       bValue = b[matchSortColumn];
@@ -1064,6 +1081,11 @@ export default function AdminDashboard() {
                     match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
                     match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
                   )
+                  .filter(match => {
+                    if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
+                    if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
+                    return true;
+                  })
                   .sort((a, b) => {
                     if (!matchSortColumn) return 0;
 
@@ -1079,6 +1101,9 @@ export default function AdminDashboard() {
                     } else if (matchSortColumn === 'startDate') {
                       aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
                       bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
+                    } else if (matchSortColumn === 'messageRequest' || matchSortColumn === 'meetingFrequency') {
+                      aValue = a[matchSortColumn] || '';
+                      bValue = b[matchSortColumn] || '';
                     } else {
                       aValue = a[matchSortColumn];
                       bValue = b[matchSortColumn];
