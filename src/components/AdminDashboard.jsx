@@ -676,7 +676,7 @@ export default function AdminDashboard() {
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
                 <ul className="space-y-2 max-h-[48rem] overflow-y-auto">
                   {volunteers
-                    .filter(v => v.approved)
+                    .filter(v => v.approved && v.isAvailable && !v.personal)
                     .filter(v =>
                       v.fullName?.toLowerCase().includes(volunteerSearch.toLowerCase()) ||
                       v.email?.toLowerCase().includes(volunteerSearch.toLowerCase())
