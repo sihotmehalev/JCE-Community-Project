@@ -44,8 +44,8 @@ export const EventCard = ({ event }) => {
 
     return (
         <div className="flex justify-center items-center w-full">
-            <div className="max-w-sm rounded-2xl overflow-hidden shadow-lg transform hover:scale-105 transition-transform duration-200 bg-gradient-to-br from-white to-orange-50">
-                <div className="relative h-48">
+            <div className="w-[600px] rounded-2xl overflow-hidden shadow-lg transform transition-transform duration-200 bg-gradient-to-br from-white to-orange-50">
+                <div className="relative h-72">
                     <img 
                         src={imageUrl}
                         alt={description}
@@ -53,14 +53,20 @@ export const EventCard = ({ event }) => {
                         className="w-full h-full object-cover"
                     />
                     {event.status && event.status !== 'over' && (
-                        <div className="absolute top-2 right-2 bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-semibold">
+                        <div className={`absolute top-4 right-4 px-4 py-2 rounded-full text-lg font-semibold flex items-center gap-2
+                            ${event.status === 'scheduled' 
+                                ? 'bg-green-100 text-green-800 border-2 border-green-500' 
+                                : 'bg-orange-100 text-orange-800'}`}>
                             {event.status}
+                            {event.status === 'scheduled' && (
+                                <span className="text-green-600">✓</span>
+                            )}
                         </div>
                     )}
                 </div>
-                <div className="p-6 space-y-3">
-                    <h2 className="text-xl font-bold text-orange-800 mb-2">{description}</h2>
-                    <div className="space-y-2 text-orange-700">
+                <div className="p-8 space-y-4">
+                    <h2 className="text-2xl font-bold text-orange-800 mb-3">{description}</h2>
+                    <div className="space-y-3 text-orange-700 text-lg">
                         <p className="flex items-center">
                             <span className="mr-2">📅</span>
                             {formatEventDate()}

@@ -1,7 +1,26 @@
-import { EventCard } from "./components/EventCard/EventCard";
 import { db } from "./firebaseConfig";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, addDoc, Timestamp } from "firebase/firestore";
 import { useState, useEffect } from "react";
+import { EventSlider } from "./components/EventSlider/EventSlider";
+
+
+const handleAddEvent = async () => {
+    try {
+      console.log("Adding second event...");
+      await addDoc(collection(db, "Events"), {
+        Contact_info: "054-9876-321",
+        Event_added_time: Timestamp.fromDate(new Date("2025-06-15T15:00:00+03:00")),
+        description: "Second test event.",
+        image: "",
+        location: "Google Meet",
+        scheduled_time: Timestamp.fromDate(new Date("2025-06-29T20:00:00+03:00")),
+        status: "scheduled"
+      });
+      alert("Event added successfully!");
+    } catch (error) {
+      console.error("Error adding event:", error);
+    }
+};
 
 export default function TestEventPage() {
     const [events, setEvents] = useState([]);
@@ -36,12 +55,12 @@ export default function TestEventPage() {
 
     return (
         <div className="p-4">
-            <h1 className="text-2xl font-bold mb-4 text-center">אירועים קרובים</h1>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {events.map(event => (
-                    <EventCard key={event.id} event={event} />
-                ))}
+            <h1 className="text-2xl font-bold mb-4">אירועים</h1>
+            <EventSlider events={events} />
+            <div>
+                <button onClick={handleAddEvent}>Add Second Event</button>
             </div>
         </div>
+
     );
 }
