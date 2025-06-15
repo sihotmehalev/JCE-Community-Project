@@ -373,12 +373,21 @@ export default function AdminDashboard() {
 
   const handleAIVolunteerSelection = async (volunteerId) => {
     if (selectedRequestForAI) {
-      await createManualMatch(
-        selectedRequestForAI.requesterId, 
-        volunteerId, 
-        selectedRequestForAI.id
-      );
-      setSelectedRequestForAI(null);
+      if (selectedRequestForAI.status === "general_matching_ai") {
+        // For general matching AI suggestions, just select the volunteer
+        setSelectedVolunteer(volunteerId);
+        setShowAISuggestions(false); // Close the modal
+        setSelectedRequestForAI(null); // Clear the AI request
+        setAiLoadingRequesterId(null); // Clear loading state if any
+      } else {
+        // For existing non-personal requests, create a match
+        await createManualMatch(
+          selectedRequestForAI.requesterId,
+          volunteerId,
+          selectedRequestForAI.id
+        );
+        setSelectedRequestForAI(null);
+      }
     }
   };
 
