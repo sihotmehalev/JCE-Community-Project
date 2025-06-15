@@ -537,18 +537,18 @@ export default function AdminDashboard() {
       {/* Tab Navigation */}
       <div className="flex gap-2 mb-4 justify-center flex-wrap">
         <Button
-          variant={activeTab === "approvals" ? "default" : "outline"}
-          onClick={() => setActiveTab("approvals")}
-          className="py-3 px-6 text-lg"
-        >
-          אישורים ממתינים ({pendingRequests.length})
-        </Button>
-        <Button
           variant={activeTab === "volunteers" ? "default" : "outline"}
           onClick={() => setActiveTab("volunteers")}
           className="py-3 px-6 text-lg"
         >
           מתנדבים לאישור ({volunteers.filter(v => !v.approved).length})
+        </Button>
+        <Button
+          variant={activeTab === "approvals" ? "default" : "outline"}
+          onClick={() => setActiveTab("approvals")}
+          className="py-3 px-6 text-lg"
+        >
+          אישורים ממתינים ({pendingRequests.length})
         </Button>
         <Button
           variant={activeTab === "matching" ? "default" : "outline"}
