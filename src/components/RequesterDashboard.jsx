@@ -134,12 +134,14 @@ export default function RequesterDashboard() {
   const [newMsg, setNewMsg] = useState("");
   const [userData, setUserData] = useState(null);
   const [requestLoading, setRequestLoading] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState([]);
 
   /* listener refs */
   const unsubVolunteers = useRef(null);
   const unsubAdminApproval = useRef(null);
   const unsubMatch = useRef(null);
   const unsubChat = useRef(null);
+  const unsubPendingRequests = useRef(null);
 
   /* -------- bootstrap requester profile -------- */
   useEffect(() => {
@@ -262,6 +264,32 @@ export default function RequesterDashboard() {
       unsubAdminApproval.current?.();
     };
   }, [personal, loading, user]);
+
+  /* -------- listen for pending requests -------- */
+  useEffect(() => {
+    if (!user) return;
+
+    unsubPendingRequests.current = onSnapshot(
+      query(
+        collection(db, "Requests"),
+        where("requesterId", "==", user.uid),
+        where("status", "in", ["waiting_for_first_approval", "waiting_for_admin_approval"])
+      ),
+      async (snap) => {
+        const requests = await Promise.all(snap.docs.map(async (d) => {
+          const data = d.data();
+          if (data.volunteerId) {
+            const volunteer = await fetchVolunteer(data.volunteerId);
+            return { id: d.id, ...data, volunteer };
+          }
+          return { id: d.id, ...data };
+        }));
+        setPendingRequests(requests);
+      }
+    );
+
+    return () => unsubPendingRequests.current?.();
+  }, [user]);
 
   /* -------- handlers -------- */
   const flipPersonal = async () => {
@@ -407,8 +435,7 @@ export default function RequesterDashboard() {
 
       {/* Personal mode - show available volunteers */}
       {personal && (
-        <Section title="מתנדבים זמינים" empty="אין מתנדבים זמינים כרגע">
-          {sortedVolunteers.map((vol) => (
+        <Section title="מתנדבים זמינים" empty="אין מתנדבים זמינים כרגע">          {sortedVolunteers.map((vol) => (
             <VolunteerCard
               key={vol.id}
               volunteer={vol}
@@ -416,6 +443,7 @@ export default function RequesterDashboard() {
               isRecommended={vol.compatibilityScore >= 50} // Consider >50% compatibility as recommended
               compatibilityScore={vol.compatibilityScore}
               requestLoading={requestLoading}
+              pendingRequests={pendingRequests}
             />
           ))}
         </Section>
@@ -478,7 +506,7 @@ const Empty = ({ text }) => (
   </p>
 );
 
-function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore, requestLoading }) {
+function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore, requestLoading, pendingRequests }) {
   const formatList = (list) => {
     if (!list) return "—";
     if (Array.isArray(list)) {
@@ -486,6 +514,11 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
     }
     return list;
   };
+
+  // Check if there's a pending request for this volunteer
+  const pendingRequest = pendingRequests.find(req => req.volunteerId === volunteer.id);
+  const isPending = !!pendingRequest;
+  const isWaitingForAdmin = pendingRequest?.status === "waiting_for_admin_approval";
 
   return (    <div className="border border-orange-100 rounded-lg p-4 bg-orange-100">
       {isRecommended && (
@@ -524,14 +557,15 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
         <p className="text-sm mb-3 text-orange-600">
           תדירות: {formatList(volunteer.frequency)}
         </p>
-      )}
-
-      <Button 
+      )}      <Button 
         onClick={onRequest}
-        className={requestLoading ? 'opacity-50 cursor-not-allowed' : ''}
-        disabled={requestLoading}
+        className={`${(requestLoading || isPending) ? 'opacity-50 cursor-not-allowed' : ''}`}
+        disabled={requestLoading || isPending}
       >
-        {requestLoading ? 'שולח בקשה...' : 'פנה למתנדב/ת'}
+        {requestLoading ? 'שולח בקשה...' : 
+         isWaitingForAdmin ? 'ממתין לאישור מנהל' :
+         isPending ? 'ממתין לאישור מתנדב/ת' :
+         'פנה למתנדב/ת'}
       </Button>
     </div>
   );

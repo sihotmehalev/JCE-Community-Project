@@ -1,5 +1,6 @@
 // VolunteerDashboard.jsx
 import React, { useEffect, useRef, useState } from "react";
+import { User, Calendar, Clock, MessageCircle } from "lucide-react";
 import { auth, db } from "../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -172,16 +173,22 @@ export default function VolunteerDashboard() {
           collection(db, "Requests"),
           where("volunteerId", "==", null),
           where("status",      "==", "waiting_for_first_approval")
-        ),
-        async (snap) => {
+        ),        async (snap) => {
+          console.log("Pool snapshot docs:", snap.docs.map(d => ({ id: d.id, ...d.data() })));
           const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
+            console.log("Processing request:", { id: d.id, ...rqData });
             const rqUser = await fetchRequester(rqData.requesterId);
+            console.log("Fetched requester:", rqUser);
             if (rqUser && rqUser.personal === false) {
               arr.push({ id: d.id, ...rqData, requester: rqUser });
+              console.log("Added to pool:", { id: d.id, ...rqData, requester: rqUser });
+            } else {
+              console.log("Skipped request because:", !rqUser ? "no requester found" : "requester.personal is true");
             }
           }
+          console.log("Final pool array:", arr);
           setPool(arr);
         }
       );
@@ -190,9 +197,6 @@ export default function VolunteerDashboard() {
       unsubPool.current?.();   unsubPool.current   = null; setPool([]);
       unsubAdminApproval.current?.(); unsubAdminApproval.current = null; setAdminApprovalRequests([]); // Clear on personal mode off
     }
-
-    console.log("Pool requests updated:", pool);
-
 
     return () => {
       unsubMatch.current?.();
@@ -273,17 +277,11 @@ export default function VolunteerDashboard() {
 
   return (
     <div className="p-6">
-      {/* header + toggle */}      <div className="flex items-center gap-3 mb-6">
+      {/* header + toggle */}
+      <div className="flex items-center gap-3 mb-6">
         <h1 className="text-2xl font-bold text-orange-800">
           שלום {userData?.fullName?.split(' ')[0] || ''} 👋
         </h1>
-        <Button
-          variant="outline"
-          className="mr-2"
-          onClick={() => window.location.href = '/profile'}
-        >
-          הפרופיל שלי
-        </Button>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
           <span className="text-sm text-orange-700">בחירה עצמית</span>
@@ -390,17 +388,86 @@ const Empty = ({ text }) => (
 
 function RequestCard({ req, variant, onAction }) {
   const { requester } = req;
-  return (
-    <div className="border border-orange-100 bg-orange-100 rounded-lg p-4">
-      <p className="font-semibold text-orange-800 text-lg mb-1">
-        {requester?.fullName || "פונה ללא שם"}
-      </p>
-      <p className="text-orange-700 text-sm mb-2">
-        גיל: {requester?.age ?? "—"} · מגדר: {requester?.gender ?? "—"}
-      </p>
-      <p className="text-orange-700 mb-3 truncate">
-        סיבה: {requester?.reason ?? "—"}
-      </p>
+
+  // Helper to format array or string values
+  const formatList = (value) => {
+    if (!value) return "—";
+    if (Array.isArray(value)) {
+      return value.filter(v => v !== "אחר").join(", "); // Filter out "אחר"
+    }
+    return value;
+  };
+
+    return (
+    <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+      {/* Header Section */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
+            <User className="w-6 h-6 text-orange-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-orange-900 text-xl mb-1">
+              {requester?.fullName || "פונה ללא שם"}
+            </h3>
+            <div className="flex items-center gap-4 text-sm text-orange-700">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                גיל: {requester?.age ?? "—"}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                מגדר: {requester?.gender ?? "—"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Reason Section */}
+      <div className="mb-4">
+        <div className="bg-white/60 rounded-lg p-3 border border-orange-100">
+          <h4 className="font-semibold text-orange-800 text-sm mb-1">סיבת הפנייה</h4>
+          <p className="text-orange-700 leading-relaxed">
+            {requester?.reason ?? "—"}
+          </p>
+        </div>
+      </div>
+
+      {/* Scheduling Info Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-white/60 rounded-lg p-3 border border-orange-100">
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar className="w-4 h-4 text-orange-600" />
+            <h4 className="font-semibold text-orange-800 text-sm">תדירות</h4>
+          </div>
+          <p className="text-orange-700 text-sm">
+            {formatList(requester?.frequency)}
+          </p>
+        </div>
+
+        <div className="bg-white/60 rounded-lg p-3 border border-orange-100">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="w-4 h-4 text-orange-600" />
+            <h4 className="font-semibold text-orange-800 text-sm">זמנים מועדפים</h4>
+          </div>
+          <p className="text-orange-700 text-sm">
+            {formatList(requester?.preferredTimes)}
+          </p>
+        </div>
+
+        {requester?.chatPref && (
+          <div className="bg-white/60 rounded-lg p-3 border border-orange-100 md:col-span-2">
+            <div className="flex items-center gap-2 mb-2">
+              <MessageCircle className="w-4 h-4 text-orange-600" />
+              <h4 className="font-semibold text-orange-800 text-sm">העדפת שיחה</h4>
+            </div>
+            <p className="text-orange-700 text-sm">
+              {formatList(requester?.chatPref)}
+            </p>
+          </div>
+        )}
+      </div>
 
       {variant === "direct" ? (
         <div className="flex gap-2">
