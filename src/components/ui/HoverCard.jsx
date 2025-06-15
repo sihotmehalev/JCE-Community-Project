@@ -29,7 +29,8 @@ export function HoverCard({ user, children }) {
           )}*/}
           {/* Add more fields as needed */}
           {user.age && <div><span className="font-semibold">גיל:</span> {user.age}</div>}
-
+          {user.gender && <div><span className="font-semibold">מין:</span> {user.gender}</div>}
+          {user.location && <div><span className="font-semibold">מיקום:</span> {user.location}</div>}
         </div>
       )}
     </span>
