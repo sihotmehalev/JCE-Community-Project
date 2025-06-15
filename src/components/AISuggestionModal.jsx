@@ -43,7 +43,7 @@ export default function AISuggestionsModal({
 
       // Fix: Call directly, not through aiService object
       const aiResponse = await getAIMatchingSuggestionsWithRetry(prompt);
-
+      console.log("Raw AI Response:", aiResponse);
       setSuggestions(aiResponse);
 
       const parsed = parseAIResponse(aiResponse, availableVolunteers);

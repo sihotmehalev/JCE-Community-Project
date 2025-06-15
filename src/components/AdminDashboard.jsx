@@ -662,7 +662,7 @@ export default function AdminDashboard() {
                         reason: requesterData.reason || "בקשת תמיכה כללית",
                         gender: requesterData.gender || "לא ידוע"
                       },
-                      messageRequest: `AI suggestion for general matching for ${requesterData.fullName} (age: ${requesterData.age || 'לא ידוע'}, reason: ${requesterData.reason || 'בקשת תמיכה כללית'}). זוהי בקשה כללית להתאמה למתנדב תמיכה, ללא סיבה ספציפית מפורטת מהפונה.`,
+                      messageRequest: `הצעת AI להתאמה כללית עבור ${requesterData.fullName} (גיל: ${requesterData.age || 'לא ידוע'}, סיבה: ${requesterData.reason || 'בקשת תמיכה כללית'}). זוהי בקשה כללית להתאמה למתנדב תמיכה, ללא סיבה ספציפית מפורטת מהפונה.`,
                       status: "general_matching_ai"
                     });
                     setShowAISuggestions(true);
