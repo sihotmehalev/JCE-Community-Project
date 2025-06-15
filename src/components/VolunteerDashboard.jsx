@@ -170,7 +170,7 @@ export default function VolunteerDashboard() {
       unsubPool.current = onSnapshot(
         query(
           collection(db, "Requests"),
-          where("volunteerId", "in", [null, ""]),
+          where("volunteerId", "==", null),
           where("status",      "==", "waiting_for_first_approval")
         ),
         async (snap) => {
@@ -190,6 +190,9 @@ export default function VolunteerDashboard() {
       unsubPool.current?.();   unsubPool.current   = null; setPool([]);
       unsubAdminApproval.current?.(); unsubAdminApproval.current = null; setAdminApprovalRequests([]); // Clear on personal mode off
     }
+
+    console.log("Pool requests updated:", pool);
+
 
     return () => {
       unsubMatch.current?.();
@@ -270,11 +273,17 @@ export default function VolunteerDashboard() {
 
   return (
     <div className="p-6">
-      {/* header + toggle */}
-      <div className="flex items-center gap-3 mb-6">
+      {/* header + toggle */}      <div className="flex items-center gap-3 mb-6">
         <h1 className="text-2xl font-bold text-orange-800">
           שלום {userData?.fullName?.split(' ')[0] || ''} 👋
         </h1>
+        <Button
+          variant="outline"
+          className="mr-2"
+          onClick={() => window.location.href = '/profile'}
+        >
+          הפרופיל שלי
+        </Button>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
           <span className="text-sm text-orange-700">בחירה עצמית</span>

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { auth, db } from "../firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc, getDoc, increment, writeBatch } from "firebase/firestore";
+import { doc, setDoc, getDoc, increment, writeBatch, collection, serverTimestamp } from "firebase/firestore";
 import RegisterLayout from "./RegisterLayout";
 
 export default function RegisterRequesterPage() {
@@ -166,11 +166,19 @@ export default function RegisterRequesterPage() {
         personal: true,
         activeMatchId: null,
         createdAt: new Date(),
-      };
-
-      // Add user data to Users/Info/Requesters collection
+      };      // Add user data to Users/Info/Requesters collection
       const userDocRef = doc(db, "Users", "Info", "Requesters", uid);
       batch.set(userDocRef, finalData);
+
+      // Create initial request document
+      const requestRef = doc(collection(db, "Requests"));
+      batch.set(requestRef, {
+        requesterId: uid,
+        volunteerId: null,
+        matchId: null,
+        status: "waiting_for_first_approval",
+        createdAt: serverTimestamp(),
+      });
 
       // Increment the Requesters counter in Users/Info
       const counterRef = doc(db, "Users", "Info");
