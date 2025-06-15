@@ -621,27 +621,12 @@ export default function AdminDashboard() {
             <h3 className="font-semibold mb-4 text-orange-700">
               בקשות ממתינות לאישור מנהל
             </h3>
-            <div className="mb-4">
-              <input
-                type="text"
-                placeholder="חיפוש בקשה לפי שם פונה/מתנדב או תוכן בקשה..."
-                value={pendingRequestSearch}
-                onChange={e => setPendingRequestSearch(e.target.value)}
-                className="border rounded px-3 py-2 w-full"
-              />
-            </div>
+            
             {pendingRequests.length === 0 ? (
               <p className="text-orange-600/80">אין בקשות ממתינות.</p>
             ) : (
               <div className="space-y-4">
                 {pendingRequests
-                  .filter(request =>
-                    request.requesterInfo?.fullName?.toLowerCase().includes(pendingRequestSearch.toLowerCase()) ||
-                    request.requesterInfo?.email?.toLowerCase().includes(pendingRequestSearch.toLowerCase()) ||
-                    request.volunteerInfo?.fullName?.toLowerCase().includes(pendingRequestSearch.toLowerCase()) ||
-                    request.volunteerInfo?.email?.toLowerCase().includes(pendingRequestSearch.toLowerCase()) ||
-                    request.messageRequest?.toLowerCase().includes(pendingRequestSearch.toLowerCase())
-                  )
                   .map(request => (
                   <div key={request.id} className="border rounded p-4 bg-orange-50/50">
                     <div className="grid grid-cols-2 gap-4 mb-3">
@@ -659,7 +644,6 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <div className="border-t pt-3">
-                      <p className="mb-3"><strong>תוכן הבקשה:</strong> {request.messageRequest}</p>
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
@@ -911,7 +895,6 @@ export default function AdminDashboard() {
                     <tr className="bg-orange-50">
                       <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('requesterInfo.fullName')}>פונה{matchSortColumn === 'requesterInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                       <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב{matchSortColumn === 'volunteerInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                      <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('messageRequest')}>תוכן הבקשה{matchSortColumn === 'messageRequest' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                       <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('startDate')}>תאריך התחלה{matchSortColumn === 'startDate' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                       <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('meetingFrequency')}>תדירות פגישות{matchSortColumn === 'meetingFrequency' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     </tr>
@@ -943,7 +926,7 @@ export default function AdminDashboard() {
                         } else if (matchSortColumn === 'startDate') {
                           aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
                           bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
-                        } else if (matchSortColumn === 'messageRequest' || matchSortColumn === 'meetingFrequency') {
+                        } else if (matchSortColumn === 'meetingFrequency') {
                           aValue = a[matchSortColumn] || '';
                           bValue = b[matchSortColumn] || '';
                         } else {
@@ -968,9 +951,6 @@ export default function AdminDashboard() {
                           </td>
                           <td className="border border-orange-100 p-2 text-orange-700">
                             {match.volunteerInfo?.fullName || 'N/A'}
-                          </td>
-                          <td className="border border-orange-100 p-2 text-orange-700">
-                            {match.messageRequest || 'N/A'}
                           </td>
                           <td className="border border-orange-100 p-2 text-orange-700">
                             {match.startDate ? new Date(match.startDate.seconds * 1000).toLocaleDateString() : 'N/A'}
@@ -1019,7 +999,7 @@ export default function AdminDashboard() {
                     } else if (matchSortColumn === 'startDate') {
                       aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
                       bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
-                    } else if (matchSortColumn === 'messageRequest' || matchSortColumn === 'meetingFrequency') {
+                    } else if (matchSortColumn === 'meetingFrequency') {
                       aValue = a[matchSortColumn] || '';
                       bValue = b[matchSortColumn] || '';
                     } else {
@@ -1061,7 +1041,7 @@ export default function AdminDashboard() {
                     } else if (matchSortColumn === 'startDate') {
                       aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
                       bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
-                    } else if (matchSortColumn === 'messageRequest' || matchSortColumn === 'meetingFrequency') {
+                    } else if (matchSortColumn === 'meetingFrequency') {
                       aValue = a[matchSortColumn] || '';
                       bValue = b[matchSortColumn] || '';
                     } else {
@@ -1101,7 +1081,7 @@ export default function AdminDashboard() {
                     } else if (matchSortColumn === 'startDate') {
                       aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
                       bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
-                    } else if (matchSortColumn === 'messageRequest' || matchSortColumn === 'meetingFrequency') {
+                    } else if (matchSortColumn === 'meetingFrequency') {
                       aValue = a[matchSortColumn] || '';
                       bValue = b[matchSortColumn] || '';
                     } else {
