@@ -8,6 +8,7 @@ import {
   updateDoc,
   addDoc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   where,
@@ -59,10 +60,19 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
       ? volunteer.availableHours 
       : [volunteer.availableHours];
     
-    const commonTimes = requesterTimes.filter(rt => volunteerHours.includes(rt));
-    score += Math.min(commonTimes.length, 3); // Max 3 points for time compatibility
+    const matchingTimes = requesterTimes.filter(rt => 
+      volunteerHours.some(vh => vh.includes(rt) || rt.includes(vh))
+    );
+    score += Math.min(matchingTimes.length, 3); // Max 3 points for time compatibility
   }
 
+  console.log("Compatibility score calculation:", {
+    requesterProfile,
+    volunteer,
+    score,
+    maxScore,
+    compatibility: maxScore > 0 ? (score / maxScore) * 100 : 0
+  });
   return maxScore > 0 ? (score / maxScore) * 100 : 0; // Return percentage
 };
 
@@ -103,6 +113,7 @@ export default function RequesterDashboard() {
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState("");
   const [userData, setUserData] = useState(null);
+  const [requestLoading, setRequestLoading] = useState(false);
 
   /* listener refs */
   const unsubVolunteers = useRef(null);
@@ -245,13 +256,63 @@ export default function RequesterDashboard() {
   };
 
   const requestVolunteer = async (volunteerId) => {
-    await addDoc(collection(db, "Requests"), {
-      requesterId: user.uid,
-      volunteerId: volunteerId,
-      status: "waiting_for_first_approval",
-      senderRole: "requester",
-      createdAt: serverTimestamp(),
-    });
+    try {
+      setRequestLoading(true);
+      
+      // First verify the volunteer is still available
+      const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", volunteerId));
+      if (!volunteerDoc.exists()) {
+        alert("המתנדב/ת לא נמצא/ה במערכת");
+        return;
+      }
+      
+      const volunteerData = volunteerDoc.data();
+      if (!volunteerData.isAvailable || !volunteerData.approved) {
+        alert("המתנדב/ת אינו/ה זמין/ה כעת");
+        return;
+      }
+
+      // Find the requester's existing request document
+      const requestsRef = collection(db, "Requests");
+      const q = query(
+        requestsRef,
+        where("requesterId", "==", user.uid),
+        where("status", "==", "waiting_for_first_approval")
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const requestDoc = snapshot.docs[0];
+        // Update the existing request with the selected volunteer
+        await updateDoc(doc(db, "Requests", requestDoc.id), {
+          volunteerId: volunteerId,
+          status: "waiting_for_admin_approval",
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        // Create a new request document if none exists
+        await addDoc(collection(db, "Requests"), {
+          requesterId: user.uid,
+          volunteerId: volunteerId,
+          senderRole: "requester",
+          status: "waiting_for_admin_approval",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+      
+      // Clear selected volunteer from UI
+      const updatedVolunteers = availableVolunteers.filter(v => v.id !== volunteerId);
+      setAvailableVolunteers(updatedVolunteers);
+      
+      alert("הבקשה נשלחה בהצלחה וממתינה לאישור מנהל");
+    } catch (error) {
+      console.error("Error requesting volunteer:", error);
+      alert("אירעה שגיאה בשליחת הבקשה. אנא נסה שוב");
+    } finally {
+      setRequestLoading(false);
+    }
   };
 
   const openChat = (matchId) => {
@@ -334,6 +395,7 @@ export default function RequesterDashboard() {
               onRequest={() => requestVolunteer(vol.id)}
               isRecommended={vol.compatibilityScore > 50} // Consider >50% compatibility as recommended
               compatibilityScore={vol.compatibilityScore}
+              requestLoading={requestLoading}
             />
           ))}
         </Section>
@@ -396,7 +458,7 @@ const Empty = ({ text }) => (
   </p>
 );
 
-function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore }) {
+function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore, requestLoading }) {
   const formatList = (list) => {
     if (!list) return "—";
     if (Array.isArray(list)) {
@@ -464,9 +526,10 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
 
       <Button 
         onClick={onRequest}
-        className={isRecommended ? 'bg-green-600 hover:bg-green-700' : ''}
+        className={`${isRecommended ? 'bg-green-600 hover:bg-green-700' : ''} ${requestLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+        disabled={requestLoading}
       >
-        פנה למתנדב/ת
+        {requestLoading ? 'שולח בקשה...' : 'פנה למתנדב/ת'}
       </Button>
     </div>
   );
