@@ -545,8 +545,23 @@ function RequestCard({ req, variant, onAction }) {
 function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMatchId }) {
   const { requester } = match;
   const isChatOpen = activeMatchId === match.id;
-  const [sessions, setSessions] = useState([]);    useEffect(() => {
-    console.log(`[SessionsDebug] Setting up sessions listener for match ID: ${match.id}`);
+  const [sessions, setSessions] = useState([]);
+  const [sessionToComplete, setSessionToComplete] = useState(null);
+
+  // Helper function to format session times in Hebrew
+  const formatSessionTime = (date) => {
+    if (!date) return "—";
+    return new Date(date).toLocaleString('he-IL', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  useEffect(() => {
     const sessionsRef = collection(db, "Sessions");
     return onSnapshot(
       query(
@@ -555,67 +570,29 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
         orderBy("scheduledTime", "asc")
       ),
       (snapshot) => {
-        console.log(`[SessionsDebug] Got ${snapshot.docs.length} sessions for match ${match.id}`);
-        const sessionData = snapshot.docs.map(doc => {
-          const data = doc.data();
-          console.log(`[SessionsDebug] Session ${doc.id} raw data:`, {
-            ...data,
-            scheduledTime: data.scheduledTime?.toDate()?.toISOString()
-          });
-          return {
-            id: doc.id,
-            ...data,
-            scheduledTime: data.scheduledTime?.toDate() // Convert Firestore Timestamp to Date
-          };
-        });
-        console.log(`[SessionsDebug] Processed sessions for match ${match.id}:`, 
-          sessionData.map(s => ({
-            id: s.id,
-            scheduledTime: s.scheduledTime?.toISOString(),
-            location: s.location,
-            status: s.status
-          }))
-        );
+        const sessionData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          scheduledTime: doc.data().scheduledTime?.toDate()
+        }));
         setSessions(sessionData);
-      },
-      (error) => {
-        console.error(`[SessionsDebug] Error in sessions listener for match ${match.id}:`, error);
       }
     );
   }, [match.id]);
-  // Separate upcoming and completed sessions
-  const { upcomingSessions, completedSessions } = sessions.reduce((acc, session) => {
-    const now = new Date();
-    console.log(`[SessionsDebug] Categorizing session ${session.id}:`, {
-      scheduledTime: session.scheduledTime?.toISOString(),
-      isUpcoming: session.scheduledTime > now,
-      now: now.toISOString()
-    });
-    
-    if (session.scheduledTime > now) {
+
+  // Split sessions into categories: upcoming, past (needing completion), and completed
+  const now = new Date();
+  const { upcomingSessions, pastSessions, completedSessions } = sessions.reduce((acc, session) => {
+    if (session.status === 'completed') {
+      acc.completedSessions.push(session);
+    } else if (session.scheduledTime > now) {
       acc.upcomingSessions.push(session);
     } else {
-      acc.completedSessions.push(session);
+      acc.pastSessions.push(session);
     }
     return acc;
-  }, { upcomingSessions: [], completedSessions: [] });
+  }, { upcomingSessions: [], pastSessions: [], completedSessions: [] });
 
-  console.log(`[SessionsDebug] Final categorization for match ${match.id}:`, {
-    totalSessions: sessions.length,
-    upcomingSessions: upcomingSessions.length,
-    completedSessions: completedSessions.length
-  });
-
-  const formatSessionTime = (date) => {
-    return new Date(date).toLocaleString('he-IL', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric'
-    });
-  };
   return (
     <div className="border border-orange-100 bg-white rounded-lg p-4">
       <div className="flex justify-between items-start mb-3">
@@ -629,30 +606,8 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
         </div>
       </div>
 
-      {/* Upcoming Sessions */}
-      {upcomingSessions.length > 0 && (
-        <div className="mb-4">
-          <h4 className="text-sm font-semibold text-orange-700 mb-2">מפגשים מתוכננים:</h4>
-          <div className="space-y-2">
-            {upcomingSessions.map(session => (
-              <div key={session.id} className="bg-orange-50 p-2 rounded-md text-sm">
-                <div className="font-medium">{formatSessionTime(session.scheduledTime)}</div>
-                <div className="text-orange-600">
-                  {session.location === 'video' ? '🎥 שיחת וידאו' :
-                   session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
-                  {' • '}{session.durationMinutes} דקות
-                </div>
-                {session.notes && (
-                  <div className="text-orange-500 mt-1">
-                    {session.notes}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-        <div className="flex gap-2 flex-wrap">
+      {/* Chat and Schedule Buttons */}
+      <div className="flex gap-2 flex-wrap">
         <Button onClick={isChatOpen ? onCloseChat : onOpenChat}>
           {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
         </Button>
@@ -674,14 +629,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
             {upcomingSessions.map(session => (
               <div key={session.id} className="bg-orange-50 p-3 rounded-md text-sm border border-orange-100">
                 <div className="font-medium text-orange-800">
-                  {new Date(session.scheduledTime).toLocaleString('he-IL', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+                  {formatSessionTime(session.scheduledTime)}
                 </div>
                 <div className="text-orange-600 mt-1">
                   {session.location === 'video' ? '🎥 שיחת וידאו' :
@@ -699,34 +647,80 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
         </div>
       )}
 
+      {/* Past Sessions Needing Completion */}
+      {pastSessions.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-orange-100">
+          <h4 className="text-sm font-semibold text-orange-700 mb-2">
+            מפגשים שהסתיימו:
+          </h4>
+          <div className="space-y-2">
+            {pastSessions.map(session => (
+              <div key={session.id} className="bg-yellow-50 p-3 rounded-md text-sm border border-yellow-200">
+                <div className="font-medium text-orange-800">
+                  {formatSessionTime(session.scheduledTime)}
+                </div>
+                <div className="text-orange-600">
+                  {session.location === 'video' ? '🎥 שיחת וידאו' :
+                   session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
+                  {' • '}{session.durationMinutes} דקות
+                </div>
+                {session.notes && (
+                  <div className="text-orange-500 mt-1">
+                    {session.notes}
+                  </div>
+                )}
+                <div className="mt-3 flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSessionToComplete(session)}
+                    className="text-sm bg-white hover:bg-orange-50"
+                  >
+                    סמן כהושלם
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Completed Sessions */}
       {completedSessions.length > 0 && (
         <div className="mt-4 pt-4 border-t border-orange-100">
           <h4 className="text-sm font-semibold text-orange-700 mb-2">
-            מפגשים אחרונים שהתקיימו:
+            מפגשים שהושלמו:
           </h4>
           <div className="space-y-2">
             {completedSessions.slice(-3).map(session => (
               <div key={session.id} className="bg-gray-50 p-3 rounded-md text-sm border border-gray-100">
                 <div className="font-medium text-gray-800">
-                  {new Date(session.scheduledTime).toLocaleString('he-IL', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+                  {formatSessionTime(session.scheduledTime)}
                 </div>
                 <div className="text-gray-600">
                   {session.location === 'video' ? '🎥 שיחת וידאו' :
                    session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
                   {' • '}{session.durationMinutes} דקות
                 </div>
+                {session.sessionSummary && (
+                  <div className="mt-2 text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
+                    <span className="font-medium">סיכום: </span>
+                    {session.sessionSummary}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
+      )}
+
+      {/* Completion Modal */}
+      {sessionToComplete && (
+        <SessionCompletionModal
+          session={sessionToComplete}
+          onClose={() => setSessionToComplete(null)}
+          onSubmit={() => setSessionToComplete(null)}
+        />
       )}
     </div>
   );
@@ -927,6 +921,103 @@ function SessionScheduler({ match, onClose, handleScheduleSession }) {
           </Button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function SessionCompletionModal({ session, onClose, onSubmit }) {
+  const [summary, setSummary] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Fix: Use "Sessions" (capital S) to match your collection name
+      await updateDoc(doc(db, "Sessions", session.id), {
+        status: "completed",
+        sessionSummary: summary,
+        completedAt: serverTimestamp()
+      });
+      
+      console.log("Session marked as completed:", session.id);
+      onSubmit?.();
+      onClose();
+    } catch (error) {
+      console.error("Error completing session:", error);
+      setError("אירעה שגיאה בעדכון המפגש. נא לנסות שוב.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white p-4 rounded-lg border border-orange-200 max-w-md w-full">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-orange-800">סיום מפגש</h3>
+          <button 
+            onClick={onClose}
+            className="text-orange-400 hover:text-orange-600"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="mb-4 p-3 bg-orange-50 rounded-lg">
+          <p className="text-sm text-orange-700">
+            <strong>מפגש:</strong> {new Date(session.scheduledTime).toLocaleString('he-IL', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </p>
+          <p className="text-sm text-orange-700">
+            <strong>משך:</strong> {session.durationMinutes} דקות
+          </p>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 text-red-600 p-2 rounded-md mb-4">
+            {error}
+          </div>
+        )}
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-orange-700 mb-1">
+              <MessageCircle className="inline-block w-4 h-4 ml-1" />
+              סיכום המפגש (לא חובה)
+            </label>
+            <textarea
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              rows={4}
+              className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
+              placeholder="תאר בקצרה את מה שנעשה במפגש..."
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
+            >
+              {isSubmitting ? 'מעדכן...' : 'סמן כהושלם'}
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+              ביטול
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
