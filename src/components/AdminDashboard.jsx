@@ -5,6 +5,7 @@ import { collection, getDocs, updateDoc, doc, setDoc, writeBatch } from "firebas
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { HoverCard } from "./ui/HoverCard"; //popup card for user info
+import { AdminEventManager } from './EventAdminManger/AdminEventManager';
 
 export default function AdminDashboard() {
   const [selectedRequester, setSelectedRequester] = useState(null);
@@ -118,7 +119,8 @@ export default function AdminDashboard() {
     <div className="p-6 space-y-6">
       <h2 className="text-2xl font-bold text-orange-800">לוח ניהול</h2>
 
-      {/* מתנדבים לא מאושרים */}
+        <AdminEventManager />
+
       <Card>
         <CardContent>
           <h3 className="font-semibold mb-2 text-orange-700">מתנדבים ממתינים לאישור</h3>
@@ -137,8 +139,7 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* שיוך פונה למתנדב */}
-<Card> {/* Matching Card */}
+<Card> 
   <CardContent>
     <h3 className="font-semibold mb-2 text-orange-700">
       שיוך פונים למתנדבים

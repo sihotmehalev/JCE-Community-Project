@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 
-const DEFAULT_IMAGE = '/images/event-photo.jpg';
+const DEFAULT_IMAGE = '/images/event_default_photo.jpg';
 
 export const EventCard = ({ event }) => {
     // Ensure event is defined and has necessary properties
