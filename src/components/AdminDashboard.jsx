@@ -83,10 +83,10 @@ export default function AdminDashboard() {
 
   // Function to determine panel widths dynamically
   const getPanelWidths = () => {
-    let requesterInfoWidth = "w-[25%]"; // Default
-    let requesterListWidth = "w-[25%]"; // Default
-    let volunteerListWidth = "w-[25%]"; // Default
-    let volunteerInfoWidth = "w-[25%]"; // Default
+    let requesterInfoWidth = "w-[40%]"; // Default
+    let requesterListWidth = "w-[20%]"; // Default
+    let volunteerListWidth = "w-[20%]"; // Default
+    let volunteerInfoWidth = "w-[20%]"; // Default
 
     if (selectedRequester && selectedVolunteer) {
       // Both requester and volunteer selected (volunteer takes precedence for info display)
