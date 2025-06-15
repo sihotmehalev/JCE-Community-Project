@@ -43,9 +43,10 @@ export default function AISuggestionsModal({
 
       // Fix: Call directly, not through aiService object
       const aiResponse = await getAIMatchingSuggestionsWithRetry(prompt);
-      console.log("Raw AI Response:", aiResponse);
+      // console.log("Raw AI Response:", aiResponse);
       setSuggestions(aiResponse);
 
+      // console.log("Available Volunteers for parsing:", availableVolunteers);
       const parsed = parseAIResponse(aiResponse, availableVolunteers);
       setParsedSuggestions(parsed);
 
@@ -92,31 +93,35 @@ export default function AISuggestionsModal({
     const lines = response.split('\n');
 
     let currentSuggestion = null;
-    let collectingReasoning = false;
 
     lines.forEach(line => {
-      const matchRegex = /(?:ההתאמה הטובה ביותר|בחירה שנייה|בחירה שלישית)?:?\s*מתנדב #(\d+)/i;
-      const match = line.match(matchRegex);
+      const suggestionHeaderMatch = line.match(/(?:.*)(ההתאמה הטובה ביותר|בחירה שנייה|בחירה שלישית):?\s*מתנדב #(\d+)/i);
+      const reasoningHeaderMatch = line.match(/נימוק:(.*)/i);
 
-      if (match) {
+      if (suggestionHeaderMatch) {
         if (currentSuggestion) {
           suggestions.push(currentSuggestion);
         }
 
-        const volunteerIndex = parseInt(match[1]) - 1;
+        const volunteerNumberString = suggestionHeaderMatch[2]; // This will be the captured number
+        let volunteerIndex = -1;
+
+        if (volunteerNumberString) {
+          volunteerIndex = parseInt(volunteerNumberString) - 1;
+        }
+
         if (volunteerIndex >= 0 && volunteerIndex < volunteers.length) {
           currentSuggestion = {
             volunteer: volunteers[volunteerIndex],
             reasoning: ''
           };
-          collectingReasoning = true;
+        } else {
+          currentSuggestion = null; // Discard if volunteer not found or number invalid
         }
-      } else if (collectingReasoning && line.includes('נימוק:')) {
-        currentSuggestion.reasoning = line.replace('נימוק:', '').trim();
-      } else if (collectingReasoning && currentSuggestion && line.trim()) {
-        if (!line.match(/^(ההתאמה הטובה ביותר|בחירה שנייה|בחירה שלישית)/i)) {
-          currentSuggestion.reasoning += ' ' + line.trim();
-        }
+      } else if (reasoningHeaderMatch && currentSuggestion) {
+        currentSuggestion.reasoning = reasoningHeaderMatch[1].trim();
+      } else if (currentSuggestion && line.trim() && !line.match(/^(לאחר בדיקת הפרופילים|כל ההתאמות שלי|המלצות AI:|בחירה שלישית:)/i)) {
+        currentSuggestion.reasoning += ' ' + line.trim();
       }
     });
 
@@ -124,7 +129,9 @@ export default function AISuggestionsModal({
       suggestions.push(currentSuggestion);
     }
 
-    return suggestions.slice(0, 3);
+    const validSuggestions = suggestions.filter(s => s !== null);
+
+    return validSuggestions.slice(0, 3);
   };
 
   const retryFetch = () => {
@@ -172,6 +179,7 @@ export default function AISuggestionsModal({
         {!loading && !error && parsedSuggestions.length > 0 && (
           <div className="space-y-4">
             {/* Request Summary */}
+            {request && (
             <div className="bg-orange-50 p-4 rounded border border-orange-200">
               <h3 className="font-semibold mb-2 text-orange-800">סיכום הבקשה:</h3>
               <div className="grid grid-cols-2 gap-2 text-sm">
@@ -181,7 +189,7 @@ export default function AISuggestionsModal({
                 <p className="col-span-2"><strong>תיאור:</strong> {request.messageRequest}</p>
               </div>
             </div>
-
+            )}
             <h3 className="font-semibold text-orange-700">המלצות AI:</h3>
 
             {parsedSuggestions.map((suggestion, index) => (
