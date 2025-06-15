@@ -1,5 +1,5 @@
 // AdminDashboard.jsx - Full Implementation
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { db } from "../firebaseConfig";
 import { 
   collection, 
@@ -106,6 +106,9 @@ export default function AdminDashboard() {
   // New states for hover info panels
   const [hoveredRequester, setHoveredRequester] = useState(null);
   const [hoveredVolunteer, setHoveredVolunteer] = useState(null);
+  // Refs for managing hover timeouts
+  const requesterHoverTimeoutRef = useRef(null);
+  const volunteerHoverTimeoutRef = useRef(null);
 
   // useEffect for resetting currentPage (moved here to ensure unconditional call)
   useEffect(() => {
@@ -116,38 +119,6 @@ export default function AdminDashboard() {
   useEffect(() => {
     setActiveMatchCurrentPage(1);
   }, [activeMatchSearch, matchSortColumn, matchSortOrder]);
-
-  // Function to determine panel widths dynamically
-  const getPanelWidths = () => {
-    let requesterInfoWidth = "w-[40%]"; // Default
-    let requesterListWidth = "w-[20%]"; // Default
-    let volunteerListWidth = "w-[20%]"; // Default
-    let volunteerInfoWidth = "w-[20%]"; // Default
-
-    if (selectedRequester && selectedVolunteer) {
-      // Both requester and volunteer selected (volunteer takes precedence for info display)
-      requesterInfoWidth = "w-[40%]"; // Shrink requester info
-      requesterListWidth = "w-[20%]"; // Shrink requester list
-      volunteerInfoWidth = "w-[40%]"; // Expand volunteer info
-      volunteerListWidth = "w-[20%]"; // Shrink volunteer list
-    } else if (selectedRequester && !selectedVolunteer) {
-      // Only requester selected
-      requesterInfoWidth = "w-[20%]"; // Expand requester info
-      requesterListWidth = "w-[20%]"; // Shrink requester list
-      volunteerListWidth = "w-[20%]"; // Shrink volunteer list for balance
-      volunteerInfoWidth = "w-[40%]"; // Keep volunteer info same for balance
-    }
-    // If neither, all remain at default w-[25%]
-
-    return {
-      requesterInfoWidth,
-      requesterListWidth,
-      volunteerListWidth,
-      volunteerInfoWidth,
-    };
-  };
-
-  const { requesterInfoWidth, requesterListWidth, volunteerListWidth, volunteerInfoWidth } = getPanelWidths();
 
   const fetchData = async () => {
     setLoading(true);
@@ -717,7 +688,22 @@ export default function AdminDashboard() {
             </h3>
             <div className="flex flex-grow gap-8">
               {/* Requester Info Panel */}
-              <div className={`${requesterInfoWidth} border rounded p-4 bg-gray-50/50 min-h-[200px]`}>
+              <div
+                className={`w-1/4 border rounded p-4 bg-gray-50/50 h-[280px] overflow-y-scroll`}
+                onMouseEnter={() => {
+                  if (requesterHoverTimeoutRef.current) {
+                    clearTimeout(requesterHoverTimeoutRef.current);
+                    requesterHoverTimeoutRef.current = null;
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (!selectedRequester) {
+                    requesterHoverTimeoutRef.current = setTimeout(() => {
+                      setHoveredRequester(null);
+                    }, 100); // Small delay to allow moving to panel
+                  }
+                }}
+              >
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי פונה</h3>
                 {(selectedRequester && requesters.find(r => r.id === selectedRequester)) ? (
                   <div className="space-y-2 text-base">
@@ -738,12 +724,12 @@ export default function AdminDashboard() {
                     <p><strong>התאמות פעילות:</strong> {hoveredRequester.activeMatchIds?.length || 0}</p>
                   </div>
                 ) : (
-                  <p className="text-gray-500">רחף על פונה כדי לראות פרטים.</p>
+                  <p className="text-gray-500">רחף על פונה או בחר אותו כדי לראות פרטים.</p>
                 )}
               </div>
 
               {/* Requesters List */}
-              <div className={`${requesterListWidth} border rounded p-4 bg-orange-50/50`}>
+              <div className={`w-1/4 border rounded p-4 bg-orange-50/50`}>
                 <div className="flex items-center gap-2 mb-2">
                   <input
                     type="text"
@@ -754,7 +740,7 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
-                <ul className="space-y-2 max-h-[48rem] overflow-y-auto">
+                <ul className="space-y-2 h-[280px] overflow-y-scroll">
                   {requesters
                     .filter(req => !(req.activeMatchIds && req.activeMatchIds.length > 0))
                     .filter(req =>
@@ -775,8 +761,20 @@ export default function AdminDashboard() {
                             setSelectedVolunteer(null); // Deselect volunteer when a new requester is chosen
                           }
                         }}
-                        onMouseEnter={() => setHoveredRequester(req)}
-                        onMouseLeave={() => { if (selectedRequester !== req.id) setHoveredRequester(null); }}
+                        onMouseEnter={() => {
+                          if (requesterHoverTimeoutRef.current) {
+                            clearTimeout(requesterHoverTimeoutRef.current);
+                            requesterHoverTimeoutRef.current = null;
+                          }
+                          setHoveredRequester(req);
+                        }}
+                        onMouseLeave={() => {
+                          if (!selectedRequester) {
+                            requesterHoverTimeoutRef.current = setTimeout(() => {
+                              setHoveredRequester(null);
+                            }, 100); // Small delay to allow moving to panel
+                          }
+                        }}
                       >
                         <span className="cursor-pointer">
                             <strong className="text-orange-800">{req.fullName}</strong>
@@ -792,7 +790,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Volunteers List */}
-              <div className={`${volunteerListWidth} border rounded p-4 bg-orange-50/50`}>
+              <div className={`w-1/4 border rounded p-4 bg-orange-50/50`}>
                 <div className="flex items-center gap-2 mb-2">
                   <input
                     type="text"
@@ -803,7 +801,7 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
-                <ul className="space-y-2 max-h-[48rem] overflow-y-auto">
+                <ul className="space-y-2 h-[280px] overflow-y-scroll">
                   {volunteers
                     .filter(v => v.approved && (v.isAvailable || v.isAvaliable) && !v.personal)
                     .filter(v =>
@@ -825,13 +823,23 @@ export default function AdminDashboard() {
                             }
                           }
                         }}
-                        onMouseEnter={() => setHoveredVolunteer(v)}
-                        onMouseLeave={() => { if (selectedVolunteer !== v.id) setHoveredVolunteer(null); }}
+                        onMouseEnter={() => {
+                          if (volunteerHoverTimeoutRef.current) {
+                            clearTimeout(volunteerHoverTimeoutRef.current);
+                            volunteerHoverTimeoutRef.current = null;
+                          }
+                          setHoveredVolunteer(v);
+                        }}
+                        onMouseLeave={() => {
+                          if (!selectedVolunteer) {
+                            volunteerHoverTimeoutRef.current = setTimeout(() => {
+                              setHoveredVolunteer(null);
+                            }, 100); // Small delay to allow moving to panel
+                          }
+                        }}
                       >
-                        <HoverCard user={v}>
-                            <strong className="text-orange-800">{v.fullName}</strong>
-                            <span className="text-orange-600 text-sm"> ({v.profession})</span>
-                          </HoverCard>
+                        <strong className="text-orange-800">{v.fullName}</strong>
+                        <span className="text-orange-600 text-sm"> ({v.profession})</span>
                       </li>
                     ))
                   }
@@ -839,7 +847,22 @@ export default function AdminDashboard() {
               </div>
 
               {/* Volunteer Info Panel */}
-              <div className={`${volunteerInfoWidth} border rounded p-4 bg-gray-50/50 min-h-[200px]`}>
+              <div
+                className={`w-1/4 border rounded p-4 bg-gray-50/50 h-[280px] overflow-y-scroll`}
+                onMouseEnter={() => {
+                  if (volunteerHoverTimeoutRef.current) {
+                    clearTimeout(volunteerHoverTimeoutRef.current);
+                    volunteerHoverTimeoutRef.current = null;
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (!selectedVolunteer) {
+                    volunteerHoverTimeoutRef.current = setTimeout(() => {
+                      setHoveredVolunteer(null);
+                    }, 100); // Small delay to allow moving to panel
+                  }
+                }}
+              >
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי מתנדב</h3>
                 {(selectedVolunteer && volunteers.find(v => v.id === selectedVolunteer)) ? (
                   <div className="space-y-2 text-base">
@@ -860,7 +883,7 @@ export default function AdminDashboard() {
                     <p><strong>התאמות פעילות:</strong> {hoveredVolunteer.activeMatchIds?.length || 0}</p>
                   </div>
                 ) : (
-                  <p className="text-gray-500">רחף על מתנדב כדי לראות פרטים.</p>
+                  <p className="text-gray-500">רחף על מתנדב או בחר אותו כדי לראות פרטים.</p>
                 )}
               </div>
             </div>
