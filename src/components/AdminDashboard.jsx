@@ -310,21 +310,40 @@ export default function AdminDashboard() {
     try {
       const batch = writeBatch(db);
       
-      // Create request if it doesn't exist
+      // Create request if it doesn't exist, or update an existing one
       let finalRequestId = requestId;
       if (!requestId) {
-        finalRequestId = generateRandomId();
-        const requestRef = doc(db, "Requests", finalRequestId);
-        batch.set(requestRef, {
-          requesterId: requesterId,
-          volunteerId: volunteerId,
-          status: "matched",
-          createdAt: new Date(),
-          messageRequest: "Manual match by admin",
-          personal: false
-        });
+        // Try to find an existing request that was declined or needs reassignment
+        const q = query(
+          collection(db, "Requests"),
+          where("requesterId", "==", requesterId),
+          where("status", "in", ["waiting_for_first_approval", "declined", "waiting_for_reassignment"])
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          // Use the existing request
+          finalRequestId = querySnapshot.docs[0].id;
+          batch.update(doc(db, "Requests", finalRequestId), {
+            status: "matched",
+            matchedAt: new Date(),
+            volunteerId: volunteerId // Ensure volunteerId is set in case it was a reassignment
+          });
+        } else {
+          // No existing suitable request, create a new one
+          finalRequestId = generateRandomId();
+          const requestRef = doc(db, "Requests", finalRequestId);
+          batch.set(requestRef, {
+            requesterId: requesterId,
+            volunteerId: volunteerId,
+            status: "matched",
+            createdAt: new Date(),
+            messageRequest: "Manual match by admin",
+            personal: false
+          });
+        }
       } else {
-        // Update existing request
+        // Update existing request (when requestId is provided, e.g., from nonPersonalRequests)
         batch.update(doc(db, "Requests", requestId), {
           volunteerId: volunteerId,
           status: "matched",
