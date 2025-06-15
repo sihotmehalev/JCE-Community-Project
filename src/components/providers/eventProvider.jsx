@@ -1,6 +1,7 @@
 import { collection, getDocs, query } from "firebase/firestore";
 import { db } from "../../firebaseConfig";
 
+// This function fetches all events from the Firestore database
 export const fetchEvents = async (userRole) => {
     try {
         const eventsRef = collection(db, "Events");

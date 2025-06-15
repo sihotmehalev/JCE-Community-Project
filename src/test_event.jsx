@@ -6,7 +6,6 @@ import { EventSlider } from "./components/EventSlider/EventSlider";
 
 const handleAddEvent = async () => {
     try {
-      console.log("Adding second event...");
       await addDoc(collection(db, "Events"), {
         Contact_info: "054-9876-333",
         Event_added_time: Timestamp.fromDate(new Date("2025-06-15T15:00:00+03:00")),
@@ -37,7 +36,6 @@ export default function TestEventPage() {
                     ...doc.data()
                 }));
                 setEvents(eventsList);
-                console.log("Fetched events:", eventsList); // For debugging
             } catch (err) {
                 console.error("Error fetching events:", err);
                 setError(err.message);
