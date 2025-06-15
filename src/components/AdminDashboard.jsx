@@ -612,7 +612,7 @@ export default function AdminDashboard() {
             </h3>
             <div className="flex flex-grow gap-8">
               {/* Requester Info Panel */}
-              <div className={`${requesterInfoWidth} border rounded p-4 bg-gray-50/50`}>
+              <div className={`${requesterInfoWidth} border rounded p-4 bg-gray-50/50 min-h-[200px]`}>
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי פונה</h3>
                 {(selectedRequester && requesters.find(r => r.id === selectedRequester)) ? (
                   <div className="space-y-2 text-base">
@@ -647,7 +647,6 @@ export default function AdminDashboard() {
                     onChange={e => setRequesterSearch(e.target.value)}
                     className="border rounded px-2 py-1 w-full"
                   />
-                  
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
                 <ul className="space-y-2 max-h-[48rem] overflow-y-auto">
@@ -697,7 +696,6 @@ export default function AdminDashboard() {
                     onChange={e => setVolunteerSearch(e.target.value)}
                     className="border rounded px-2 py-1 w-full"
                   />
-                  
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
                 <ul className="space-y-2 max-h-[48rem] overflow-y-auto">
@@ -736,7 +734,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Volunteer Info Panel */}
-              <div className={`${volunteerInfoWidth} border rounded p-4 bg-gray-50/50`}>
+              <div className={`${volunteerInfoWidth} border rounded p-4 bg-gray-50/50 min-h-[200px]`}>
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי מתנדב</h3>
                 {(selectedVolunteer && volunteers.find(v => v.id === selectedVolunteer)) ? (
                   <div className="space-y-2 text-base">
