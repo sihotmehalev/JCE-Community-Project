@@ -3,17 +3,9 @@ import { format } from 'date-fns';
 const DEFAULT_IMAGE = '/images/event-photo.jpg';
 
 export const EventCard = ({ event }) => {
+    // Ensure event is defined and has necessary properties
     if (!event) {
         return <div>Loading...</div>;
-    }
-
-    if (event.status === 'cancelled') {
-        return (
-            <div>
-                <div>Event Cancelled</div>
-                <div>{event.description || 'This event has been cancelled.'}</div>
-            </div>
-        );
     }
 
     // Safe data extraction with fallbacks
@@ -52,14 +44,19 @@ export const EventCard = ({ event }) => {
                         onError={handleImageError}
                         className="w-full h-full object-cover"
                     />
-                    {event.status && event.status !== 'over' && (
+                    {event.status && (
                         <div className={`absolute top-4 right-4 px-4 py-2 rounded-full text-lg font-semibold flex items-center gap-2
                             ${event.status === 'scheduled' 
                                 ? 'bg-green-100 text-green-800 border-2 border-green-500' 
+                                : event.status === 'cancelled'
+                                ? 'bg-red-100 text-red-800 border-2 border-red-500'
                                 : 'bg-orange-100 text-orange-800'}`}>
                             {event.status}
                             {event.status === 'scheduled' && (
                                 <span className="text-green-600">✓</span>
+                            )}
+                            {event.status === 'cancelled' && (
+                                <span className="text-red-600">✕</span>
                             )}
                         </div>
                     )}

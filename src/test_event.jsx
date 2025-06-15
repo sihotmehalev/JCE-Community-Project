@@ -8,13 +8,13 @@ const handleAddEvent = async () => {
     try {
       console.log("Adding second event...");
       await addDoc(collection(db, "Events"), {
-        Contact_info: "054-9876-321",
+        Contact_info: "054-9876-333",
         Event_added_time: Timestamp.fromDate(new Date("2025-06-15T15:00:00+03:00")),
-        description: "Second test event.",
+        description: "third test event.",
         image: "",
-        location: "Google Meet",
-        scheduled_time: Timestamp.fromDate(new Date("2025-06-29T20:00:00+03:00")),
-        status: "scheduled"
+        location: "Whatsup",
+        scheduled_time: Timestamp.fromDate(new Date("2025-08-29T20:00:00+03:00")),
+        status: "cancelled"
       });
       alert("Event added successfully!");
     } catch (error) {

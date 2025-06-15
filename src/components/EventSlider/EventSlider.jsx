@@ -8,20 +8,26 @@ export const EventSlider = ({ events }) => {
         return <div className="p-4 text-center text-orange-800">אין אירועים להצגה</div>;
     }
 
-    const goToPrevious = () => {
-        if (currentIndex > 0) {
-            setCurrentIndex(currentIndex - 1);
-        } else {
-            setCurrentIndex(events.length - 1);
-        }
+    // If only one event, show it without navigation
+    if (events.length === 1) {
+        return (
+            <div className="p-4 max-w-7xl mx-auto overflow-hidden">
+                <h2 className="text-3xl font-bold text-orange-800 mb-6 text-center">אירועים קרובים</h2>
+                <div className="flex justify-center">
+                    <div className="w-[600px]">
+                        <EventCard event={events[0]} />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    const getPreviousIndex = () => {
+        return currentIndex > 0 ? currentIndex - 1 : events.length - 1;
     };
 
-    const goToNext = () => {
-        if (currentIndex < events.length - 1) {
-            setCurrentIndex(currentIndex + 1);
-        } else {
-            setCurrentIndex(0);
-        }
+    const getNextIndex = () => {
+        return currentIndex < events.length - 1 ? currentIndex + 1 : 0;
     };
 
     return (
@@ -29,7 +35,7 @@ export const EventSlider = ({ events }) => {
             <h2 className="text-3xl font-bold text-orange-800 mb-6 text-center">אירועים קרובים</h2>
             <div className="relative">
                 <button 
-                    onClick={goToPrevious}
+                    onClick={() => setCurrentIndex(getPreviousIndex())}
                     className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 
                              bg-orange-100 text-orange-800 px-4 py-2 rounded-full
                              hover:bg-orange-200 transition-colors duration-200
@@ -39,12 +45,10 @@ export const EventSlider = ({ events }) => {
                 </button>
                 <div className="flex items-center justify-center gap-4">
                     <div 
-                        onClick={goToPrevious}
+                        onClick={() => setCurrentIndex(getPreviousIndex())}
                         className="relative w-[300px] opacity-50 blur-sm transform scale-90 transition-all duration-300 cursor-pointer hover:opacity-70"
                     >
-                        {currentIndex > 0 && (
-                            <EventCard event={events[currentIndex - 1]} />
-                        )}
+                        <EventCard event={events[getPreviousIndex()]} />
                     </div>
                     
                     <div className="relative w-[600px] z-10 transform scale-100 transition-all duration-300">
@@ -52,16 +56,14 @@ export const EventSlider = ({ events }) => {
                     </div>
                     
                     <div 
-                        onClick={goToNext}
+                        onClick={() => setCurrentIndex(getNextIndex())}
                         className="relative w-[300px] opacity-50 blur-sm transform scale-90 transition-all duration-300 cursor-pointer hover:opacity-70"
                     >
-                        {currentIndex < events.length - 1 && (
-                            <EventCard event={events[currentIndex + 1]} />
-                        )}
+                        <EventCard event={events[getNextIndex()]} />
                     </div>
                 </div>
                 <button 
-                    onClick={goToNext}
+                    onClick={() => setCurrentIndex(getNextIndex())}
                     className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10
                              bg-orange-100 text-orange-800 px-4 py-2 rounded-full
                              hover:bg-orange-200 transition-colors duration-200
