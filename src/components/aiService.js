@@ -22,8 +22,7 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 export const getAIMatchingSuggestions = async (prompt) => {
   try {
-    console.log("AI Matching Suggestions Prompt:", prompt);
-    // console.log("Making Groq AI suggestion request with API Key:", GROQ_API_KEY ? "Loaded" : "Not Loaded");
+    // console.log("AI Matching Suggestions Prompt:", prompt);
     const response = await axios.post(
       GROQ_API_URL,
       {
