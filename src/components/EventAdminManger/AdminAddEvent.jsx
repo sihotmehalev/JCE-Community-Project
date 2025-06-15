@@ -91,6 +91,7 @@ const AdminAddEvent = ({ onEventAdded }) => {
         description: '',
         location: '',
         Contact_info: '',
+        mail: '', 
         scheduled_time: '',
         status: 'scheduled',
         image: ''
@@ -129,6 +130,7 @@ const AdminAddEvent = ({ onEventAdded }) => {
                 description: '',
                 location: '',
                 Contact_info: '',
+                mail: '', 
                 scheduled_time: '',
                 status: 'scheduled',
                 image: ''
@@ -188,6 +190,18 @@ const AdminAddEvent = ({ onEventAdded }) => {
                         onChange={handleInputChange}
                         className="w-full p-2 border rounded-md"
                         dir="rtl"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label className="block text-right">דוא"ל</label>
+                    <input
+                        type="mail"
+                        name="mail"
+                        value={formData.mail}
+                        onChange={handleInputChange}
+                        className="w-full p-2 border rounded-md"
+                        dir="rtl"
+                        placeholder="example@domain.com"
                     />
                 </div>
                 <div className="space-y-2">

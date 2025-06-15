@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, doc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, query, orderBy, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
+import { ca } from 'date-fns/locale';
 
 export const AdminEventList = () => {
     const [events, setEvents] = useState([]);
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
     const [sort, setSort] = useState('date');
-    const [sortDirection, setSortDirection] = useState('desc'); // 'asc' or 'desc'
+    const [sortDirection, setSortDirection] = useState('desc');
 
     const fetchEvents = async () => {
         try {
@@ -26,9 +27,24 @@ export const AdminEventList = () => {
     };
 
     useEffect(() => {
-        fetchEvents();
+        const eventsQuery = query(
+        collection(db, "Events"),          
+        orderBy("scheduled_time", "desc")  
+        );
+
+        const unsubscribe = onSnapshot(eventsQuery, (snapshot) => {
+            const eventsData = snapshot.docs.map(doc => ({
+                id: doc.id,             
+                ...doc.data(),          
+                scheduled_time: doc.data().scheduled_time?.toDate() 
+            }));
+
+            setEvents(eventsData);
+        });
+        return () => unsubscribe();
     }, []);
 
+    /*
     const toggleEventStatus = async (eventId, currentStatus) => {
         try {
             const newStatus = currentStatus === 'cancelled' ? 'scheduled' : 'cancelled';
@@ -42,6 +58,7 @@ export const AdminEventList = () => {
             alert('שגיאה בעדכון סטטוס האירוע');
         }
     };
+    */
 
     const filteredAndSortedEvents = events
         .filter(event => {
@@ -72,6 +89,17 @@ export const AdminEventList = () => {
             minute: '2-digit'
         });
     };
+    
+    const deleteEvent = async (eventId) => {
+        try {
+            deleteDoc(doc(db, "Events", eventId));
+        }
+        catch (error) {
+            console.error("Error deleting event:", error);
+            alert('שגיאה במחיקת האירוע');
+        }
+    }
+
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-md space-y-6">
@@ -145,6 +173,8 @@ export const AdminEventList = () => {
                 </div>
             </div>
 
+            <p className='text-2xl font-bold text-orange-800 mb-3'>לחיצה כפולה על שדה כדי לשנות </p>
+
             <div className="border rounded-lg">
                 <table className="min-w-full table-auto">
                     <thead>
@@ -152,8 +182,10 @@ export const AdminEventList = () => {
                             <th className="px-4 py-2 text-right">שם האירוע</th>
                             <th className="px-4 py-2 text-right">תאריך</th>
                             <th className="px-4 py-2 text-right">מיקום</th>
+                            <th className="px-4 py-2 text-right">טלפון</th>
+                            <th className="px-4 py-2 text-right">דוא"ל</th>
                             <th className="px-4 py-2 text-right">סטטוס</th>
-                            <th className="px-4 py-2 text-right">פעולות</th>
+                            <th className="px-4 py-2 text-center">מחיקת אירוע</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -163,23 +195,35 @@ export const AdminEventList = () => {
                                 <td className="px-4 py-2 text-right">{formatDate(event.scheduled_time)}</td>
                                 <td className="px-4 py-2 text-right">{event.location}</td>
                                 <td className="px-4 py-2 text-right">
+                                    {event.Contact_info && (
+                                        <a href={`tel:${event.Contact_info}`} className="text-blue-600 hover:text-blue-800">
+                                            {event.Contact_info}
+                                        </a>
+                                    )}
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                    <a href={`mailto:${event.mail}`} className="text-blue-600 hover:text-blue-800">
+                                        {event.mail}
+                                    </a>
+                                </td>
+                                <td className="px-4 py-2 text-right">
                                     <span className={`px-2 py-1 rounded-full text-sm ${
                                         event.status === 'scheduled' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                                     }`}>
                                         {event.status === 'scheduled' ? 'מתוכנן' : 'מבוטל'}
                                     </span>
-                                </td>
-                                <td className="px-4 py-2 text-right">
-                                    <button
-                                        onClick={() => toggleEventStatus(event.id, event.status)}
-                                        className={`px-3 py-1 rounded-md ${
-                                            event.status === 'scheduled'
-                                                ? 'bg-red-500 text-white hover:bg-red-600'
-                                                : 'bg-green-500 text-white hover:bg-green-600'
-                                        }`}
-                                    >
-                                        {event.status === 'scheduled' ? 'בטל אירוע' : 'שחזר אירוע'}
-                                    </button>
+                                </td>                                <td className="px-4 py-2 text-center">
+                                    <div className="flex justify-center">
+                                        <button
+                                            onClick={() => deleteEvent(event.id)}
+                                            className="p-2 rounded-full text-red-600 hover:text-white hover:bg-red-600 focus:outline-none transition-colors duration-200 inline-flex items-center justify-center"
+                                            title="מחק אירוע"
+                                        >
+                                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}

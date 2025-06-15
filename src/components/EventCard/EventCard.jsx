@@ -14,6 +14,7 @@ export const EventCard = ({ event }) => {
     const description = event.description || 'No description available';
     const location = event.location || 'Location TBA';
     const phoneNumber = event.Contact_info || event.phoneNumber || event.phone;
+    const mail = event.mail || 'No contact email provided';
     
     // Safe date formatting
     const formatEventDate = () => {
@@ -73,6 +74,10 @@ export const EventCard = ({ event }) => {
                         <p className="flex items-center">
                             <span className="mr-2">📍</span>
                             {location}
+                        </p>
+                        <p className="flex items-center">
+                            <span className="mr-2">📧</span>
+                            {mail}
                         </p>
                         {phoneNumber && (
                             <p className="flex items-center">
