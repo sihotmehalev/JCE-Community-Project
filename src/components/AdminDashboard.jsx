@@ -314,7 +314,7 @@ export default function AdminDashboard() {
       let finalRequestId = requestId;
       if (!requestId) {
         finalRequestId = generateRandomId();
-        const requestRef = doc(db, "requests", finalRequestId);
+        const requestRef = doc(db, "Requests", finalRequestId);
         batch.set(requestRef, {
           requesterId: requesterId,
           volunteerId: volunteerId,
@@ -325,7 +325,7 @@ export default function AdminDashboard() {
         });
       } else {
         // Update existing request
-        batch.update(doc(db, "requests", requestId), {
+        batch.update(doc(db, "Requests", requestId), {
           volunteerId: volunteerId,
           status: "matched",
           matchedAt: new Date()
@@ -334,7 +334,7 @@ export default function AdminDashboard() {
       
       // Create match with random ID
       const matchId = generateRandomId();
-      const matchRef = doc(db, "matches", matchId);
+      const matchRef = doc(db, "Matches", matchId);
       
       batch.set(matchRef, {
         volunteerId: volunteerId,
@@ -636,6 +636,7 @@ export default function AdminDashboard() {
                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
                 <ul className="space-y-2 max-h-[48rem] overflow-y-auto">
                   {requesters
+                    .filter(req => !(req.activeMatchIds && req.activeMatchIds.length > 0))
                     .filter(req =>
                       req.fullName?.toLowerCase().includes(requesterSearch.toLowerCase()) ||
                       req.email?.toLowerCase().includes(requesterSearch.toLowerCase())
