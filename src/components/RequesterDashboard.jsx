@@ -36,44 +36,64 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
   let score = 0;
   let maxScore = 0;
 
-  // Check frequency compatibility
-  if (requesterProfile.frequency && volunteer.frequency) {
-    maxScore += 2;
-    const requesterFreqs = Array.isArray(requesterProfile.frequency) 
-      ? requesterProfile.frequency 
-      : [requesterProfile.frequency];
-    const volunteerFreqs = Array.isArray(volunteer.frequency) 
-      ? volunteer.frequency 
-      : [volunteer.frequency];
+  // Helper to extract time period from volunteer time slots
+  const extractTimePeriod = (timeSlot) => {
+    // Extract just the period name before the parentheses
+    const match = timeSlot.match(/^([^(]+)/);
+    return match ? match[1].trim() : timeSlot;
+  };
+
+  // Check frequency and days compatibility
+  if (requesterProfile.frequency && (volunteer.availableDays || volunteer.frequency)) {
+    maxScore += 3;
     
-    const hasCommonFreq = requesterFreqs.some(rf => volunteerFreqs.includes(rf));
-    if (hasCommonFreq) score += 2;
+    const requesterFreqs = Array.isArray(requesterProfile.frequency)
+      ? requesterProfile.frequency
+      : [requesterProfile.frequency];
+    
+    // Filter out "אחר" from requester frequencies
+    const validFreqs = requesterFreqs.filter(f => f !== "אחר");
+    
+    if (validFreqs.length > 0) {
+      const volunteerDaysCount = volunteer.availableDays?.length || 0;
+      
+      // Score based on whether volunteer has enough available days
+      validFreqs.forEach(freq => {
+        if (freq === "פעם בשבוע" && volunteerDaysCount >= 1) score += 1.5;
+        if (freq === "פעמיים בשבוע" && volunteerDaysCount >= 2) score += 1.5;
+      });
+    }
   }
 
   // Check preferred times compatibility
   if (requesterProfile.preferredTimes && volunteer.availableHours) {
-    maxScore += 3;
-    const requesterTimes = Array.isArray(requesterProfile.preferredTimes) 
-      ? requesterProfile.preferredTimes 
-      : [requesterProfile.preferredTimes];
-    const volunteerHours = Array.isArray(volunteer.availableHours) 
-      ? volunteer.availableHours 
-      : [volunteer.availableHours];
+    maxScore += 4;
     
-    const matchingTimes = requesterTimes.filter(rt => 
-      volunteerHours.some(vh => vh.includes(rt) || rt.includes(vh))
+    const requesterTimes = Array.isArray(requesterProfile.preferredTimes)
+      ? requesterProfile.preferredTimes
+      : [requesterProfile.preferredTimes];
+    
+    // Filter out "אחר" from requester times
+    const validTimes = requesterTimes.filter(t => t !== "אחר");
+    
+    // Extract just the time period names from volunteer hours
+    const volunteerPeriods = volunteer.availableHours.map(extractTimePeriod);
+    
+    // Count matching time periods
+    const matchingPeriods = validTimes.filter(rt => 
+      volunteerPeriods.some(vp => vp === rt)
     );
-    score += Math.min(matchingTimes.length, 3); // Max 3 points for time compatibility
+    
+    // Award points based on number of matching periods
+    // 1 match = 2 points, 2+ matches = 4 points
+    if (matchingPeriods.length >= 2) {
+      score += 4;
+    } else if (matchingPeriods.length === 1) {
+      score += 2;
+    }
   }
 
-  console.log("Compatibility score calculation:", {
-    requesterProfile,
-    volunteer,
-    score,
-    maxScore,
-    compatibility: maxScore > 0 ? (score / maxScore) * 100 : 0
-  });
-  return maxScore > 0 ? (score / maxScore) * 100 : 0; // Return percentage
+  return maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
 };
 
 // Sort volunteers by compatibility
@@ -393,7 +413,7 @@ export default function RequesterDashboard() {
               key={vol.id}
               volunteer={vol}
               onRequest={() => requestVolunteer(vol.id)}
-              isRecommended={vol.compatibilityScore > 50} // Consider >50% compatibility as recommended
+              isRecommended={vol.compatibilityScore >= 50} // Consider >50% compatibility as recommended
               compatibilityScore={vol.compatibilityScore}
               requestLoading={requestLoading}
             />
@@ -467,66 +487,48 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
     return list;
   };
 
-  return (
-    <div className={`border rounded-lg p-4 ${
-      isRecommended 
-        ? 'border-green-400 bg-green-50 shadow-md ring-1 ring-green-200' 
-        : 'border-orange-100 bg-orange-100'
-    }`}>
+  return (    <div className="border border-orange-100 rounded-lg p-4 bg-orange-100">
       {isRecommended && (
         <div className="mb-2 flex items-center gap-2">
-          <span className="text-green-600 text-sm font-medium bg-green-100 px-2 py-1 rounded-full">
+          <span className="text-green-600 text-sm font-medium bg-green-50 px-2 py-1 rounded-full border border-green-200">
             ⭐ מומלץ ({Math.round(compatibilityScore)}% התאמה)
           </span>
         </div>
       )}
-      
-      <p className={`font-semibold text-lg mb-1 ${
-        isRecommended ? 'text-green-800' : 'text-orange-800'
-      }`}>
+        <p className="font-semibold text-lg mb-1 text-orange-800">
         {volunteer.fullName || "מתנדב/ת"}
       </p>
       
-      <p className={`text-sm mb-2 ${
-        isRecommended ? 'text-green-700' : 'text-orange-700'
-      }`}>
+      <p className="text-sm mb-2 text-orange-700">
         תחום: {volunteer.profession ?? "—"}
       </p>
       
-      <p className={`mb-2 ${
-        isRecommended ? 'text-green-700' : 'text-orange-700'
-      }`}>
+      <p className="text-sm mb-2 text-orange-700">
         ניסיון: {volunteer.experience ?? "—"}
       </p>
 
       {/* Show availability information */}
       {volunteer.availableHours && (
-        <p className={`text-sm mb-1 ${
-          isRecommended ? 'text-green-600' : 'text-orange-600'
-        }`}>
+        <p className="text-sm mb-2 text-orange-600">
           שעות זמינות: {formatList(volunteer.availableHours)}
         </p>
       )}
       
       {volunteer.availableDays && (
-        <p className={`text-sm mb-1 ${
-          isRecommended ? 'text-green-600' : 'text-orange-600'
-        }`}>
+        <p className="text-sm mb-2 text-orange-600">
           ימים זמינים: {formatList(volunteer.availableDays)}
         </p>
       )}
 
       {volunteer.frequency && (
-        <p className={`text-sm mb-3 ${
-          isRecommended ? 'text-green-600' : 'text-orange-600'
-        }`}>
+        <p className="text-sm mb-3 text-orange-600">
           תדירות: {formatList(volunteer.frequency)}
         </p>
       )}
 
       <Button 
         onClick={onRequest}
-        className={`${isRecommended ? 'bg-green-600 hover:bg-green-700' : ''} ${requestLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={requestLoading ? 'opacity-50 cursor-not-allowed' : ''}
         disabled={requestLoading}
       >
         {requestLoading ? 'שולח בקשה...' : 'פנה למתנדב/ת'}
