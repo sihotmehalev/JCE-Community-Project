@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 
-const DEFAULT_IMAGE = '/images/event_default_photo.jpg';
+const DEFAULT_IMAGE = '/images/event_default_image.jpg';
 
 export const EventCard = ({ event }) => {
     // Ensure event is defined and has necessary properties
@@ -9,6 +9,7 @@ export const EventCard = ({ event }) => {
     }
 
     // Safe data extraction with fallbacks
+    const eventName = event.name || 'אירוע כללי';
     const imageUrl = event.image || DEFAULT_IMAGE;
     const description = event.description || 'No description available';
     const location = event.location || 'Location TBA';

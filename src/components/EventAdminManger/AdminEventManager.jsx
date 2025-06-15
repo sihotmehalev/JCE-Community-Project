@@ -13,6 +13,7 @@ export const AdminEventManager = () => {
         searchQuery: ''
     });
     const [formData, setFormData] = useState({
+        name: '',
         description: '',
         location: '',
         Contact_info: '',
@@ -46,6 +47,7 @@ export const AdminEventManager = () => {
             if (filters.searchQuery) {
                 const query = filters.searchQuery.toLowerCase();
                 return (
+                    event.name?.toLowerCase().includes(query) ||
                     event.description?.toLowerCase().includes(query) ||
                     event.location?.toLowerCase().includes(query)
                 );
@@ -65,9 +67,14 @@ export const AdminEventManager = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!formData.name || !formData.description) {
+            alert('יש למלא את שם האירוע ואת התיאור');
+            return;
+        }
         try {
             const eventData = {
                 ...formData,
+                status: 'scheduled',
                 Event_added_time: Timestamp.now(),
                 scheduled_time: Timestamp.fromDate(new Date(formData.scheduled_time))
             };
@@ -75,6 +82,7 @@ export const AdminEventManager = () => {
             alert('אירוע נוצר בהצלחה!');
   
             setFormData({
+                name: '',
                 description: '',
                 location: '',
                 Contact_info: '',
@@ -141,6 +149,15 @@ export const AdminEventManager = () => {
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <input
                         type="text"
+                        name="name"
+                        placeholder="שם האירוע"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        className="w-full p-2 border rounded"
+                        required
+                    />
+                    <input
+                        type="text"
                         name="description"
                         placeholder="תיאור האירוע"
                         value={formData.description}
@@ -176,15 +193,6 @@ export const AdminEventManager = () => {
                         required
                     />
                     <div className="flex gap-4">
-                        <select
-                            name="status"
-                            value={formData.status}
-                            onChange={handleInputChange}
-                            className="flex-1 p-2 border rounded"
-                        >
-                            <option value="scheduled">מתוכנן</option>
-                            <option value="cancelled">מבוטל</option>
-                        </select>
                         <button
                             type="submit"
                             className="bg-orange-600 text-white py-2 px-4 rounded hover:bg-orange-700"
@@ -235,9 +243,10 @@ export const AdminEventManager = () => {
                     <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                         {getFilteredEvents().map(event => (
                             <div key={event.id} className="border p-4 rounded">
-                                <h4 className="font-semibold">{event.description}</h4>
+                                <h4 className="font-semibold"> שם: {event.name} </h4>
                                 <p>מיקום: {event.location}</p>
                                 <p>סטטוס: {event.status}</p>
+                                <p>תיאור: {event.description}</p>
                                 <div className="mt-2 space-x-2">
                                     {event.status === 'scheduled' ? (
                                         <button
