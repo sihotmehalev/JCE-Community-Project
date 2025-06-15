@@ -5,6 +5,8 @@
   "homepage": ".",
   "homepageComment": "Setting homepage to '.' prevents the app from redirecting to /app and uses relative paths for all assets",
   "dependencies": {
+    "@types/axios": "^0.9.36",
+    "axios": "^1.10.0",
     "firebase": "^10.7.1",
     "framer-motion": "^10.16.1",
     "lucide-react": "^0.263.0",
