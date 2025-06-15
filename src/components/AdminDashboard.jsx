@@ -77,6 +77,41 @@ export default function AdminDashboard() {
   const [aiLoadingRequesterId, setAiLoadingRequesterId] = useState(null);
   const [activeTab, setActiveTab] = useState("approvals");
 
+  // New states for hover info panels
+  const [hoveredRequester, setHoveredRequester] = useState(null);
+  const [hoveredVolunteer, setHoveredVolunteer] = useState(null);
+
+  // Function to determine panel widths dynamically
+  const getPanelWidths = () => {
+    let requesterInfoWidth = "w-[25%]"; // Default
+    let requesterListWidth = "w-[25%]"; // Default
+    let volunteerListWidth = "w-[25%]"; // Default
+    let volunteerInfoWidth = "w-[25%]"; // Default
+
+    if (selectedRequester && !selectedVolunteer) {
+      // Only requester selected
+      requesterInfoWidth = "w-[20%]";
+      requesterListWidth = "w-[20%]";
+      volunteerListWidth = "w-[20%]";
+      volunteerInfoWidth = "w-[40%]";
+    } else if (selectedRequester && selectedVolunteer) {
+      // Both requester and volunteer selected (volunteer takes precedence for info display)
+      requesterInfoWidth = "w-[30%]"; // Shrink requester info
+      requesterListWidth = "w-[20%]"; // Shrink requester list
+      volunteerInfoWidth = "w-[30%]"; // Expand volunteer info
+      volunteerListWidth = "w-[20%]"; // Shrink volunteer list
+    }
+
+    return {
+      requesterInfoWidth,
+      requesterListWidth,
+      volunteerListWidth,
+      volunteerInfoWidth,
+    };
+  };
+
+  const { requesterInfoWidth, requesterListWidth, volunteerListWidth, volunteerInfoWidth } = getPanelWidths();
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -355,38 +390,43 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <h2 className="text-2xl font-bold text-orange-800">לוח ניהול</h2>
+    <div className="p-6 space-y-6 mt-[-2rem]">
+      <h2 className="text-3xl font-bold text-orange-800 text-center">לוח ניהול</h2>
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 justify-center flex-wrap">
         <Button
           variant={activeTab === "approvals" ? "default" : "outline"}
           onClick={() => setActiveTab("approvals")}
+          className="py-3 px-6 text-lg"
         >
           אישורים ממתינים ({pendingRequests.length})
         </Button>
         <Button
           variant={activeTab === "nonPersonal" ? "default" : "outline"}
           onClick={() => setActiveTab("nonPersonal")}
+          className="py-3 px-6 text-lg"
         >
           התאמות ידניות ({nonPersonalRequests.length})
         </Button>
         <Button
           variant={activeTab === "volunteers" ? "default" : "outline"}
           onClick={() => setActiveTab("volunteers")}
+          className="py-3 px-6 text-lg"
         >
           מתנדבים לאישור ({volunteers.filter(v => !v.approved).length})
         </Button>
         <Button
           variant={activeTab === "matching" ? "default" : "outline"}
           onClick={() => setActiveTab("matching")}
+          className="py-3 px-6 text-lg"
         >
           התאמה כללית
         </Button>
         <Button
           variant={activeTab === "users" ? "default" : "outline"}
           onClick={() => setActiveTab("users")}
+          className="py-3 px-6 text-lg"
         >
           כל המשתמשים
         </Button>
@@ -539,14 +579,40 @@ export default function AdminDashboard() {
 
       {/* General Matching */}
       {activeTab === "matching" && (
-        <Card>
+        <Card className="mt-[-2rem]">
           <CardContent>
             <h3 className="font-semibold mb-4 text-orange-700">
               שיוך פונים למתנדבים
             </h3>
-            <div className="flex gap-8">
+            <div className="flex flex-grow gap-8">
+              {/* Requester Info Panel */}
+              <div className={`${requesterInfoWidth} border rounded p-4 bg-gray-50/50`}>
+                <h3 className="font-semibold mb-4 text-gray-700">פרטי פונה</h3>
+                {(selectedRequester && requesters.find(r => r.id === selectedRequester)) ? (
+                  <div className="space-y-2 text-base">
+                    <p><strong>שם:</strong> {requesters.find(r => r.id === selectedRequester)?.fullName}</p>
+                    <p><strong>אימייל:</strong> {requesters.find(r => r.id === selectedRequester)?.email}</p>
+                    <p><strong>גיל:</strong> {requesters.find(r => r.id === selectedRequester)?.age}</p>
+                    <p><strong>מגדר:</strong> {requesters.find(r => r.id === selectedRequester)?.gender}</p>
+                    <p><strong>סיבת פנייה:</strong> {requesters.find(r => r.id === selectedRequester)?.reason}</p>
+                    <p><strong>התאמות פעילות:</strong> {requesters.find(r => r.id === selectedRequester)?.activeMatchIds?.length || 0}</p>
+                  </div>
+                ) : hoveredRequester ? (
+                  <div className="space-y-2 text-base">
+                    <p><strong>שם:</strong> {hoveredRequester.fullName}</p>
+                    <p><strong>אימייל:</strong> {hoveredRequester.email}</p>
+                    <p><strong>גיל:</strong> {hoveredRequester.age}</p>
+                    <p><strong>מגדר:</strong> {hoveredRequester.gender}</p>
+                    <p><strong>סיבת פנייה:</strong> {hoveredRequester.reason}</p>
+                    <p><strong>התאמות פעילות:</strong> {hoveredRequester.activeMatchIds?.length || 0}</p>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">רחף על פונה כדי לראות פרטים.</p>
+                )}
+              </div>
+
               {/* Requesters List */}
-              <div className="w-1/2 border rounded p-4 bg-orange-50/50">
+              <div className={`${requesterListWidth} border rounded p-4 bg-orange-50/50`}>
                 <div className="flex items-center gap-2 mb-2">
                   <input
                     type="text"
@@ -558,7 +624,7 @@ export default function AdminDashboard() {
                   
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
-                <ul className="space-y-2 max-h-96 overflow-y-auto">
+                <ul className="space-y-2 max-h-[48rem] overflow-y-auto">
                   {requesters
                     .filter(req =>
                       req.fullName?.toLowerCase().includes(requesterSearch.toLowerCase()) ||
@@ -572,18 +638,19 @@ export default function AdminDashboard() {
                         onClick={() => {
                           if (selectedRequester === req.id) {
                             setSelectedRequester(null); // Deselect if already selected
+                            setSelectedVolunteer(null); // Deselect volunteer if requester is unselected
                           } else {
                             setSelectedRequester(req.id);
                             setSelectedVolunteer(null); // Deselect volunteer when a new requester is chosen
                           }
                         }}
+                        onMouseEnter={() => setHoveredRequester(req)}
+                        onMouseLeave={() => { if (selectedRequester !== req.id) setHoveredRequester(null); }}
                       >
-                        <HoverCard user={req}>
-                          <span className="cursor-pointer">
+                        <span className="cursor-pointer">
                             <strong className="text-orange-800">{req.fullName}</strong>
                             <span className="text-orange-600 text-sm"> ({req.age} שנים)</span>
                           </span>
-                        </HoverCard>
                         {selectedRequester === req.id && aiLoadingRequesterId === req.id && (
                           <span className="text-sm text-gray-500 mr-2"> (ממתין לתשובת AI...)</span>
                         )}
@@ -594,7 +661,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Volunteers List */}
-              <div className="w-1/2 border rounded p-4 bg-orange-50/50">
+              <div className={`${volunteerListWidth} border rounded p-4 bg-orange-50/50`}>
                 <div className="flex items-center gap-2 mb-2">
                   <input
                     type="text"
@@ -606,7 +673,7 @@ export default function AdminDashboard() {
                   
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
-                <ul className="space-y-2 max-h-96 overflow-y-auto">
+                <ul className="space-y-2 max-h-[48rem] overflow-y-auto">
                   {volunteers
                     .filter(v => v.approved)
                     .filter(v =>
@@ -628,22 +695,48 @@ export default function AdminDashboard() {
                             }
                           }
                         }}
+                        onMouseEnter={() => setHoveredVolunteer(v)}
+                        onMouseLeave={() => { if (selectedVolunteer !== v.id) setHoveredVolunteer(null); }}
                       >
-                        <HoverCard user={v}>
-                          <span className="cursor-pointer">
+                        <span className="cursor-pointer">
                             <strong className="text-orange-800">{v.fullName}</strong>
                             <span className="text-orange-600 text-sm"> ({v.profession})</span>
                           </span>
-                        </HoverCard>
                       </li>
                     ))
                   }
                 </ul>
               </div>
+
+              {/* Volunteer Info Panel */}
+              <div className={`${volunteerInfoWidth} border rounded p-4 bg-gray-50/50`}>
+                <h3 className="font-semibold mb-4 text-gray-700">פרטי מתנדב</h3>
+                {(selectedVolunteer && volunteers.find(v => v.id === selectedVolunteer)) ? (
+                  <div className="space-y-2 text-base">
+                    <p><strong>שם:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.fullName}</p>
+                    <p><strong>אימייל:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.email}</p>
+                    <p><strong>גיל:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.age}</p>
+                    <p><strong>מקצוע:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.profession}</p>
+                    <p><strong>ניסיון:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.experience}</p>
+                    <p><strong>התאמות פעילות:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.activeMatchIds?.length || 0}</p>
+                  </div>
+                ) : hoveredVolunteer ? (
+                  <div className="space-y-2 text-base">
+                    <p><strong>שם:</strong> {hoveredVolunteer.fullName}</p>
+                    <p><strong>אימייל:</strong> {hoveredVolunteer.email}</p>
+                    <p><strong>גיל:</strong> {hoveredVolunteer.age}</p>
+                    <p><strong>מקצוע:</strong> {hoveredVolunteer.profession}</p>
+                    <p><strong>ניסיון:</strong> {hoveredVolunteer.experience}</p>
+                    <p><strong>התאמות פעילות:</strong> {hoveredVolunteer.activeMatchIds?.length || 0}</p>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">רחף על מתנדב כדי לראות פרטים.</p>
+                )}
+              </div>
             </div>
-            <div className="mt-4 flex justify-center gap-2">
+            <div className="mt-4 flex justify-center gap-2 w-full">
               <Button
-                className={`${
+                className={`py-3 px-6 text-lg ${
                   !(selectedRequester && selectedVolunteer)
                     ? "bg-gray-400 text-white cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700 text-white"
@@ -661,7 +754,7 @@ export default function AdminDashboard() {
               </Button>
               <Button
                 variant="outline"
-                className={`${!selectedRequester ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`py-3 px-6 text-lg ${!selectedRequester ? 'opacity-50 cursor-not-allowed' : ''}`}
                 disabled={!selectedRequester}
                 onClick={() => {
                   const requesterData = requesters.find(req => req.id === selectedRequester);
@@ -707,7 +800,7 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody>
                   {allUsers.map(u => (
-                    <tr key={u.id} className="hover:bg-orange-50/50">
+                    <tr key={`${u.id}-${u.role}`} className="hover:bg-orange-50/50">
                       <td className="border border-orange-100 p-2 text-orange-700">{u.fullName}</td>
                       <td className="border border-orange-100 p-2 text-orange-700">{u.email}</td>
                       <td className="border border-orange-100 p-2 text-orange-700">
