@@ -88,19 +88,20 @@ export default function AdminDashboard() {
     let volunteerListWidth = "w-[25%]"; // Default
     let volunteerInfoWidth = "w-[25%]"; // Default
 
-    if (selectedRequester && !selectedVolunteer) {
-      // Only requester selected
-      requesterInfoWidth = "w-[20%]";
-      requesterListWidth = "w-[20%]";
-      volunteerListWidth = "w-[20%]";
-      volunteerInfoWidth = "w-[40%]";
-    } else if (selectedRequester && selectedVolunteer) {
+    if (selectedRequester && selectedVolunteer) {
       // Both requester and volunteer selected (volunteer takes precedence for info display)
-      requesterInfoWidth = "w-[30%]"; // Shrink requester info
+      requesterInfoWidth = "w-[40%]"; // Shrink requester info
       requesterListWidth = "w-[20%]"; // Shrink requester list
-      volunteerInfoWidth = "w-[30%]"; // Expand volunteer info
+      volunteerInfoWidth = "w-[40%]"; // Expand volunteer info
       volunteerListWidth = "w-[20%]"; // Shrink volunteer list
+    } else if (selectedRequester && !selectedVolunteer) {
+      // Only requester selected
+      requesterInfoWidth = "w-[20%]"; // Expand requester info
+      requesterListWidth = "w-[20%]"; // Shrink requester list
+      volunteerListWidth = "w-[20%]"; // Shrink volunteer list for balance
+      volunteerInfoWidth = "w-[40%]"; // Keep volunteer info same for balance
     }
+    // If neither, all remain at default w-[25%]
 
     return {
       requesterInfoWidth,
