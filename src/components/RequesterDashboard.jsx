@@ -16,6 +16,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { Button } from "./ui/button";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 /* ────────────────────────── helpers ────────────────────────── */
 
@@ -397,7 +398,7 @@ export default function RequesterDashboard() {
 
   /* -------- render -------- */
   if (!authChecked || loading) {
-    return <p className="p-6 text-orange-700">...טוען לוח פונה</p>;
+    return <LoadingSpinner />;
   }
 
   return (

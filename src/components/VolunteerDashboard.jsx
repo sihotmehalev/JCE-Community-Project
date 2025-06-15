@@ -17,6 +17,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { Button } from "./ui/button";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 /* ────────────────────────── helpers ────────────────────────── */
 
@@ -272,7 +273,7 @@ export default function VolunteerDashboard() {
 
   /* -------- render -------- */
   if (!authChecked || loading) {
-    return <p className="p-6 text-orange-700">…טוען לוח מתנדב</p>;
+    return <LoadingSpinner />;
   }
 
   return (

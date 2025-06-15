@@ -4,6 +4,7 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { User, Edit3, Save, X, Phone, Mail, MapPin, Calendar, Briefcase, Star, Clock, MessageCircle } from "lucide-react";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 const roleTranslations = {
   volunteer: "מתנדב/ת",
@@ -112,16 +113,7 @@ export default function ProfilePage() {
   }, [user]);
 
   if (!userData) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50 p-4 lg:p-8">
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-xl text-gray-600">טוען פרטי משתמש...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   const getIconForField = (fieldName) => {

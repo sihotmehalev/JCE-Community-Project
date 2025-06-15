@@ -14,6 +14,7 @@ import Navbar from "./components/Navbar";
 import { auth, db } from "./firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+import LoadingSpinner from "./components/LoadingSpinner";
 
 function ProtectedRoute({ children, allowedRoles }) {
   const [user, setUser] = React.useState(null);
@@ -73,7 +74,7 @@ function ProtectedRoute({ children, allowedRoles }) {
     return () => unsubscribe();
   }, []);
 
-  if (loading) return <div className="p-4 text-center">טוען...</div>;
+  if (loading) return <LoadingSpinner />;
   
   // Modify the role check to handle admin levels
   const hasAllowedRole = allowedRoles.some(allowedRole => {
