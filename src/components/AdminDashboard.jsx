@@ -100,15 +100,15 @@ export default function AdminDashboard() {
   const [matchSessions, setMatchSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
 
-  // New state for editing session
-  const [editingSession, setEditingSession] = useState(null);
-
   // New states for hover info panels
   const [hoveredRequester, setHoveredRequester] = useState(null);
   const [hoveredVolunteer, setHoveredVolunteer] = useState(null);
   // Refs for managing hover timeouts
   const requesterHoverTimeoutRef = useRef(null);
   const volunteerHoverTimeoutRef = useRef(null);
+
+  // New states for session summary
+  const [selectedSessionForView, setSelectedSessionForView] = useState(null);
 
   // useEffect for resetting currentPage (moved here to ensure unconditional call)
   useEffect(() => {
@@ -230,18 +230,6 @@ export default function AdminDashboard() {
       console.error("Error fetching sessions:", error);
     }
     setLoadingSessions(false);
-  };
-
-  const updateSession = async (sessionId, updatedData) => {
-    try {
-      await updateDoc(doc(db, "Sessions", sessionId), updatedData);
-      alert("פרטי הפגישה עודכנו בהצלחה!");
-      fetchSessions(selectedMatchForDetails); // Refresh sessions after update
-      setEditingSession(null); // Close the modal
-    } catch (error) {
-      console.error("Error updating session:", error);
-      alert("שגיאה בעדכון פרטי הפגישה.");
-    }
   };
 
   const handleSort = (columnName) => {
@@ -962,8 +950,8 @@ export default function AdminDashboard() {
                           <th className="border border-orange-100 p-2 text-orange-800">סטטוס</th>
                           <th className="border border-orange-100 p-2 text-orange-800">משך (דקות)</th>
                           <th className="border border-orange-100 p-2 text-orange-800">מיקום</th>
-                          <th className="border border-orange-100 p-2 text-orange-800">סיכום פגישה</th>
-                          <th className="border border-orange-100 p-2 text-orange-800">פעולות</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">הערה</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">סיכום</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -975,13 +963,13 @@ export default function AdminDashboard() {
                             <td className="border border-orange-100 p-2 text-orange-700">{session.status || 'N/A'}</td>
                             <td className="border border-orange-100 p-2 text-orange-700">{session.durationMinutes || 'N/A'}</td>
                             <td className="border border-orange-100 p-2 text-orange-700">{session.location || 'N/A'}</td>
-                            <td className="border border-orange-100 p-2 text-orange-700">{session.sessionSummary || session.notes || 'N/A'}</td>
-                            <td className="border border-orange-100 p-2 text-center">
+                            <td className="border border-orange-100 p-2 text-orange-700">{session.notes || 'N/A'}</td>
+                            <td className="border border-orange-100 p-2 text-orange-700">
                               <span
                                 className="text-blue-600 hover:underline cursor-pointer"
-                                onClick={() => setEditingSession(session)}
+                                onClick={() => setSelectedSessionForView(session.sessionSummary)}
                               >
-                                ערוך
+                                צפייה
                               </span>
                             </td>
                           </tr>
@@ -1013,7 +1001,7 @@ export default function AdminDashboard() {
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('requesterInfo.fullName')}>פונה{matchSortColumn === 'requesterInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב{matchSortColumn === 'volunteerInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('meetingFrequency')}>תדירות פגישות{matchSortColumn === 'meetingFrequency' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                          <th className="border border-orange-100 p-2 text-orange-800">פעולות</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">סיכום</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1340,98 +1328,28 @@ export default function AdminDashboard() {
         onSelectVolunteer={handleAIVolunteerSelection}
       />
 
-      {/* Edit Session Modal */}
-      {editingSession && (
-        <EditSessionModal
-          isOpen={!!editingSession}
-          onClose={() => setEditingSession(null)}
-          session={editingSession}
-          onSave={updateSession}
-        />
-      )}
+      {/* View Session Summary Modal */}
+      <ViewSessionSummaryModal
+        isOpen={!!selectedSessionForView}
+        onClose={() => setSelectedSessionForView(null)}
+        sessionSummary={selectedSessionForView}
+      />
     </div>
   );
 }
 
-const EditSessionModal = ({ isOpen, onClose, session, onSave }) => {
-  const [status, setStatus] = useState(session?.status || '');
-  const [notes, setNotes] = useState(session?.sessionSummary || session?.notes || '');
-  const [durationMinutes, setDurationMinutes] = useState(session?.durationMinutes || '');
-  const [location, setLocation] = useState(session?.location || '');
-  const [scheduledTime, setScheduledTime] = useState(
-    session?.scheduledTime ? new Date(session.scheduledTime.seconds * 1000).toISOString().slice(0, 16) : ''
-  );
-
-  const handleSubmit = () => {
-    const updatedData = {
-      status,
-      sessionSummary: notes,
-      notes: notes, // Keep both for now, can consolidate later if needed
-      durationMinutes: Number(durationMinutes),
-      location,
-      scheduledTime: scheduledTime ? new Date(scheduledTime) : null,
-    };
-    onSave(session.id, updatedData);
-  };
-
+const ViewSessionSummaryModal = ({ isOpen, onClose, sessionSummary }) => {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-lg bg-white p-6 rounded-lg shadow-xl">
         <CardContent>
-          <h2 className="text-2xl font-bold mb-4 text-orange-800">ערוך פרטי פגישה</h2>
+          <h2 className="text-2xl font-bold mb-4 text-orange-800">סיכום פגישה</h2>
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">סטטוס:</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-              >
-                <option value="completed">הושלמה</option>
-                <option value="scheduled">מתוכננת</option>
-                <option value="cancelled">בוטלה</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">סיכום פגישה / הערות:</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="w-full border rounded px-3 py-2 h-24"
-              ></textarea>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">משך (דקות):</label>
-              <input
-                type="number"
-                value={durationMinutes}
-                onChange={(e) => setDurationMinutes(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">מיקום:</label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">תאריך ושעת פגישה:</label>
-              <input
-                type="datetime-local"
-                value={scheduledTime}
-                onChange={(e) => setScheduledTime(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-              />
-            </div>
+            <p className="text-gray-700 whitespace-pre-wrap">{sessionSummary}</p>
             <div className="flex justify-end gap-3 mt-6">
-              <Button variant="outline" onClick={onClose}>בטל</Button>
-              <Button onClick={handleSubmit}>שמור שינויים</Button>
+              <Button onClick={onClose}>סגור</Button>
             </div>
           </div>
         </CardContent>
