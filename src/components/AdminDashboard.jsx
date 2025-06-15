@@ -72,7 +72,6 @@ export default function AdminDashboard() {
   
   // New States
   const [pendingRequests, setPendingRequests] = useState([]);
-  const [nonPersonalRequests, setNonPersonalRequests] = useState([]);
   const [showAISuggestions, setShowAISuggestions] = useState(false);
   const [selectedRequestForAI, setSelectedRequestForAI] = useState(null);
   const [aiLoadingRequesterId, setAiLoadingRequesterId] = useState(null);
@@ -152,7 +151,7 @@ export default function AdminDashboard() {
 
       // Fetch pending requests (waiting_for_admin_approval)
       const pendingRequestsSnap = await getDocs(
-        query(collection(db, "requests"), where("status", "==", "waiting_for_admin_approval"))
+        query(collection(db, "Requests"), where("status", "==", "waiting_for_admin_approval"))
       );
       
       const pending = await Promise.all(
@@ -179,32 +178,10 @@ export default function AdminDashboard() {
         })
       );
 
-      // Fetch non-personal requests
-      const allRequestersWithRequests = await Promise.all(
-        r.filter(requester => !requester.personal).map(async (requester) => {
-          // Check if this requester has any unmatched requests
-          const requestsQuery = query(
-            collection(db, "requests"),
-            where("requesterId", "==", requester.id),
-            where("status", "in", ["waiting_for_first_approval", "declined"])
-          );
-          const requestsSnap = await getDocs(requestsQuery);
-          
-          return requestsSnap.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            requesterInfo: requester
-          }));
-        })
-      );
-      
-      const nonPersonal = allRequestersWithRequests.flat();
-
       setVolunteers(v);
       setRequesters(r);
       setAllUsers([...v, ...r, ...a]);
       setPendingRequests(pending);
-      setNonPersonalRequests(nonPersonal);
       
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -224,6 +201,17 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error("Error approving volunteer:", error);
       alert("שגיאה באישור המתנדב");
+    }
+  };
+
+  const declineVolunteer = async (id) => {
+    try {
+      await updateDoc(doc(db, "Users", "Info", "Volunteers", id), { approved: false });
+      alert("מתנדב נדחה בהצלחה.");
+      fetchData();
+    } catch (error) {
+      console.error("Error declining volunteer:", error);
+      alert("שגיאה בדחיית המתנדב");
     }
   };
 
@@ -249,7 +237,7 @@ export default function AdminDashboard() {
       });
 
       // Update request
-      batch.update(doc(db, "requests", requestId), {
+      batch.update(doc(db, "Requests", requestId), {
         status: "matched",
         matchId: matchId,
         matchedAt: new Date()
@@ -285,14 +273,14 @@ export default function AdminDashboard() {
         declinedAt: new Date()
       };
 
-      await updateDoc(doc(db, "requests", requestId), updateData);
+      await updateDoc(doc(db, "Requests", requestId), updateData);
       
       if (suggestAnother) {
         // Find the request in pendingRequests
         const request = pendingRequests.find(r => r.id === requestId);
         if (request) {
           // Move to non-personal requests for reassignment
-          setNonPersonalRequests([...nonPersonalRequests, {
+          setPendingRequests([...pendingRequests, {
             ...request,
             status: "waiting_for_reassignment"
           }]);
@@ -429,13 +417,6 @@ export default function AdminDashboard() {
           אישורים ממתינים ({pendingRequests.length})
         </Button>
         <Button
-          variant={activeTab === "nonPersonal" ? "default" : "outline"}
-          onClick={() => setActiveTab("nonPersonal")}
-          className="py-3 px-6 text-lg"
-        >
-          התאמות ידניות ({nonPersonalRequests.length})
-        </Button>
-        <Button
           variant={activeTab === "volunteers" ? "default" : "outline"}
           onClick={() => setActiveTab("volunteers")}
           className="py-3 px-6 text-lg"
@@ -472,16 +453,27 @@ export default function AdminDashboard() {
                 {volunteers.filter(v => !v.approved).map(v => (
                   <div key={v.id} className="flex justify-between items-center bg-orange-50/50 p-3 rounded border border-orange-100">
                     <div>
-                      <p className="font-semibold text-orange-800">{v.fullName}</p>
+                      <HoverCard user={v}>
+                        <p className="font-semibold text-orange-800">{v.fullName}</p>
+                      </HoverCard>
                       <p className="text-sm text-orange-600">{v.email} | {v.profession}</p>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => approveVolunteer(v.id)}
-                      className="bg-green-600 text-white hover:bg-green-700"
-                    >
-                      אשר מתנדב
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => approveVolunteer(v.id)}
+                        className="bg-green-600 text-white hover:bg-green-800"
+                      >
+                        אשר מתנדב
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => declineVolunteer(v.id)}
+                        className="bg-red-600 text-white hover:bg-red-700"
+                      >
+                        דחה מתנדב
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -533,67 +525,6 @@ export default function AdminDashboard() {
                           דחה
                         </Button>
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Non-Personal Requests */}
-      {activeTab === "nonPersonal" && (
-        <Card>
-          <CardContent>
-            <h3 className="font-semibold mb-4 text-orange-700">
-              בקשות להתאמה ידנית (לא אישי)
-            </h3>
-            {nonPersonalRequests.length === 0 ? (
-              <p className="text-orange-600/80">אין בקשות להתאמה ידנית.</p>
-            ) : (
-              <div className="space-y-4">
-                {nonPersonalRequests.map(request => (
-                  <div key={request.id} className="border rounded p-4 bg-orange-50/50">
-                    <div className="mb-3">
-                      <p><strong>פונה:</strong> {request.requesterInfo?.fullName}</p>
-                      <p><strong>גיל:</strong> {request.requesterInfo?.age} | <strong>סיבה:</strong> {request.requesterInfo?.reason}</p>
-                      <p><strong>הודעה:</strong> {request.messageRequest}</p>
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <select 
-                        onChange={(e) => setSelectedVolunteer(e.target.value)}
-                        className="border rounded px-3 py-2 flex-1"
-                        defaultValue=""
-                      >
-                        <option value="">בחר מתנדב...</option>
-                        {volunteers
-                          .filter(v => v.approved && (v.isAvailable || v.isAvaliable) && !v.personal)
-                          .map(v => (
-                            <option key={v.id} value={v.id}>
-                              {v.fullName} - {v.profession} ({v.experience})
-                            </option>
-                          ))
-                        }
-                      </select>
-                      <Button
-                        disabled={!selectedVolunteer}
-                        onClick={() => {
-                          createManualMatch(request.requesterId, selectedVolunteer, request.id);
-                          setSelectedVolunteer(null);
-                        }}
-                      >
-                        שייך
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedRequestForAI(request);
-                          setShowAISuggestions(true);
-                        }}
-                      >
-                        הצעות AI
-                      </Button>
                     </div>
                   </div>
                 ))}
