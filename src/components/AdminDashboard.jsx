@@ -76,10 +76,25 @@ export default function AdminDashboard() {
   const [selectedRequestForAI, setSelectedRequestForAI] = useState(null);
   const [aiLoadingRequesterId, setAiLoadingRequesterId] = useState(null);
   const [activeTab, setActiveTab] = useState("approvals");
+  const [userSearch, setUserSearch] = useState("");
+  const [sortColumn, setSortColumn] = useState(null);
+  const [sortOrder, setSortOrder] = useState("asc"); // 'asc' or 'desc'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all"); // 'all', 'approved', 'pending'
+  const [personalFilter, setPersonalFilter] = useState("all"); // 'all', 'true', 'false'
+  const [pendingRequestSearch, setPendingRequestSearch] = useState("");
+  const [activeMatchesFilter, setActiveMatchesFilter] = useState("all"); // 'all', 'hasMatches', 'noMatches'
 
   // New states for hover info panels
   const [hoveredRequester, setHoveredRequester] = useState(null);
   const [hoveredVolunteer, setHoveredVolunteer] = useState(null);
+
+  // useEffect for resetting currentPage (moved here to ensure unconditional call)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [userSearch, roleFilter, statusFilter, personalFilter, activeMatchesFilter]);
 
   // Function to determine panel widths dynamically
   const getPanelWidths = () => {
@@ -187,6 +202,15 @@ export default function AdminDashboard() {
       console.error("Error fetching data:", error);
     }
     setLoading(false);
+  };
+
+  const handleSort = (columnName) => {
+    if (sortColumn === columnName) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(columnName);
+      setSortOrder("asc");
+    }
   };
 
   useEffect(() => {
@@ -403,6 +427,64 @@ export default function AdminDashboard() {
     return <LoadingSpinner />;
   }
 
+  // Filter and sort users for the All Users table
+  const filteredAndSortedUsers = allUsers
+    .filter(u =>
+      u.fullName?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      u.email?.toLowerCase().includes(userSearch.toLowerCase())
+    )
+    .filter(u => {
+      if (roleFilter !== "all" && u.role !== roleFilter) return false;
+      if (statusFilter === "approved" && u.approved === false) return false;
+      if (statusFilter === "pending" && (u.approved === true || u.approved === undefined)) return false;
+      if (personalFilter === "true" && !u.personal) return false;
+      if (personalFilter === "false" && u.personal) return false;
+      if (activeMatchesFilter === "hasMatches" && (!u.activeMatchIds || u.activeMatchIds.length === 0)) return false;
+      if (activeMatchesFilter === "noMatches" && (u.activeMatchIds && u.activeMatchIds.length > 0)) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (!sortColumn) return 0;
+
+      let aValue;
+      let bValue;
+
+      if (sortColumn === 'activeMatchIds') {
+        aValue = a[sortColumn]?.length || 0;
+        bValue = b[sortColumn]?.length || 0;
+      } else if (sortColumn === 'approved') {
+        aValue = a[sortColumn] === undefined ? true : a[sortColumn];
+        bValue = b[sortColumn] === undefined ? true : b[sortColumn];
+      } else if (sortColumn === 'personal') {
+        aValue = a[sortColumn] === undefined ? false : a[sortColumn];
+        bValue = b[sortColumn] === undefined ? false : b[sortColumn];
+      } else {
+        aValue = a[sortColumn];
+        bValue = b[sortColumn];
+      }
+
+      if (aValue === undefined || aValue === null) return sortOrder === 'asc' ? 1 : -1;
+      if (bValue === undefined || bValue === null) return sortOrder === 'asc' ? -1 : 1;
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+      } else if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+        if (sortOrder === 'asc') {
+          return aValue - bValue;
+        } else {
+          return bValue - aValue;
+        }
+      } else {
+        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+    });
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentUsers = filteredAndSortedUsers.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredAndSortedUsers.length / itemsPerPage);
+
   return (
     <div className="p-6 space-y-6 mt-[-2rem]">
       <h2 className="text-3xl font-bold text-orange-800 text-center">לוח ניהול</h2>
@@ -489,11 +571,28 @@ export default function AdminDashboard() {
             <h3 className="font-semibold mb-4 text-orange-700">
               בקשות ממתינות לאישור מנהל
             </h3>
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="חיפוש בקשה לפי שם פונה/מתנדב או תוכן בקשה..."
+                value={pendingRequestSearch}
+                onChange={e => setPendingRequestSearch(e.target.value)}
+                className="border rounded px-3 py-2 w-full"
+              />
+            </div>
             {pendingRequests.length === 0 ? (
               <p className="text-orange-600/80">אין בקשות ממתינות.</p>
             ) : (
               <div className="space-y-4">
-                {pendingRequests.map(request => (
+                {pendingRequests
+                  .filter(request =>
+                    request.requesterInfo?.fullName?.toLowerCase().includes(pendingRequestSearch.toLowerCase()) ||
+                    request.requesterInfo?.email?.toLowerCase().includes(pendingRequestSearch.toLowerCase()) ||
+                    request.volunteerInfo?.fullName?.toLowerCase().includes(pendingRequestSearch.toLowerCase()) ||
+                    request.volunteerInfo?.email?.toLowerCase().includes(pendingRequestSearch.toLowerCase()) ||
+                    request.messageRequest?.toLowerCase().includes(pendingRequestSearch.toLowerCase())
+                  )
+                  .map(request => (
                   <div key={request.id} className="border rounded p-4 bg-orange-50/50">
                     <div className="grid grid-cols-2 gap-4 mb-3">
                       <div>
@@ -743,19 +842,92 @@ export default function AdminDashboard() {
         <Card>
           <CardContent>
             <h3 className="font-semibold mb-4 text-orange-700">כל המשתמשים במערכת</h3>
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="חיפוש משתמש לפי שם או אימייל..."
+                value={userSearch}
+                onChange={e => setUserSearch(e.target.value)}
+                className="border rounded px-3 py-2 w-full"
+              />
+            </div>
+            <div className="flex gap-4 mb-4">
+              {/* Role Filter */}
+              <div className="flex flex-col">
+                <label htmlFor="roleFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי תפקיד:</label>
+                <select
+                  id="roleFilter"
+                  value={roleFilter}
+                  onChange={e => setRoleFilter(e.target.value)}
+                  className="border rounded px-3 py-2"
+                >
+                  <option value="all">כל התפקידים</option>
+                  <option value="volunteer">מתנדב</option>
+                  <option value="requester">פונה</option>
+                  <option value="admin-first">מנהל רמה 1</option>
+                  <option value="admin-second">מנהל רמה 2</option>
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div className="flex flex-col">
+                <label htmlFor="statusFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי סטטוס:</label>
+                <select
+                  id="statusFilter"
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  className="border rounded px-3 py-2"
+                >
+                  <option value="all">כל הסטטוסים</option>
+                  <option value="approved">פעיל</option>
+                  <option value="pending">ממתין לאישור</option>
+                </select>
+              </div>
+
+              {/* Personal Filter */}
+              <div className="flex flex-col">
+                <label htmlFor="personalFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי אישי:</label>
+                <select
+                  id="personalFilter"
+                  value={personalFilter}
+                  onChange={e => setPersonalFilter(e.target.value)}
+                  className="border rounded px-3 py-2"
+                >
+                  <option value="all">הכל</option>
+                  <option value="true">כן</option>
+                  <option value="false">לא</option>
+                </select>
+              </div>
+
+              {/* Active Matches Filter */}
+              <div className="flex flex-col">
+                <label htmlFor="activeMatchesFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי התאמות פעילות:</label>
+                <select
+                  id="activeMatchesFilter"
+                  value={activeMatchesFilter}
+                  onChange={e => setActiveMatchesFilter(e.target.value)}
+                  className="border rounded px-3 py-2"
+                >
+                  <option value="all">הכל</option>
+                  <option value="hasMatches">עם התאמות</option>
+                  <option value="noMatches">ללא התאמות</option>
+                </select>
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-orange-50">
-                    <th className="border border-orange-100 p-2 text-orange-800">שם</th>
-                    <th className="border border-orange-100 p-2 text-orange-800">אימייל</th>
-                    <th className="border border-orange-100 p-2 text-orange-800">תפקיד</th>
-                    <th className="border border-orange-100 p-2 text-orange-800">סטטוס</th>
-                    <th className="border border-orange-100 p-2 text-orange-800">התאמות פעילות</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('fullName')}>שם{sortColumn === 'fullName' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('email')}>אימייל{sortColumn === 'email' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('role')}>תפקיד{sortColumn === 'role' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('approved')}>סטטוס{sortColumn === 'approved' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('personal')}>אישי{sortColumn === 'personal' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('activeMatchIds')}>התאמות פעילות{sortColumn === 'activeMatchIds' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {allUsers.map(u => (
+                  {currentUsers.map(u => (
                     <tr key={`${u.id}-${u.role}`} className="hover:bg-orange-50/50">
                       <td className="border border-orange-100 p-2 text-orange-700">{u.fullName}</td>
                       <td className="border border-orange-100 p-2 text-orange-700">{u.email}</td>
@@ -773,12 +945,34 @@ export default function AdminDashboard() {
                         )}
                       </td>
                       <td className="border border-orange-100 p-2 text-center">
+                        {u.personal ? 'כן' : 'לא'}
+                      </td>
+                      <td className="border border-orange-100 p-2 text-center">
                         {u.activeMatchIds?.length || 0}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+            <div className="flex justify-between items-center mt-4">
+              <Button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                variant="outline"
+              >
+                הקודם
+              </Button>
+              <span className="text-orange-700">
+                עמוד {currentPage} מתוך {totalPages}
+              </span>
+              <Button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                variant="outline"
+              >
+                הבא
+              </Button>
             </div>
           </CardContent>
         </Card>
