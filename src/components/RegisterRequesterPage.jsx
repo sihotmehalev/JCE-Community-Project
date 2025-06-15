@@ -151,8 +151,11 @@ export default function RegisterRequesterPage() {
       const uid = userCred.user.uid;
         const batch = writeBatch(db);
         // Merge custom input values for fields with "אחר"
+
+      const { password, ...formDataWithoutPassword } = formData;
+      
       const finalData = {
-        ...formData,
+        ...formDataWithoutPassword,
         gender: formData.gender === "אחר" ? customInputs.gender : formData.gender,
         maritalStatus: formData.maritalStatus === "אחר" ? customInputs.maritalStatus : formData.maritalStatus,
         preferredTimes: formData.preferredTimes === "אחר" ? customInputs.preferredTimes : formData.preferredTimes,

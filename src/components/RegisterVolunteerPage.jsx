@@ -174,9 +174,11 @@ export default function RegisterVolunteerPage() {
       
       const batch = writeBatch(db);
       
+      const { password, ...formDataWithoutPassword } = formData;
+
       // Merge custom input values for fields with "אחר"
       const finalData = {
-        ...formData,
+        ...formDataWithoutPassword,
         gender: formData.gender === "אחר" ? customInputs.gender : formData.gender,
         maritalStatus: formData.maritalStatus === "אחר" ? customInputs.maritalStatus : formData.maritalStatus,
         profession: formData.profession === "אחר" ? customInputs.profession : formData.profession,
