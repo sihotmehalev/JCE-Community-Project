@@ -4,11 +4,12 @@ import { useState } from "react";
 export const EventSlider = ({ events }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     
+    // if no events are provided, return a message
     if (!events || events.length === 0) {
         return <div className="p-4 text-center text-orange-800">אין אירועים להצגה</div>;
     }
 
-    // If only one event, show it without navigation
+    // if only one event is provided, display it without slider functionality
     if (events.length === 1) {
         return (
             <div className="p-4 max-w-7xl mx-auto overflow-hidden">
@@ -22,6 +23,7 @@ export const EventSlider = ({ events }) => {
         );
     }
 
+    // Function to get the previous and next indices for the slider
     const getPreviousIndex = () => {
         return currentIndex > 0 ? currentIndex - 1 : events.length - 1;
     };

@@ -63,7 +63,8 @@ export const EventCard = ({ event }) => {
                     )}
                 </div>
                 <div className="p-8 space-y-4">
-                    <h2 className="text-2xl font-bold text-orange-800 mb-3">{description}</h2>
+                    <h2 className="text-2xl font-bold text-orange-800 mb-3">{eventName}</h2>
+                    <p className="text-lg text-orange-700 mb-4">{description}</p>
                     <div className="space-y-3 text-orange-700 text-lg">
                         <p className="flex items-center">
                             <span className="mr-2">📅</span>

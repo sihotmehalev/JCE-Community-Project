@@ -118,9 +118,9 @@ export default function AdminDashboard() {
   return (
     <div className="p-6 space-y-6">
       <h2 className="text-2xl font-bold text-orange-800">לוח ניהול</h2>
-
         <AdminEventManager />
 
+      {/* מתנדבים לא מאושרים */}
       <Card>
         <CardContent>
           <h3 className="font-semibold mb-2 text-orange-700">מתנדבים ממתינים לאישור</h3>
@@ -139,7 +139,8 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
 
-<Card> 
+      {/* שיוך פונה למתנדב */}
+<Card> {/* Matching Card */}
   <CardContent>
     <h3 className="font-semibold mb-2 text-orange-700">
       שיוך פונים למתנדבים
