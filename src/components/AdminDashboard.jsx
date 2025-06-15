@@ -543,7 +543,7 @@ export default function AdminDashboard() {
                       >
                         <option value="">בחר מתנדב...</option>
                         {volunteers
-                          .filter(v => v.approved && v.isAvailable && !v.personal)
+                          .filter(v => v.approved && (v.isAvailable || v.isAvaliable) && !v.personal)
                           .map(v => (
                             <option key={v.id} value={v.id}>
                               {v.fullName} - {v.profession} ({v.experience})
@@ -676,10 +676,10 @@ export default function AdminDashboard() {
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
                 <ul className="space-y-2 max-h-[48rem] overflow-y-auto">
                   {volunteers
-                    .filter(v => v.approved && v.isAvailable && !v.personal)
+                    .filter(v => v.approved && (v.isAvailable || v.isAvaliable) && !v.personal)
                     .filter(v =>
-                      v.fullName?.toLowerCase().includes(volunteerSearch.toLowerCase()) ||
-                      v.email?.toLowerCase().includes(volunteerSearch.toLowerCase())
+                      ((v.fullName || '').toLowerCase().includes(volunteerSearch.toLowerCase())) ||
+                      ((v.email || '').toLowerCase().includes(volunteerSearch.toLowerCase()))
                     )
                     .map(v => (
                       <li
