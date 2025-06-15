@@ -94,6 +94,15 @@ export default function AdminDashboard() {
   const [matchSortColumn, setMatchSortColumn] = useState(null);
   const [matchSortOrder, setMatchSortOrder] = useState("asc"); // 'asc' or 'desc'
 
+  // New states for session details
+  const [showSessionDetails, setShowSessionDetails] = useState(false);
+  const [selectedMatchForDetails, setSelectedMatchForDetails] = useState(null);
+  const [matchSessions, setMatchSessions] = useState([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+
+  // New state for editing session
+  const [editingSession, setEditingSession] = useState(null);
+
   // New states for hover info panels
   const [hoveredRequester, setHoveredRequester] = useState(null);
   const [hoveredVolunteer, setHoveredVolunteer] = useState(null);
@@ -240,6 +249,30 @@ export default function AdminDashboard() {
     setLoading(false);
   };
 
+  const fetchSessions = async (matchId) => {
+    setLoadingSessions(true);
+    try {
+      const sessionsSnap = await getDocs(query(collection(db, "Sessions"), where("matchId", "==", matchId)));
+      const sessionsData = sessionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setMatchSessions(sessionsData);
+    } catch (error) {
+      console.error("Error fetching sessions:", error);
+    }
+    setLoadingSessions(false);
+  };
+
+  const updateSession = async (sessionId, updatedData) => {
+    try {
+      await updateDoc(doc(db, "Sessions", sessionId), updatedData);
+      alert("פרטי הפגישה עודכנו בהצלחה!");
+      fetchSessions(selectedMatchForDetails); // Refresh sessions after update
+      setEditingSession(null); // Close the modal
+    } catch (error) {
+      console.error("Error updating session:", error);
+      alert("שגיאה בעדכון פרטי הפגישה.");
+    }
+  };
+
   const handleSort = (columnName) => {
     if (sortColumn === columnName) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -261,6 +294,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (selectedMatchForDetails && showSessionDetails) {
+      fetchSessions(selectedMatchForDetails);
+    } else if (!selectedMatchForDetails) {
+      setMatchSessions([]);
+    }
+  }, [selectedMatchForDetails, showSessionDetails]);
 
   const approveVolunteer = async (id) => {
     try {
@@ -787,10 +828,10 @@ export default function AdminDashboard() {
                         onMouseEnter={() => setHoveredVolunteer(v)}
                         onMouseLeave={() => { if (selectedVolunteer !== v.id) setHoveredVolunteer(null); }}
                       >
-                        <span className="cursor-pointer">
+                        <HoverCard user={v}>
                             <strong className="text-orange-800">{v.fullName}</strong>
                             <span className="text-orange-600 text-sm"> ({v.profession})</span>
-                          </span>
+                          </HoverCard>
                       </li>
                     ))
                   }
@@ -876,31 +917,166 @@ export default function AdminDashboard() {
         <Card>
           <CardContent>
             <h3 className="font-semibold mb-4 text-orange-700">פיקוח התאמות פעילות</h3>
-            <div className="mb-4">
-              <input
-                type="text"
-                placeholder="חיפוש התאמה לפי שם פונה/מתנדב..."
-                value={activeMatchSearch}
-                onChange={e => setActiveMatchSearch(e.target.value)}
-                className="border rounded px-3 py-2 w-full"
-              />
-            </div>
-
-            {activeMatches.length === 0 ? (
-              <p className="text-orange-600/80">אין התאמות פעילות.</p>
+            {showSessionDetails ? (
+              <div className="space-y-4">
+                <Button onClick={() => {
+                  setShowSessionDetails(false);
+                  setSelectedMatchForDetails(null);
+                }}>
+                  חזור לרשימת ההתאמות
+                </Button>
+                <h4 className="text-xl font-semibold text-orange-800">פירוט פגישות עבור התאמה</h4>
+                {loadingSessions ? (
+                  <LoadingSpinner />
+                ) : matchSessions.length === 0 ? (
+                  <p className="text-orange-600/80">אין פגישות זמינות עבור התאמה זו.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-orange-50">
+                          <th className="border border-orange-100 p-2 text-orange-800">תאריך ושעה</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">סטטוס</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">משך (דקות)</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">מיקום</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">סיכום פגישה</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">פעולות</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {matchSessions.map(session => (
+                          <tr key={session.id} className="hover:bg-orange-50/50">
+                            <td className="border border-orange-100 p-2 text-orange-700">
+                              {session.scheduledTime ? new Date(session.scheduledTime.seconds * 1000).toLocaleString() : 'N/A'}
+                            </td>
+                            <td className="border border-orange-100 p-2 text-orange-700">{session.status || 'N/A'}</td>
+                            <td className="border border-orange-100 p-2 text-orange-700">{session.durationMinutes || 'N/A'}</td>
+                            <td className="border border-orange-100 p-2 text-orange-700">{session.location || 'N/A'}</td>
+                            <td className="border border-orange-100 p-2 text-orange-700">{session.sessionSummary || session.notes || 'N/A'}</td>
+                            <td className="border border-orange-100 p-2 text-center">
+                              <span
+                                className="text-blue-600 hover:underline cursor-pointer"
+                                onClick={() => setEditingSession(session)}
+                              >
+                                ערוך
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-orange-50">
-                      <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('requesterInfo.fullName')}>פונה{matchSortColumn === 'requesterInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                      <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב{matchSortColumn === 'volunteerInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                      <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('startDate')}>תאריך התחלה{matchSortColumn === 'startDate' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                      <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('meetingFrequency')}>תדירות פגישות{matchSortColumn === 'meetingFrequency' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeMatches
+              <>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="חיפוש התאמה לפי שם פונה/מתנדב..."
+                    value={activeMatchSearch}
+                    onChange={e => setActiveMatchSearch(e.target.value)}
+                    className="border rounded px-3 py-2 w-full"
+                  />
+                </div>
+
+                {activeMatches.length === 0 ? (
+                  <p className="text-orange-600/80">אין התאמות פעילות.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-orange-50">
+                          <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('requesterInfo.fullName')}>פונה{matchSortColumn === 'requesterInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                          <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב{matchSortColumn === 'volunteerInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                          <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('meetingFrequency')}>תדירות פגישות{matchSortColumn === 'meetingFrequency' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">פעולות</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeMatches
+                          .filter(match =>
+                            match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                            match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                            match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
+                          )
+                          .filter(match => {
+                            if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
+                            if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
+                            return true;
+                          })
+                          .sort((a, b) => {
+                            if (!matchSortColumn) return 0;
+
+                            let aValue;
+                            let bValue;
+
+                            if (matchSortColumn === 'requesterInfo.fullName') {
+                              aValue = a.requesterInfo?.fullName || '';
+                              bValue = b.requesterInfo?.fullName || '';
+                            } else if (matchSortColumn === 'volunteerInfo.fullName') {
+                              aValue = a.volunteerInfo?.fullName || '';
+                              bValue = b.volunteerInfo?.fullName || '';
+                            } else if (matchSortColumn === 'meetingFrequency') {
+                              aValue = a[matchSortColumn] || '';
+                              bValue = b[matchSortColumn] || '';
+                            } else {
+                              aValue = a[matchSortColumn];
+                              bValue = b[matchSortColumn];
+                            }
+
+                            if (typeof aValue === 'string' && typeof bValue === 'string') {
+                              return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                            } else {
+                              return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+                            }
+                          })
+                          .slice(
+                            (activeMatchCurrentPage - 1) * itemsPerPage,
+                            activeMatchCurrentPage * itemsPerPage
+                          )
+                          .map(match => (
+                            <tr key={match.id} className="hover:bg-orange-50/50">
+                              <td className="border border-orange-100 p-2 text-orange-700">
+                                <HoverCard user={match.requesterInfo}>
+                                  {match.requesterInfo?.fullName || 'N/A'}
+                                </HoverCard>
+                              </td>
+                              <td className="border border-orange-100 p-2 text-orange-700">
+                                <HoverCard user={match.volunteerInfo}>
+                                  {match.volunteerInfo?.fullName || 'N/A'}
+                                </HoverCard>
+                              </td>
+                              <td className="border border-orange-100 p-2 text-orange-700">
+                                {match.meetingFrequency || 'N/A'}
+                              </td>
+                              <td className="border border-orange-100 p-2 text-center">
+                                <span
+                                  className="text-blue-600 hover:underline cursor-pointer"
+                                  onClick={() => {
+                                    setSelectedMatchForDetails(match.id);
+                                    setShowSessionDetails(true);
+                                  }}
+                                >
+                                  פירוט
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <div className="flex justify-between items-center mt-4">
+                  <Button
+                    onClick={() => setActiveMatchCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={activeMatchCurrentPage === 1}
+                    variant="outline"
+                  >
+                    הקודם
+                  </Button>
+                  <span className="text-orange-700">
+                    עמוד {activeMatchCurrentPage} מתוך {Math.ceil(activeMatches
                       .filter(match =>
                         match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
                         match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
@@ -923,9 +1099,6 @@ export default function AdminDashboard() {
                         } else if (matchSortColumn === 'volunteerInfo.fullName') {
                           aValue = a.volunteerInfo?.fullName || '';
                           bValue = b.volunteerInfo?.fullName || '';
-                        } else if (matchSortColumn === 'startDate') {
-                          aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
-                          bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
                         } else if (matchSortColumn === 'meetingFrequency') {
                           aValue = a[matchSortColumn] || '';
                           bValue = b[matchSortColumn] || '';
@@ -939,167 +1112,53 @@ export default function AdminDashboard() {
                         } else {
                           return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
                         }
-                      })
-                      .slice(
-                        (activeMatchCurrentPage - 1) * itemsPerPage,
-                        activeMatchCurrentPage * itemsPerPage
+                      }).length / itemsPerPage)}
+                  </span>
+                  <Button
+                    onClick={() => setActiveMatchCurrentPage(prev => Math.min(Math.ceil(activeMatches
+                      .filter(match =>
+                        match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                        match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                        match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
                       )
-                      .map(match => (
-                        <tr key={match.id} className="hover:bg-orange-50/50">
-                          <td className="border border-orange-100 p-2 text-orange-700">
-                            {match.requesterInfo?.fullName || 'N/A'}
-                          </td>
-                          <td className="border border-orange-100 p-2 text-orange-700">
-                            {match.volunteerInfo?.fullName || 'N/A'}
-                          </td>
-                          <td className="border border-orange-100 p-2 text-orange-700">
-                            {match.startDate ? new Date(match.startDate.seconds * 1000).toLocaleDateString() : 'N/A'}
-                          </td>
-                          <td className="border border-orange-100 p-2 text-orange-700">
-                            {match.meetingFrequency || 'N/A'}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
+                      .filter(match => {
+                        if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
+                        if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
+                        return true;
+                      })
+                      .sort((a, b) => {
+                        if (!matchSortColumn) return 0;
+
+                        let aValue;
+                        let bValue;
+
+                        if (matchSortColumn === 'requesterInfo.fullName') {
+                          aValue = a.requesterInfo?.fullName || '';
+                          bValue = b.requesterInfo?.fullName || '';
+                        } else if (matchSortColumn === 'volunteerInfo.fullName') {
+                          aValue = a.volunteerInfo?.fullName || '';
+                          bValue = b.volunteerInfo?.fullName || '';
+                        } else if (matchSortColumn === 'meetingFrequency') {
+                          aValue = a[matchSortColumn] || '';
+                          bValue = b[matchSortColumn] || '';
+                        } else {
+                          aValue = a[matchSortColumn];
+                          bValue = b[matchSortColumn];
+                        }
+
+                        if (typeof aValue === 'string' && typeof bValue === 'string') {
+                          return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                        } else {
+                          return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+                        }
+                      }).length / itemsPerPage), prev + 1))}
+                    variant="outline"
+                  >
+                    הבא
+                  </Button>
+                </div>
+              </>
             )}
-            <div className="flex justify-between items-center mt-4">
-              <Button
-                onClick={() => setActiveMatchCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={activeMatchCurrentPage === 1}
-                variant="outline"
-              >
-                הקודם
-              </Button>
-              <span className="text-orange-700">
-                עמוד {activeMatchCurrentPage} מתוך {Math.ceil(activeMatches
-                  .filter(match =>
-                    match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
-                    match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
-                    match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
-                  )
-                  .filter(match => {
-                    if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
-                    if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
-                    return true;
-                  })
-                  .sort((a, b) => {
-                    if (!matchSortColumn) return 0;
-
-                    let aValue;
-                    let bValue;
-
-                    if (matchSortColumn === 'requesterInfo.fullName') {
-                      aValue = a.requesterInfo?.fullName || '';
-                      bValue = b.requesterInfo?.fullName || '';
-                    } else if (matchSortColumn === 'volunteerInfo.fullName') {
-                      aValue = a.volunteerInfo?.fullName || '';
-                      bValue = b.volunteerInfo?.fullName || '';
-                    } else if (matchSortColumn === 'startDate') {
-                      aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
-                      bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
-                    } else if (matchSortColumn === 'meetingFrequency') {
-                      aValue = a[matchSortColumn] || '';
-                      bValue = b[matchSortColumn] || '';
-                    } else {
-                      aValue = a[matchSortColumn];
-                      bValue = b[matchSortColumn];
-                    }
-
-                    if (typeof aValue === 'string' && typeof bValue === 'string') {
-                      return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-                    } else {
-                      return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-                    }
-                  }).length / itemsPerPage)}
-              </span>
-              <Button
-                onClick={() => setActiveMatchCurrentPage(prev => Math.min(Math.ceil(activeMatches
-                  .filter(match =>
-                    match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
-                    match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
-                    match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
-                  )
-                  .filter(match => {
-                    if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
-                    if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
-                    return true;
-                  })
-                  .sort((a, b) => {
-                    if (!matchSortColumn) return 0;
-
-                    let aValue;
-                    let bValue;
-
-                    if (matchSortColumn === 'requesterInfo.fullName') {
-                      aValue = a.requesterInfo?.fullName || '';
-                      bValue = b.requesterInfo?.fullName || '';
-                    } else if (matchSortColumn === 'volunteerInfo.fullName') {
-                      aValue = a.volunteerInfo?.fullName || '';
-                      bValue = b.volunteerInfo?.fullName || '';
-                    } else if (matchSortColumn === 'startDate') {
-                      aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
-                      bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
-                    } else if (matchSortColumn === 'meetingFrequency') {
-                      aValue = a[matchSortColumn] || '';
-                      bValue = b[matchSortColumn] || '';
-                    } else {
-                      aValue = a[matchSortColumn];
-                      bValue = b[matchSortColumn];
-                    }
-
-                    if (typeof aValue === 'string' && typeof bValue === 'string') {
-                      return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-                    } else {
-                      return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-                    }
-                  }).length / itemsPerPage), prev + 1))}
-                disabled={activeMatchCurrentPage === Math.ceil(activeMatches
-                  .filter(match =>
-                    match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
-                    match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
-                    match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
-                  )
-                  .filter(match => {
-                    if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
-                    if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
-                    return true;
-                  })
-                  .sort((a, b) => {
-                    if (!matchSortColumn) return 0;
-
-                    let aValue;
-                    let bValue;
-
-                    if (matchSortColumn === 'requesterInfo.fullName') {
-                      aValue = a.requesterInfo?.fullName || '';
-                      bValue = b.requesterInfo?.fullName || '';
-                    } else if (matchSortColumn === 'volunteerInfo.fullName') {
-                      aValue = a.volunteerInfo?.fullName || '';
-                      bValue = b.volunteerInfo?.fullName || '';
-                    } else if (matchSortColumn === 'startDate') {
-                      aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
-                      bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
-                    } else if (matchSortColumn === 'meetingFrequency') {
-                      aValue = a[matchSortColumn] || '';
-                      bValue = b[matchSortColumn] || '';
-                    } else {
-                      aValue = a[matchSortColumn];
-                      bValue = b[matchSortColumn];
-                    }
-
-                    if (typeof aValue === 'string' && typeof bValue === 'string') {
-                      return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-                    } else {
-                      return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-                    }
-                  }).length / itemsPerPage)}
-                variant="outline"
-              >
-                הבא
-              </Button>
-            </div>
           </CardContent>
         </Card>
       )}
@@ -1257,6 +1316,103 @@ export default function AdminDashboard() {
         volunteers={volunteers}
         onSelectVolunteer={handleAIVolunteerSelection}
       />
+
+      {/* Edit Session Modal */}
+      {editingSession && (
+        <EditSessionModal
+          isOpen={!!editingSession}
+          onClose={() => setEditingSession(null)}
+          session={editingSession}
+          onSave={updateSession}
+        />
+      )}
     </div>
   );
 }
+
+const EditSessionModal = ({ isOpen, onClose, session, onSave }) => {
+  const [status, setStatus] = useState(session?.status || '');
+  const [notes, setNotes] = useState(session?.sessionSummary || session?.notes || '');
+  const [durationMinutes, setDurationMinutes] = useState(session?.durationMinutes || '');
+  const [location, setLocation] = useState(session?.location || '');
+  const [scheduledTime, setScheduledTime] = useState(
+    session?.scheduledTime ? new Date(session.scheduledTime.seconds * 1000).toISOString().slice(0, 16) : ''
+  );
+
+  const handleSubmit = () => {
+    const updatedData = {
+      status,
+      sessionSummary: notes,
+      notes: notes, // Keep both for now, can consolidate later if needed
+      durationMinutes: Number(durationMinutes),
+      location,
+      scheduledTime: scheduledTime ? new Date(scheduledTime) : null,
+    };
+    onSave(session.id, updatedData);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-lg bg-white p-6 rounded-lg shadow-xl">
+        <CardContent>
+          <h2 className="text-2xl font-bold mb-4 text-orange-800">ערוך פרטי פגישה</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">סטטוס:</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full border rounded px-3 py-2"
+              >
+                <option value="completed">הושלמה</option>
+                <option value="scheduled">מתוכננת</option>
+                <option value="cancelled">בוטלה</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">סיכום פגישה / הערות:</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full border rounded px-3 py-2 h-24"
+              ></textarea>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">משך (דקות):</label>
+              <input
+                type="number"
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(e.target.value)}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">מיקום:</label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">תאריך ושעת פגישה:</label>
+              <input
+                type="datetime-local"
+                value={scheduledTime}
+                onChange={(e) => setScheduledTime(e.target.value)}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <Button variant="outline" onClick={onClose}>בטל</Button>
+              <Button onClick={handleSubmit}>שמור שינויים</Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
