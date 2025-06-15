@@ -86,6 +86,14 @@ export default function AdminDashboard() {
   const [personalFilter, setPersonalFilter] = useState("all"); // 'all', 'true', 'false'
   const [pendingRequestSearch, setPendingRequestSearch] = useState("");
   const [activeMatchesFilter, setActiveMatchesFilter] = useState("all"); // 'all', 'hasMatches', 'noMatches'
+  const [activeMatches, setActiveMatches] = useState([]);
+  const [activeMatchSearch, setActiveMatchSearch] = useState("");
+  const [activeMatchCurrentPage, setActiveMatchCurrentPage] = useState(1);
+  const [matchStatusFilter, setMatchStatusFilter] = useState("all"); // 'all', 'active', 'completed', 'cancelled'
+  const [matchRequesterFilter, setMatchRequesterFilter] = useState("all"); // filter by requester ID
+  const [matchVolunteerFilter, setMatchVolunteerFilter] = useState("all"); // filter by volunteer ID
+  const [matchSortColumn, setMatchSortColumn] = useState(null);
+  const [matchSortOrder, setMatchSortOrder] = useState("asc"); // 'asc' or 'desc'
 
   // New states for hover info panels
   const [hoveredRequester, setHoveredRequester] = useState(null);
@@ -95,6 +103,11 @@ export default function AdminDashboard() {
   useEffect(() => {
     setCurrentPage(1);
   }, [userSearch, roleFilter, statusFilter, personalFilter, activeMatchesFilter]);
+
+  // useEffect for resetting activeMatchCurrentPage when filters or search change
+  useEffect(() => {
+    setActiveMatchCurrentPage(1);
+  }, [activeMatchSearch, matchStatusFilter, matchRequesterFilter, matchVolunteerFilter, matchSortColumn, matchSortOrder]);
 
   // Function to determine panel widths dynamically
   const getPanelWidths = () => {
@@ -193,10 +206,34 @@ export default function AdminDashboard() {
         })
       );
 
+      // Fetch all matches
+      const matchesSnap = await getDocs(collection(db, "Matches"));
+      const matches = await Promise.all(
+        matchesSnap.docs.map(async (docSnap) => {
+          const data = docSnap.data();
+          
+          // Fetch requester info
+          const requesterDoc = await getDoc(doc(db, "Users", "Info", "Requesters", data.requesterId));
+          const requesterInfo = requesterDoc.exists() ? requesterDoc.data() : null;
+          
+          // Fetch volunteer info
+          const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", data.volunteerId));
+          const volunteerInfo = volunteerDoc.exists() ? volunteerDoc.data() : null;
+          
+          return {
+            id: docSnap.id,
+            ...data,
+            requesterInfo,
+            volunteerInfo
+          };
+        })
+      );
+
       setVolunteers(v);
       setRequesters(r);
       setAllUsers([...v, ...r, ...a]);
       setPendingRequests(pending);
+      setActiveMatches(matches);
       
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -210,6 +247,15 @@ export default function AdminDashboard() {
     } else {
       setSortColumn(columnName);
       setSortOrder("asc");
+    }
+  };
+
+  const handleMatchSort = (columnName) => {
+    if (matchSortColumn === columnName) {
+      setMatchSortOrder(matchSortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setMatchSortColumn(columnName);
+      setMatchSortOrder("asc");
     }
   };
 
@@ -511,6 +557,13 @@ export default function AdminDashboard() {
           className="py-3 px-6 text-lg"
         >
           התאמה כללית
+        </Button>
+        <Button
+          variant={activeTab === "matches" ? "default" : "outline"}
+          onClick={() => setActiveTab("matches")}
+          className="py-3 px-6 text-lg"
+        >
+          פיקוח התאמות ({activeMatches.length})
         </Button>
         <Button
           variant={activeTab === "users" ? "default" : "outline"}
@@ -831,6 +884,215 @@ export default function AdminDashboard() {
                 }}
               >
                 הצעות AI
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Matches Supervision Table */}
+      {activeTab === "matches" && (
+        <Card>
+          <CardContent>
+            <h3 className="font-semibold mb-4 text-orange-700">פיקוח התאמות פעילות</h3>
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="חיפוש התאמה לפי שם פונה/מתנדב..."
+                value={activeMatchSearch}
+                onChange={e => setActiveMatchSearch(e.target.value)}
+                className="border rounded px-3 py-2 w-full"
+              />
+            </div>
+
+            {activeMatches.length === 0 ? (
+              <p className="text-orange-600/80">אין התאמות פעילות.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-orange-50">
+                      <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('requesterInfo.fullName')}>פונה{matchSortColumn === 'requesterInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                      <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב{matchSortColumn === 'volunteerInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                      <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('messageRequest')}>תוכן הבקשה{matchSortColumn === 'messageRequest' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                      <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('status')}>סטטוס{matchSortColumn === 'status' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                      <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('startDate')}>תאריך התחלה{matchSortColumn === 'startDate' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                      <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('meetingFrequency')}>תדירות פגישות{matchSortColumn === 'meetingFrequency' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeMatches
+                      .filter(match =>
+                        match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                        match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                        match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
+                      )
+                      .sort((a, b) => {
+                        if (!matchSortColumn) return 0;
+
+                        let aValue;
+                        let bValue;
+
+                        if (matchSortColumn === 'requesterInfo.fullName') {
+                          aValue = a.requesterInfo?.fullName || '';
+                          bValue = b.requesterInfo?.fullName || '';
+                        } else if (matchSortColumn === 'volunteerInfo.fullName') {
+                          aValue = a.volunteerInfo?.fullName || '';
+                          bValue = b.volunteerInfo?.fullName || '';
+                        } else if (matchSortColumn === 'startDate') {
+                          aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
+                          bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
+                        } else {
+                          aValue = a[matchSortColumn];
+                          bValue = b[matchSortColumn];
+                        }
+
+                        if (typeof aValue === 'string' && typeof bValue === 'string') {
+                          return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                        } else {
+                          return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+                        }
+                      })
+                      .slice(
+                        (activeMatchCurrentPage - 1) * itemsPerPage,
+                        activeMatchCurrentPage * itemsPerPage
+                      )
+                      .map(match => (
+                        <tr key={match.id} className="hover:bg-orange-50/50">
+                          <td className="border border-orange-100 p-2 text-orange-700">
+                            {match.requesterInfo?.fullName || 'N/A'}
+                          </td>
+                          <td className="border border-orange-100 p-2 text-orange-700">
+                            {match.volunteerInfo?.fullName || 'N/A'}
+                          </td>
+                          <td className="border border-orange-100 p-2 text-orange-700">
+                            {match.messageRequest || 'N/A'}
+                          </td>
+                          <td className="border border-orange-100 p-2 text-orange-700">
+                            {match.status}
+                          </td>
+                          <td className="border border-orange-100 p-2 text-orange-700">
+                            {match.startDate ? new Date(match.startDate.seconds * 1000).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="border border-orange-100 p-2 text-orange-700">
+                            {match.meetingFrequency || 'N/A'}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="flex justify-between items-center mt-4">
+              <Button
+                onClick={() => setActiveMatchCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={activeMatchCurrentPage === 1}
+                variant="outline"
+              >
+                הקודם
+              </Button>
+              <span className="text-orange-700">
+                עמוד {activeMatchCurrentPage} מתוך {Math.ceil(activeMatches
+                  .filter(match =>
+                    match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                    match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                    match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
+                  )
+                  .sort((a, b) => {
+                    if (!matchSortColumn) return 0;
+
+                    let aValue;
+                    let bValue;
+
+                    if (matchSortColumn === 'requesterInfo.fullName') {
+                      aValue = a.requesterInfo?.fullName || '';
+                      bValue = b.requesterInfo?.fullName || '';
+                    } else if (matchSortColumn === 'volunteerInfo.fullName') {
+                      aValue = a.volunteerInfo?.fullName || '';
+                      bValue = b.volunteerInfo?.fullName || '';
+                    } else if (matchSortColumn === 'startDate') {
+                      aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
+                      bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
+                    } else {
+                      aValue = a[matchSortColumn];
+                      bValue = b[matchSortColumn];
+                    }
+
+                    if (typeof aValue === 'string' && typeof bValue === 'string') {
+                      return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                    } else {
+                      return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+                    }
+                  }).length / itemsPerPage)}
+              </span>
+              <Button
+                onClick={() => setActiveMatchCurrentPage(prev => Math.min(Math.ceil(activeMatches
+                  .filter(match =>
+                    match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                    match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                    match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
+                  )
+                  .sort((a, b) => {
+                    if (!matchSortColumn) return 0;
+
+                    let aValue;
+                    let bValue;
+
+                    if (matchSortColumn === 'requesterInfo.fullName') {
+                      aValue = a.requesterInfo?.fullName || '';
+                      bValue = b.requesterInfo?.fullName || '';
+                    } else if (matchSortColumn === 'volunteerInfo.fullName') {
+                      aValue = a.volunteerInfo?.fullName || '';
+                      bValue = b.volunteerInfo?.fullName || '';
+                    } else if (matchSortColumn === 'startDate') {
+                      aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
+                      bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
+                    } else {
+                      aValue = a[matchSortColumn];
+                      bValue = b[matchSortColumn];
+                    }
+
+                    if (typeof aValue === 'string' && typeof bValue === 'string') {
+                      return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                    } else {
+                      return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+                    }
+                  }).length / itemsPerPage), prev + 1))}
+                disabled={activeMatchCurrentPage === Math.ceil(activeMatches
+                  .filter(match =>
+                    match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                    match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                    match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
+                  )
+                  .sort((a, b) => {
+                    if (!matchSortColumn) return 0;
+
+                    let aValue;
+                    let bValue;
+
+                    if (matchSortColumn === 'requesterInfo.fullName') {
+                      aValue = a.requesterInfo?.fullName || '';
+                      bValue = b.requesterInfo?.fullName || '';
+                    } else if (matchSortColumn === 'volunteerInfo.fullName') {
+                      aValue = a.volunteerInfo?.fullName || '';
+                      bValue = b.volunteerInfo?.fullName || '';
+                    } else if (matchSortColumn === 'startDate') {
+                      aValue = a.startDate ? new Date(a.startDate.seconds * 1000).getTime() : 0;
+                      bValue = b.startDate ? new Date(b.startDate.seconds * 1000).getTime() : 0;
+                    } else {
+                      aValue = a[matchSortColumn];
+                      bValue = b[matchSortColumn];
+                    }
+
+                    if (typeof aValue === 'string' && typeof bValue === 'string') {
+                      return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                    } else {
+                      return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+                    }
+                  }).length / itemsPerPage)}
+                variant="outline"
+              >
+                הבא
               </Button>
             </div>
           </CardContent>
