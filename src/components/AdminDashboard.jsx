@@ -555,6 +555,7 @@ export default function AdminDashboard() {
                     onChange={e => setRequesterSearch(e.target.value)}
                     className="border rounded px-2 py-1 w-full"
                   />
+                  
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
                 <ul className="space-y-2 max-h-96 overflow-y-auto">
@@ -564,16 +565,19 @@ export default function AdminDashboard() {
                       req.email?.toLowerCase().includes(requesterSearch.toLowerCase())
                     )
                     .map(req => (
-                      <li key={req.id} className="flex items-center gap-2 bg-white p-2 rounded shadow">
-                        <input
-                          type="radio"
-                          name="requester"
-                          checked={selectedRequester === req.id}
-                          onChange={() => {
+                      <li
+                        key={req.id}
+                        className={`flex items-center gap-2 bg-white p-2 rounded shadow cursor-pointer
+                                    ${selectedRequester === req.id ? 'border-2 border-orange-500 ring-2 ring-orange-200' : ''}`}
+                        onClick={() => {
+                          if (selectedRequester === req.id) {
+                            setSelectedRequester(null); // Deselect if already selected
+                          } else {
                             setSelectedRequester(req.id);
-                            setSelectedVolunteer(null);
-                          }}
-                        />
+                            setSelectedVolunteer(null); // Deselect volunteer when a new requester is chosen
+                          }
+                        }}
+                      >
                         <HoverCard user={req}>
                           <span className="cursor-pointer">
                             <strong className="text-orange-800">{req.fullName}</strong>
@@ -599,6 +603,7 @@ export default function AdminDashboard() {
                     onChange={e => setVolunteerSearch(e.target.value)}
                     className="border rounded px-2 py-1 w-full"
                   />
+                  
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
                 <ul className="space-y-2 max-h-96 overflow-y-auto">
@@ -609,14 +614,21 @@ export default function AdminDashboard() {
                       v.email?.toLowerCase().includes(volunteerSearch.toLowerCase())
                     )
                     .map(v => (
-                      <li key={v.id} className="flex items-center gap-2 bg-white p-2 rounded shadow">
-                        <input
-                          type="radio"
-                          name="volunteer"
-                          checked={selectedVolunteer === v.id}
-                          disabled={!selectedRequester}
-                          onChange={() => setSelectedVolunteer(v.id)}
-                        />
+                      <li
+                        key={v.id}
+                        className={`flex items-center gap-2 bg-white p-2 rounded shadow cursor-pointer
+                                    ${selectedVolunteer === v.id ? 'border-2 border-orange-500 ring-2 ring-orange-200' : ''}
+                                    ${!selectedRequester ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onClick={() => {
+                          if (selectedRequester) {
+                            if (selectedVolunteer === v.id) {
+                              setSelectedVolunteer(null); // Deselect if already selected
+                            } else {
+                              setSelectedVolunteer(v.id);
+                            }
+                          }
+                        }}
+                      >
                         <HoverCard user={v}>
                           <span className="cursor-pointer">
                             <strong className="text-orange-800">{v.fullName}</strong>
@@ -649,6 +661,7 @@ export default function AdminDashboard() {
               </Button>
               <Button
                 variant="outline"
+                className={`${!selectedRequester ? 'opacity-50 cursor-not-allowed' : ''}`}
                 disabled={!selectedRequester}
                 onClick={() => {
                   const requesterData = requesters.find(req => req.id === selectedRequester);
