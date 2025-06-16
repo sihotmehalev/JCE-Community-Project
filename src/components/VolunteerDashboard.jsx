@@ -881,9 +881,9 @@ function SessionSchedulerModal({ match, onClose, onSchedule }) {
   ];
 
   const locationOptions = [
-    { value: "video", label: "שיחת וידאו" },
-    { value: "phone", label: "שיחת טלפון" },
-    { value: "in_person", label: "פגישה פיזית" },
+    { value: "שיחת וידאו", label: "שיחת וידאו" },
+    { value: "שיחת טלפון", label: "שיחת טלפון" },
+    { value: "פגישה פיזית", label: "פגישה פיזית" },
   ];
 
   return (

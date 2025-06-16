@@ -105,7 +105,7 @@ const SessionCard = ({
               key={index}
               onClick={action.onClick}
               variant={action.variant}
-              className={action.className || ''}
+              className={`flex items-center justify-center ${action.className || ''}`}
             >
               {action.label}
             </Button>
