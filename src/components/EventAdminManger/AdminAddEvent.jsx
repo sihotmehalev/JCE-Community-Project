@@ -4,8 +4,9 @@ import { db } from '../../firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../../firebaseConfig';
 
-const ImageDropZone = ({ onImageUpload }) => {
+const ImageDropZone = ({ onImageUpload, currentImage }) => {
     const [isDragging, setIsDragging] = useState(false);
+    const [preview, setPreview] = useState(currentImage || '');
 
     const handleDrag = (e) => {
         e.preventDefault();
@@ -45,6 +46,7 @@ const ImageDropZone = ({ onImageUpload }) => {
             const storageRef = ref(storage, `event-images/${Date.now()}-${file.name}`);
             await uploadBytes(storageRef, file);
             const downloadURL = await getDownloadURL(storageRef);
+            setPreview(downloadURL);
             onImageUpload(downloadURL);
         } catch (error) {
             console.error('Error uploading image:', error);
@@ -53,34 +55,58 @@ const ImageDropZone = ({ onImageUpload }) => {
     };
 
     return (
-        <div
-            onDragEnter={handleDragIn}
-            onDragLeave={handleDragOut}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            className={`w-full h-32 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer
-                ${isDragging ? 'border-orange-500 bg-orange-50' : 'border-gray-300'}`}
-        >
-            <div className="text-center">
-                <p className="text-gray-600">גרור תמונה לכאן או</p>
-                <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                        if (e.target.files?.[0]) {
-                            handleImageUpload(e.target.files[0]);
-                        }
-                    }}
-                    id="imageUpload"
-                />
-                <label
-                    htmlFor="imageUpload"
-                    className="text-orange-600 hover:text-orange-700 cursor-pointer"
+        <div className="space-y-2">
+            {preview ? (
+                // Show image preview if we have one
+                <div className="relative">
+                    <img 
+                        src={preview} 
+                        alt="תצוגה מקדימה" 
+                        className="w-full h-32 object-cover rounded-lg"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setPreview('');
+                            onImageUpload('');
+                        }}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
+                        title="הסר תמונה"
+                    >
+                        ✕
+                    </button>
+                </div>
+            ) : (
+                <div
+                    onDragEnter={handleDragIn}
+                    onDragLeave={handleDragOut}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    className={`w-full h-32 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer
+                        ${isDragging ? 'border-orange-500 bg-orange-50' : 'border-gray-300'}`}
                 >
-                    בחר קובץ
-                </label>
-            </div>
+                    <div className="text-center">
+                        <p className="text-gray-600">גרור תמונה לכאן או</p>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                                if (e.target.files?.[0]) {
+                                    handleImageUpload(e.target.files[0]);
+                                }
+                            }}
+                            id="imageUpload"
+                        />
+                        <label
+                            htmlFor="imageUpload"
+                            className="text-orange-600 hover:text-orange-700 cursor-pointer"
+                        >
+                            בחר קובץ
+                        </label>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

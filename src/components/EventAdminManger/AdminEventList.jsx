@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, doc, query, orderBy, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { collection, updateDoc, doc, query, orderBy, deleteDoc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
-import { ca } from 'date-fns/locale';
 
 export const AdminEventList = () => {
     const [events, setEvents] = useState([]);
@@ -9,22 +8,8 @@ export const AdminEventList = () => {
     const [search, setSearch] = useState('');
     const [sort, setSort] = useState('date');
     const [sortDirection, setSortDirection] = useState('desc');
-
-    const fetchEvents = async () => {
-        try {
-            const eventsQuery = query(collection(db, "Events"), orderBy("scheduled_time", "desc"));
-            const querySnapshot = await getDocs(eventsQuery);
-            const eventsData = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                scheduled_time: doc.data().scheduled_time?.toDate()
-            }));
-            setEvents(eventsData);
-        } catch (error) {
-            console.error("Error fetching events:", error);
-            alert('שגיאה בטעינת האירועים');
-        }
-    };
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editForm, setEditForm] = useState({});
 
     useEffect(() => {
         const eventsQuery = query(
@@ -43,22 +28,6 @@ export const AdminEventList = () => {
         });
         return () => unsubscribe();
     }, []);
-
-    /*
-    const toggleEventStatus = async (eventId, currentStatus) => {
-        try {
-            const newStatus = currentStatus === 'cancelled' ? 'scheduled' : 'cancelled';
-            await updateDoc(doc(db, "Events", eventId), {
-                status: newStatus
-            });
-            await fetchEvents(); // Refresh the list
-            alert('סטטוס האירוע עודכן בהצלחה');
-        } catch (error) {
-            console.error("Error updating event status:", error);
-            alert('שגיאה בעדכון סטטוס האירוע');
-        }
-    };
-    */
 
     const filteredAndSortedEvents = events
         .filter(event => {
@@ -80,14 +49,19 @@ export const AdminEventList = () => {
         });
 
     const formatDate = (date) => {
-        if (!date) return '';
-        return new Date(date).toLocaleString('he-IL', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        if (date instanceof Timestamp) {
+            date = date.toDate();
+        }
+        if (date instanceof Date && !isNaN(date.getTime())) {
+            return new Intl.DateTimeFormat('he-IL', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).format(date);
+        }
+        return 'תאריך לא תקין';
     };
     
     const deleteEvent = async (eventId) => {
@@ -100,6 +74,63 @@ export const AdminEventList = () => {
         }
     }
 
+    const openEditModal = (event) => {
+        const formattedEvent = {
+            ...event,
+            scheduled_time: event.scheduled_time instanceof Timestamp 
+                ? event.scheduled_time
+                : event.scheduled_time instanceof Date
+                    ? Timestamp.fromDate(event.scheduled_time)
+                    : Timestamp.now()
+        };
+        setEditForm(formattedEvent);
+        setShowEditModal(true);
+    }
+
+    const closeModal = () => {
+        setShowEditModal(false);
+        setEditForm({});
+    }
+
+    const updateForm = (field, value) => {
+        if (field === 'scheduled_time') {
+        const newDate = new Date(value);
+            if (!isNaN(newDate.getTime())) {
+                setEditForm(prev => ({
+                    ...prev,
+                    scheduled_time: Timestamp.fromDate(newDate)
+                }));
+            }
+        } else {
+            setEditForm(prev => ({ ...prev, [field]: value }));
+        }
+    }
+
+    const updateEvent = async () => {
+        if (!editForm || !editForm.id) {
+            console.error("No event data to update");
+            alert('שגיאה: לא נמצאו נתונים לעדכון');
+            return;
+        }
+        const eventData = {
+            ...editForm,
+            // Ensure scheduled_time is a Timestamp
+            scheduled_time: editForm.scheduled_time instanceof Timestamp 
+            ? editForm.scheduled_time 
+            : Timestamp.fromDate(new Date(editForm.scheduled_time))
+        };
+        console.log("Updating event:", eventData);
+        try {
+            const eventRef = doc(db, "Events", editForm.id);
+            console.log("Updating event:", eventRef.id);
+            await updateDoc(eventRef, eventData);
+            setEvents(events.map(event => event.id === eventData.id ? eventData : event));
+            closeModal();
+        } catch (error) {
+            console.error("Error updating event:", error);
+            alert('שגיאה בעדכון האירוע');
+        }
+    }
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-md space-y-6">
@@ -185,6 +216,7 @@ export const AdminEventList = () => {
                             <th className="px-4 py-2 text-right">טלפון</th>
                             <th className="px-4 py-2 text-right">דוא"ל</th>
                             <th className="px-4 py-2 text-right">סטטוס</th>
+                            <th className="px-4 py-2 text-center">עריכה</th>
                             <th className="px-4 py-2 text-center">מחיקת אירוע</th>
                         </tr>
                     </thead>
@@ -212,7 +244,19 @@ export const AdminEventList = () => {
                                     }`}>
                                         {event.status === 'scheduled' ? 'מתוכנן' : 'מבוטל'}
                                     </span>
-                                </td>                                <td className="px-4 py-2 text-center">
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                    <button
+                                        onClick={() => openEditModal(event)}
+                                        className="p-2 rounded-full text-blue-600 hover:text-white hover:bg-blue-600 focus:outline-none transition-colors duration-200 inline-flex items-center justify-center"
+                                        title="ערוך אירוע"
+                                    >
+                                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                    </button>
+                                </td>
+                                <td className="px-4 py-2 text-center">
                                     <div className="flex justify-center">
                                         <button
                                             onClick={() => deleteEvent(event.id)}
@@ -230,6 +274,135 @@ export const AdminEventList = () => {
                     </tbody>
                 </table>
             </div>
+
+            {showEditModal && (
+                <div 
+                    className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50"
+                    onClick={() => closeModal()}
+                >
+                    <div 
+                        className="bg-white rounded-xl w-[600px] max-h-[90vh] overflow-hidden shadow-2xl mx-4 relative border border-orange-100 flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Sticky Header */}
+                        <div className="sticky top-0 bg-white py-4 px-6 border-b border-orange-100 flex justify-between items-center z-10">
+                            <button
+                                onClick={closeModal}
+                                className="text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100 p-1"
+                                title="סגור"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                            <h3 className="text-xl font-semibold text-orange-800">ערוך אירוע</h3>
+                        </div>
+
+                        {/* Scrollable Content */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">שם האירוע</label>
+                                <input
+                                    type="text"
+                                    value={editForm.name || ''}
+                                    onChange={(e) => updateForm('name', e.target.value)}
+                                    className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                    dir="rtl"
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">זמן האירוע</label>
+                                <input
+                                    type="datetime-local"
+                                    value={editForm.scheduled_time instanceof Timestamp
+                                        ? editForm.scheduled_time.toDate().toISOString().slice(0, 16)
+                                        : editForm.scheduled_time || ''}
+                                    onChange={(e) => updateForm('scheduled_time', e.target.value)}
+                                    className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                    dir="ltr"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">מיקום האירוע</label>
+                                <input
+                                    type="text"
+                                    value={editForm.location || ''}
+                                    onChange={(e) => updateForm('location', e.target.value)}
+                                    className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                    dir="rtl"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">תיאור</label>
+                                <textarea
+                                    value={editForm.description || ''}
+                                    onChange={(e) => updateForm('description', e.target.value)}
+                                    className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                    rows="3"
+                                    dir="rtl"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">טלפון</label>
+                                <input
+                                    type="tel"
+                                    value={editForm.Contact_info || ''}
+                                    onChange={(e) => updateForm('Contact_info', e.target.value)}
+                                    className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                    dir="ltr"
+                                    placeholder="050-1234567"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">מייל</label>
+                                <input
+                                    type="email"
+                                    value={editForm.mail || ''}
+                                    onChange={(e) => updateForm('mail', e.target.value)}
+                                    className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                    dir="ltr"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">סטטוס</label>
+                                <select
+                                    value={editForm.status || 'scheduled'}
+                                    onChange={(e) => updateForm('status', e.target.value)}
+                                    className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all appearance-none cursor-pointer"
+                                    dir="rtl"
+                                >
+                                    <option value="scheduled">מתוכנן</option>
+                                    <option value="cancelled">מבוטל</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Sticky Footer */}
+                        <div className="sticky bottom-0 bg-white py-4 px-6 border-t border-orange-100">
+                            <div className="flex justify-end gap-4">
+                                <button
+                                    onClick={closeModal}
+                                    className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                                >
+                                    ביטול
+                                </button>
+                                <button
+                                    onClick={updateEvent}
+                                    className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 focus:ring-2 focus:ring-orange-200 transition-colors"
+                                >
+                                    שמור שינויים
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
