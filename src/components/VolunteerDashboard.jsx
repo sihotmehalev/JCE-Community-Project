@@ -21,6 +21,7 @@ import LoadingSpinner from "./LoadingSpinner";
 import DashboardLayout from "./dashboard/DashboardLayout";
 import DashboardSection from "./dashboard/DashboardSection";
 import SessionCard from "./dashboard/SessionCard";
+import SessionsModal from "./dashboard/SessionsModal";
 
 /* ────────────────────────── helpers ────────────────────────── */
 
@@ -285,28 +286,16 @@ export default function VolunteerDashboard() {
     setSelectedMatch(null);
     setShowScheduleModal(false);
   };
-
-  const handleScheduleSession = async ({ match, scheduledTime, duration, location, notes, onSuccess, onError }) => {
+  const handleScheduleSession = async (sessionData) => {
     try {
-      const sessionData = {
-        matchId: match.id,
-        volunteerId: match.volunteerId,
-        requesterId: match.requesterId,
-        scheduledTime: new Date(scheduledTime),
+      await addDoc(collection(db, "Sessions"), {
+        ...sessionData,
         status: "scheduled",
-        notes: notes,
-        durationMinutes: duration,
-        location: location,
         createdAt: serverTimestamp(),
-      };
-
-      await addDoc(collection(db, "Sessions"), sessionData);
-      console.log("Session scheduled successfully");
-      onSuccess?.();
+      });
       return true;
     } catch (error) {
       console.error("Error scheduling session:", error);
-      onError?.(error);
       return false;
     }
   };
@@ -395,48 +384,49 @@ export default function VolunteerDashboard() {
             ))}
           </DashboardSection>
         </>
-      )}
+      )}      {/* Admin Approval and Active Matches Sections */}
+      <div className="flex flex-col gap-6">
+        {/* Admin Approval Section */}
+        <DashboardSection 
+          title="בקשות ממתינות לאישור מנהל" 
+          empty="אין בקשות הממתינות לאישור"
+          fullWidth={true}
+        >
+          {adminApprovalRequests.map((r) => (
+            <RequestCard
+              key={r.id}
+              req={r}
+              variant="admin_approval"
+              onAction={handleRequestAction}
+            />
+          ))}
+        </DashboardSection>
 
-      {/* Admin Approval Section */}
-      <DashboardSection 
-        title="בקשות ממתינות לאישור מנהל" 
-        empty="אין בקשות הממתינות לאישור"
-        fullWidth={true}
-      >
-        {adminApprovalRequests.map((r) => (
-          <RequestCard
-            key={r.id}
-            req={r}
-            variant="admin_approval"
-            onAction={handleRequestAction}
-          />
-        ))}
-      </DashboardSection>
-
-      {/* Active Matches Section */}
-      <DashboardSection 
-        title="שיבוצים פעילים" 
-        empty="אין שיבוצים פעילים"
-        fullWidth={true}
-      >
-        {matches.map((m) => (
-          <MatchCard
-            key={m.id}
-            match={m}
-            onOpenChat={() => openChat(m.id)}
-            onCloseChat={closeChat}
-            onScheduleSession={() => openScheduleModal(m)}
-            activeMatchId={activeMatchId}
-          />
-        ))}
-      </DashboardSection>
+        {/* Active Matches Section */}
+        <DashboardSection 
+          title="שיבוצים פעילים" 
+          empty="אין שיבוצים פעילים"
+          fullWidth={true}
+        >
+          {matches.map((m) => (
+            <MatchCard
+              key={m.id}
+              match={m}
+              onOpenChat={() => openChat(m.id)}
+              onCloseChat={closeChat}
+              onScheduleSession={() => openScheduleModal(m)}
+              activeMatchId={activeMatchId}
+            />
+          ))}
+        </DashboardSection>
+      </div>
 
       {/* Schedule Session Modal */}
       {showScheduleModal && selectedMatch && (
-        <SessionScheduler
+        <SessionSchedulerModal
           match={selectedMatch}
           onClose={closeScheduleModal}
-          handleScheduleSession={handleScheduleSession}
+          onSchedule={handleScheduleSession}
         />
       )}
     </DashboardLayout>
@@ -562,6 +552,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
   const isChatOpen = activeMatchId === match.id;
   const [sessions, setSessions] = useState([]);
   const [sessionToComplete, setSessionToComplete] = useState(null);
+  const [activeModal, setActiveModal] = useState(null); // 'upcoming', 'past', or 'completed'
 
   // Helper function to format session times in Hebrew
   const formatSessionTime = (date) => {
@@ -607,19 +598,43 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
     }
     return acc;
   }, { upcomingSessions: [], pastSessions: [], completedSessions: [] });
-
   // Common actions for the match header
   const matchActions = [
     {
       label: isChatOpen ? "סגור שיחה" : "💬 פתח שיחה",
       onClick: isChatOpen ? onCloseChat : onOpenChat,
-      variant: "default"
-    },
-    {
-      label: "קבע מפגש",
+      variant: "default",
+      className: "text-sm px-3 py-1.5" // Smaller size
+    },    {
+      label: (
+        <span className="flex items-center gap-1">
+          <Plus className="w-4 h-4" />
+          קבע מפגש
+        </span>
+      ),
       onClick: onScheduleSession,
       variant: "outline",
-      icon: <Plus className="w-4 h-4" />
+      className: "text-sm px-3 py-1.5 whitespace-nowrap" // Added whitespace-nowrap
+    }
+  ];  // Session summary buttons
+  const sessionButtons = [
+    {
+      label: `מפגשים מתוכננים (${upcomingSessions.length})`,
+      onClick: () => setActiveModal('upcoming'),
+      variant: "outline",
+      className: "text-sm px-3 py-1.5" // Smaller size
+    },
+    {
+      label: `ממתינים לסיכום (${pastSessions.length})`,
+      onClick: () => setActiveModal('past'),
+      variant: "outline",
+      className: "text-sm px-3 py-1.5" // Smaller size
+    },
+    {
+      label: `מפגשים שהושלמו (${completedSessions.length})`,
+      onClick: () => setActiveModal('completed'),
+      variant: "outline",
+      className: "text-sm px-3 py-1.5" // Smaller size
     }
   ];
 
@@ -631,71 +646,41 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
           name: requester?.fullName || "פונה ללא שם",
           subtitle: `סשנים שהושלמו: ${completedSessions.length}`
         }}
-        actions={matchActions}
+        actions={[...matchActions, ...sessionButtons]}
         className="bg-white"
       />
 
-      {/* Upcoming Sessions */}
-      {upcomingSessions.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-semibold text-orange-800 mb-2">מפגשים מתוכננים:</h4>
-          {upcomingSessions.map(session => (
-            <SessionCard
-              key={session.id}
-              status="upcoming"
-              time={formatSessionTime(session.scheduledTime)}
-              location={session.location}
-              duration={session.durationMinutes}
-              notes={session.notes}
-            />
-          ))}
-        </div>
+      {/* Session List Modals */}
+      {activeModal === 'upcoming' && (
+        <SessionsModal
+          title="מפגשים מתוכננים"
+          sessions={upcomingSessions}
+          type="upcoming"
+          formatSessionTime={formatSessionTime}
+          onClose={() => setActiveModal(null)}
+        />
       )}
 
-      {/* Past Sessions Needing Completion */}
-      {pastSessions.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-semibold text-orange-700 mb-2">
-            מפגשים שהסתיימו וממתינים לסיכום:
-          </h4>
-          {pastSessions.map(session => (
-            <SessionCard
-              key={session.id}
-              status="past"
-              time={formatSessionTime(session.scheduledTime)}
-              location={session.location}
-              duration={session.durationMinutes}
-              notes={session.notes}
-              actions={[{
-                label: "סמן כהושלם והוסף סיכום",
-                onClick: () => setSessionToComplete(session),
-                variant: "outline",
-                size: "sm",
-                className: "bg-white hover:bg-orange-50"
-              }]}
-            />
-          ))}
-        </div>
+      {activeModal === 'past' && (
+        <SessionsModal
+          title="מפגשים שהסתיימו וממתינים לסיכום"
+          sessions={pastSessions}
+          type="past"
+          formatSessionTime={formatSessionTime}
+          onClose={() => setActiveModal(null)}
+          onSessionAction={setSessionToComplete}
+          actionLabel="סמן כהושלם והוסף סיכום"
+        />
       )}
 
-      {/* Completed Sessions */}
-      {completedSessions.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-semibold text-orange-700 mb-2">
-            מפגשים שהושלמו:
-          </h4>
-          {completedSessions.slice(-3).map(session => (
-            <SessionCard
-              key={session.id}
-              status="completed"
-              time={formatSessionTime(session.scheduledTime)}
-              location={session.location}
-              duration={session.durationMinutes}
-              notes={session.notes}
-              summary={session.sessionSummary}
-            />
-          ))}
-        </div>
+      {activeModal === 'completed' && (
+        <SessionsModal
+          title="מפגשים שהושלמו"
+          sessions={completedSessions}
+          type="completed"
+          formatSessionTime={formatSessionTime}
+          onClose={() => setActiveModal(null)}
+        />
       )}
 
       {/* Completion Modal */}
@@ -754,159 +739,8 @@ function ChatPanel({ messages, newMsg, setNewMsg, onSend, chatPartnerName }) {
         />
         <Button onClick={onSend}>שלח</Button>
       </div>
-    </div>
-  );
-}
-
-function SessionScheduler({ match, onClose, handleScheduleSession }) {
-  const [scheduledTime, setScheduledTime] = useState("");
-  const [duration, setDuration] = useState(60);
-  const [location, setLocation] = useState("video");
-  const [notes, setNotes] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!scheduledTime) {
-      setError("נא לבחור זמן למפגש");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError(null);
-
-    const success = await handleScheduleSession({
-      match,
-      scheduledTime,
-      duration,
-      location,
-      notes,
-      onSuccess: () => {
-        alert("המפגש נקבע בהצלחה!");
-        onClose();
-      },
-      onError: (error) => {
-        setError("אירעה שגיאה בקביעת המפגש. נא לנסות שוב.");
-        console.error(error);
-      }
-    });
-
-    setIsSubmitting(false);
-  };
-
-  const durationOptions = [
-    { value: 30, label: "30 דקות" },
-    { value: 45, label: "45 דקות" },
-    { value: 60, label: "שעה" },
-    { value: 90, label: "שעה וחצי" },
-  ];
-
-  const locationOptions = [
-    { value: "video", label: "שיחת וידאו" },
-    { value: "phone", label: "שיחת טלפון" },
-    { value: "in_person", label: "פגישה פיזית" },
-  ];
-
-  return (
-    <div className="bg-white p-4 rounded-lg border border-orange-200">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-orange-800">קביעת מפגש חדש</h3>
-        <button 
-          onClick={onClose}
-          className="text-orange-400 hover:text-orange-600"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 text-red-600 p-2 rounded-md mb-4">
-          {error}
-        </div>
-      )}
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-orange-700 mb-1">
-            <Calendar className="inline-block w-4 h-4 ml-1" />
-            תאריך ושעה
-          </label>
-          <input
-            type="datetime-local"
-            value={scheduledTime}
-            onChange={(e) => setScheduledTime(e.target.value)}
-            className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-orange-700 mb-1">
-            <Clock className="inline-block w-4 h-4 ml-1" />
-            משך המפגש
-          </label>
-          <select
-            value={duration}
-            onChange={(e) => setDuration(Number(e.target.value))}
-            className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
-          >
-            {durationOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-orange-700 mb-1">
-            <MessageCircle className="inline-block w-4 h-4 ml-1" />
-            אופן המפגש
-          </label>
-          <select
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
-          >
-            {locationOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-orange-700 mb-1">
-            <MessageCircle className="inline-block w-4 h-4 ml-1" />
-            הערות למפגש
-          </label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
-            placeholder="הערות או נושאים לדיון..."
-          />
-        </div>
-
-        <div className="flex gap-2 pt-2">
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
-          >
-            {isSubmitting ? 'קובע מפגש...' : 'קבע מפגש'}
-          </Button>
-          <Button type="button" variant="outline" onClick={onClose}>
-            ביטול
-          </Button>
-        </div>
-      </form>
-    </div>
-  );
+  </div>
+);
 }
 
 function SessionCompletionModal({ session, onClose, onSubmit }) {
@@ -995,6 +829,159 @@ function SessionCompletionModal({ session, onClose, onSubmit }) {
               className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
             >
               {isSubmitting ? 'מעדכן...' : 'סמן כהושלם'}
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+              ביטול
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function SessionSchedulerModal({ match, onClose, onSchedule }) {
+  const [scheduledTime, setScheduledTime] = useState("");
+  const [duration, setDuration] = useState(60);
+  const [location, setLocation] = useState("video");
+  const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!scheduledTime) {
+      setError("נא לבחור זמן למפגש");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    const success = await onSchedule({
+      matchId: match.id,
+      volunteerId: match.volunteerId,
+      requesterId: match.requesterId,
+      scheduledTime: new Date(scheduledTime),
+      durationMinutes: duration,
+      location,
+      notes
+    });
+
+    if (success) {
+      alert("המפגש נקבע בהצלחה!");
+      onClose();
+    } else {
+      setError("אירעה שגיאה בקביעת המפגש. נא לנסות שוב.");
+    }
+    setIsSubmitting(false);
+  };
+
+  const durationOptions = [
+    { value: 30, label: "30 דקות" },
+    { value: 45, label: "45 דקות" },
+    { value: 60, label: "שעה" },
+    { value: 90, label: "שעה וחצי" },
+  ];
+
+  const locationOptions = [
+    { value: "video", label: "שיחת וידאו" },
+    { value: "phone", label: "שיחת טלפון" },
+    { value: "in_person", label: "פגישה פיזית" },
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg border-2 border-orange-300 shadow-lg w-full max-w-md">
+        <div className="flex justify-between items-center p-4 border-b border-orange-200">
+          <h3 className="text-xl font-semibold text-orange-800">קביעת מפגש חדש</h3>
+          <button 
+            onClick={onClose}
+            className="text-orange-400 hover:text-orange-600 rounded-lg p-1 hover:bg-orange-50 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-md">
+              {error}
+            </div>
+          )}
+          
+          <div>
+            <label className="block text-sm font-medium text-orange-700 mb-1">
+              <Calendar className="inline-block w-4 h-4 ml-1" />
+              תאריך ושעה
+            </label>
+            <input
+              type="datetime-local"
+              value={scheduledTime}
+              onChange={(e) => setScheduledTime(e.target.value)}
+              className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-orange-700 mb-1">
+              <Clock className="inline-block w-4 h-4 ml-1" />
+              משך המפגש
+            </label>
+            <select
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
+            >
+              {durationOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-orange-700 mb-1">
+              <MessageCircle className="inline-block w-4 h-4 ml-1" />
+              אופן המפגש
+            </label>
+            <select
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
+            >
+              {locationOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-orange-700 mb-1">
+              <MessageCircle className="inline-block w-4 h-4 ml-1" />
+              הערות למפגש
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
+              placeholder="הערות או נושאים לדיון..."
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
+            >
+              {isSubmitting ? 'קובע מפגש...' : 'קבע מפגש'}
             </Button>
             <Button type="button" variant="outline" onClick={onClose}>
               ביטול
