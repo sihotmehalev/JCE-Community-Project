@@ -62,8 +62,15 @@ export default function VolunteerDashboard() {
   const [newMsg, setNewMsg]           = useState("");
   const [userData, setUserData]        = useState(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [selectedMatch, setSelectedMatch] = useState(null);
-  const [activeTab, setActiveTab]     = useState("directRequests");
+  const [selectedMatch, setSelectedMatch] = useState(null);  const [activeTab, setActiveTab]     = useState("directRequests");
+  // Set the appropriate first tab when switching modes
+  useEffect(() => {
+    if (personal) {
+      setActiveTab("directRequests");
+    } else {
+      setActiveTab("adminApproval");
+    }
+  }, [personal]);
 
   /* listener refs */
   const unsubDirect = useRef(null);
@@ -214,7 +221,7 @@ export default function VolunteerDashboard() {
   const flipPersonal = async () => {
     if (!user) return;
     const newVal = !personal;
-    setPersonal(newVal); // optimistic
+    setPersonal(newVal);
     await setDoc(
       doc(db, "Users", "Info", "Volunteers", user.uid),
       { personal: newVal },
@@ -308,7 +315,6 @@ export default function VolunteerDashboard() {
       return false;
     }
   };
-
   /* -------- render -------- */
   if (!authChecked || loading) {
     return <LoadingSpinner />;
@@ -317,7 +323,7 @@ export default function VolunteerDashboard() {
   const renderTabContent = () => {
     switch (activeTab) {
       case "directRequests":
-        return (
+        return personal ? (
           <Section title="בקשות ישירות" empty="אין בקשות ישירות">
             {direct.map((r) => (
               <RequestCard
@@ -328,9 +334,9 @@ export default function VolunteerDashboard() {
               />
             ))}
           </Section>
-        );
+        ) : null;
       case "openRequests":
-        return (
+        return personal ? (
           <Section title="דפדוף בפונים פתוחים" empty="אין פונים זמינים">
             {pool.map((r) => (
               <RequestCard
@@ -341,7 +347,7 @@ export default function VolunteerDashboard() {
               />
             ))}
           </Section>
-        );
+        ) : null;
       case "adminApproval":
         return (
           <Section title="בקשות ממתינות לאישור מנהל" empty="אין בקשות הממתינות לאישור">
@@ -349,7 +355,7 @@ export default function VolunteerDashboard() {
               <RequestCard
                 key={r.id}
                 req={r}
-                variant="admin_approval" // Can reuse direct variant or create new if needed
+                variant="admin_approval"
                 onAction={handleRequestAction}
               />
             ))}
@@ -407,22 +413,24 @@ export default function VolunteerDashboard() {
           </button>
           <span className="text-sm text-orange-700">שיוך ע״י מנהל</span>
         </div>
-      </div>
-
-      {/* Tabs */}
+      </div>      {/* Tabs */}
       <div className="flex gap-4 mb-4">
-        <Button
-          variant={activeTab === "directRequests" ? "default" : "outline"}
-          onClick={() => setActiveTab("directRequests")}
-        >
-          בקשות ישירות
-        </Button>
-        <Button
-          variant={activeTab === "openRequests" ? "default" : "outline"}
-          onClick={() => setActiveTab("openRequests")}
-        >
-          דפדוף בפונים פתוחים
-        </Button>
+        {personal && (
+          <>
+            <Button
+              variant={activeTab === "directRequests" ? "default" : "outline"}
+              onClick={() => setActiveTab("directRequests")}
+            >
+              בקשות ישירות
+            </Button>
+            <Button
+              variant={activeTab === "openRequests" ? "default" : "outline"}
+              onClick={() => setActiveTab("openRequests")}
+            >
+              דפדוף בפונים פתוחים
+            </Button>
+          </>
+        )}
         <Button
           variant={activeTab === "adminApproval" ? "default" : "outline"}
           onClick={() => setActiveTab("adminApproval")}
