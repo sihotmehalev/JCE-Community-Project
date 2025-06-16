@@ -548,7 +548,7 @@ export default function AdminDashboard() {
           onClick={() => setActiveTab("approvals")}
           className="py-3 px-6 text-lg"
         >
-          אישורים ממתינים ({pendingRequests.length})
+          התאמות ממתינות לאישור ({pendingRequests.length})
         </Button>
         <Button
           variant={activeTab === "matching" ? "default" : "outline"}
@@ -585,14 +585,34 @@ export default function AdminDashboard() {
             ) : (
               <div className="space-y-2">
                 {volunteers.filter(v => !v.approved).map(v => (
-                  <div key={v.id} className="flex justify-between items-center bg-orange-50/50 p-3 rounded border border-orange-100">
-                    <div>
-                      <HoverCard user={v}>
-                        <p className="font-semibold text-orange-800">{v.fullName}</p>
-                      </HoverCard>
-                      <p className="text-sm text-orange-600">{v.email} | {v.profession}</p>
+                  <div key={v.id} className="flex justify-between items-start bg-orange-50/50 p-3 rounded border border-orange-100">
+                    <div className="flex-grow">
+                      <div className="grid grid-cols-2 gap-x-8 w-full">
+                        <div>
+                          <h4 className="font-semibold text-orange-800 mb-2">פרטי מתנדב</h4>
+                          <p className="text-sm text-orange-600"><strong>שם:</strong> {v.fullName}</p>
+                          <p className="text-sm text-orange-600"><strong>אימייל:</strong> {v.email}</p>
+                          <p className="text-sm text-orange-600"><strong>מקצוע:</strong> {v.profession}</p>
+                          {v.age && <p className="text-sm text-orange-600"><strong>גיל:</strong> {v.age}</p>}
+                          {v.gender && <p className="text-sm text-orange-600"><strong>מגדר:</strong> {v.gender}</p>}
+                          {v.location && <p className="text-sm text-orange-600"><strong>מיקום:</strong> {v.location}</p>}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-orange-800 mb-2">פרטים נוספים</h4>
+                          {v.experience && <p className="text-sm text-orange-600"><strong>ניסיון:</strong> {v.experience}</p>}
+                          {v.maritalStatus && <p className="text-sm text-orange-600"><strong>מצב משפחתי:</strong> {v.maritalStatus}</p>}
+                          {v.motivation && <p className="text-sm text-orange-600"><strong>מוטיבציה:</strong> {v.motivation}</p>}
+                          {v.strengths && <p className="text-sm text-orange-600"><strong>חוזקות:</strong> {v.strengths}</p>}
+                          {v.availableDays && v.availableDays.length > 0 && (
+                            <p className="text-sm text-orange-600"><strong>ימים פנויים:</strong> {v.availableDays.join(", ")}</p>
+                          )}
+                          {v.availableHours && v.availableHours.length > 0 && (
+                            <p className="text-sm text-orange-600"><strong>שעות פנויות:</strong> {v.availableHours.join(", ")}</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2">
                       <Button
                         variant="outline"
                         onClick={() => approveVolunteer(v.id)}
@@ -619,45 +639,58 @@ export default function AdminDashboard() {
         <Card>
           <CardContent>
             <h3 className="font-semibold mb-4 text-orange-700">
-              בקשות ממתינות לאישור מנהל
+              התאמות ממתינות לאישור
             </h3>
             
             {pendingRequests.length === 0 ? (
-              <p className="text-orange-600/80">אין בקשות ממתינות.</p>
+              <p className="text-orange-600/80">אין התאמות ממתינות.</p>
             ) : (
               <div className="space-y-4">
                 {pendingRequests
                   .map(request => (
-                  <div key={request.id} className="border rounded p-4 bg-orange-50/50">
-                    <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div key={request.id} className="flex justify-between items-start border rounded p-4 bg-orange-50/50">
+                    <div className="grid grid-cols-2 gap-x-8 flex-grow">
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-2">פרטי הפונה</h4>
-                        <p><strong>שם:</strong> {request.requesterInfo?.fullName}</p>
-                        <p><strong>גיל:</strong> {request.requesterInfo?.age}</p>
-                        <p><strong>סיבת פנייה:</strong> {request.requesterInfo?.reason}</p>
+                        <p className="text-sm text-orange-600"><strong>שם:</strong> {request.requesterInfo?.fullName}</p>
+                        <p className="text-sm text-orange-600"><strong>אימייל:</strong> {request.requesterInfo?.email}</p>
+                        <p className="text-sm text-orange-600"><strong>גיל:</strong> {request.requesterInfo?.age}</p>
+                        {request.requesterInfo?.gender && <p className="text-sm text-orange-600"><strong>מגדר:</strong> {request.requesterInfo?.gender}</p>}
+                        <p className="text-sm text-orange-600"><strong>סיבת פנייה:</strong> {request.requesterInfo?.reason}</p>
                       </div>
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-2">פרטי המתנדב</h4>
-                        <p><strong>שם:</strong> {request.volunteerInfo?.fullName}</p>
-                        <p><strong>מקצוע:</strong> {request.volunteerInfo?.profession}</p>
-                        <p><strong>ניסיון:</strong> {request.volunteerInfo?.experience}</p>
+                        <p className="text-sm text-orange-600"><strong>שם:</strong> {request.volunteerInfo?.fullName}</p>
+                        <p className="text-sm text-orange-600"><strong>אימייל:</strong> {request.volunteerInfo?.email}</p>
+                        <p className="text-sm text-orange-600"><strong>מקצוע:</strong> {request.volunteerInfo?.profession}</p>
+                        <p className="text-sm text-orange-600"><strong>ניסיון:</strong> {request.volunteerInfo?.experience}</p>
+                        {request.volunteerInfo?.age && <p className="text-sm text-orange-600"><strong>גיל:</strong> {request.volunteerInfo?.age}</p>}
+                        {request.volunteerInfo?.gender && <p className="text-sm text-orange-600"><strong>מגדר:</strong> {request.volunteerInfo?.gender}</p>}
+                        {request.volunteerInfo?.location && <p className="text-sm text-orange-600"><strong>מיקום:</strong> {request.volunteerInfo?.location}</p>}
+                        {request.volunteerInfo?.maritalStatus && <p className="text-sm text-orange-600"><strong>מצב משפחתי:</strong> {request.volunteerInfo?.maritalStatus}</p>}
+                        {request.volunteerInfo?.motivation && <p className="text-sm text-orange-600"><strong>מוטיבציה:</strong> {request.volunteerInfo?.motivation}</p>}
+                        {request.volunteerInfo?.strengths && <p className="text-sm text-orange-600"><strong>חוזקות:</strong> {request.volunteerInfo?.strengths}</p>}
+                        {request.volunteerInfo?.availableDays && request.volunteerInfo.availableDays.length > 0 && (
+                          <p className="text-sm text-orange-600"><strong>ימים פנויים:</strong> {request.volunteerInfo.availableDays.join(", ")}</p>
+                        )}
+                        {request.volunteerInfo?.availableHours && request.volunteerInfo.availableHours.length > 0 && (
+                          <p className="text-sm text-orange-600"><strong>שעות פנויות:</strong> {request.volunteerInfo.availableHours.join(", ")}</p>
+                        )}
                       </div>
                     </div>
-                    <div className="border-t pt-3">
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => approveRequest(request.id, request)}
-                        >
-                          אשר התאמה
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => declineRequest(request.id, false)}
-                        >
-                          דחה התאמה
-                        </Button>
-                      </div>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => approveRequest(request.id, request)}
+                      >
+                        אשר התאמה
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => declineRequest(request.id, false)}
+                      >
+                        דחה התאמה
+                      </Button>
                     </div>
                   </div>
                 ))}
