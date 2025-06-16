@@ -35,10 +35,10 @@ const SessionCard = ({
   };
 
   return (
-    <div className={`rounded-lg p-4 ${getStatusStyles()} ${className}`}>
+    <div className={`rounded-lg py-3 px-4 ${getStatusStyles()} ${className}`}>
       {/* Header with User Info */}
       {userInfo && (
-        <div className="flex items-center gap-3 mb-3 pb-3 border-b border-orange-100">
+        <div className="flex items-center gap-3 mb-2 pb-2 border-b border-orange-100">
           <div className="w-10 h-10 bg-orange-200 rounded-full flex items-center justify-center">
             <User className="w-5 h-5 text-orange-600" />
           </div>
@@ -53,66 +53,65 @@ const SessionCard = ({
         </div>
       )}
 
-      {/* Main Content */}
+      {/* Session Details */}
       <div className="space-y-2">
-        {title && (
-          <h4 className={`font-medium ${getTextStyles()}`}>{title}</h4>
-        )}
-        
-        <div className="text-sm space-y-1">
-          {time && (
-            <p className={getTextStyles()}>
-              {time}
-            </p>
-          )}
-          
-          {(location || duration) && (
-            <p className="text-orange-600">
-              {location && (
-                <span>
-                  {location === 'video' ? '🎥 שיחת וידאו' :
-                   location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
-                </span>
-              )}
-              {location && duration && ' • '}
-              {duration && <span>{duration} דקות</span>}
-            </p>
-          )}
-
-          {notes && (
-            <p className="text-orange-500 mt-2 bg-white/50 p-2 rounded">
-              {notes}
-            </p>
-          )}
-
-          {summary && (
-            <div className="mt-3 p-2 bg-white/80 rounded border border-gray-100">
-              <span className="font-medium">סיכום: </span>
-              <p className="text-gray-600 mt-1">{summary}</p>
-            </div>
-          )}
+        {/* Time and Duration */}
+        <div className="flex items-start gap-2">
+          <div className="shrink-0">
+            <span className={`font-medium ${getTextStyles()}`}>מועד:</span>
+          </div>
+          <div className={getTextStyles()}>
+            <div>{time}</div>
+            {duration && <div className="text-sm">משך: {duration} דקות</div>}
+          </div>
         </div>
 
-        {/* Actions */}
-        {actions && actions.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-orange-100">
-            {actions.map((action, index) => (
-              <Button
-                key={index}
-                variant={action.variant || "default"}
-                size={action.size || "sm"}
-                onClick={action.onClick}
-                className={action.className}
-              >
-                {action.icon && (
-                  <span className="mr-1">{action.icon}</span>
-                )}
-                {action.label}
-              </Button>
-            ))}
+        {/* Location */}
+        {location && (
+          <div className="flex items-start gap-2">
+            <div className="shrink-0">
+              <span className={`font-medium ${getTextStyles()}`}>מיקום:</span>
+            </div>
+            <div className={getTextStyles()}>{location}</div>
+          </div>
+        )}
+
+        {/* Notes */}
+        {notes && (
+          <div className="flex items-start gap-2">
+            <div className="shrink-0">
+              <span className={`font-medium ${getTextStyles()}`}>הערות:</span>
+            </div>
+            <div className={getTextStyles()}>{notes}</div>
+          </div>
+        )}
+
+        {/* Summary */}
+        {summary && (
+          <div className="flex items-start gap-2 mt-2 pt-2 border-t border-orange-100">
+            <div className="shrink-0">
+              <span className={`font-medium ${getTextStyles()}`}>סיכום:</span>
+            </div>
+            <div className={getTextStyles()}>{summary}</div>
           </div>
         )}
       </div>
+
+      {/* Actions */}
+      {actions && actions.length > 0 && (
+        <div className="flex gap-2 mt-3 pt-2 border-t border-orange-100">
+          {actions.map((action, index) => (
+            <Button
+              key={index}
+              onClick={action.onClick}
+              variant={action.variant}
+              className="flex-1"
+            >
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
