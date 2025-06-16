@@ -294,7 +294,7 @@ export default function AdminDashboard() {
       
       // Create match with random ID
       const matchId = generateRandomId();
-      const matchRef = doc(db, "matches", matchId);
+      const matchRef = doc(db, "Matches", matchId);
       
       batch.set(matchRef, {
         volunteerId: requestData.volunteerId,
