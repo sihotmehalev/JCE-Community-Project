@@ -38,8 +38,8 @@ export const EventCard = ({ event }) => {
 
     return (
         <div className="flex justify-center items-center w-full">
-            <div className="w-[600px] rounded-2xl overflow-hidden shadow-lg transform transition-transform duration-200 bg-gradient-to-br from-white to-orange-50">
-                <div className="relative h-72">
+            <div className="w-[450px] rounded-xl overflow-hidden shadow-lg transform transition-transform duration-200 bg-gradient-to-br from-white to-orange-50">
+                <div className="relative h-36">
                     <img 
                         src={imageUrl}
                         alt={description}
@@ -47,11 +47,11 @@ export const EventCard = ({ event }) => {
                         className="w-full h-full object-cover"
                     />
                     {event.status && (
-                        <div className={`absolute top-4 right-4 px-4 py-2 rounded-full text-lg font-semibold flex items-center gap-2
+                        <div className={`absolute top-2 right-2 px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1
                             ${event.status === 'scheduled' 
-                                ? 'bg-green-100 text-green-800 border-2 border-green-500' 
+                                ? 'bg-green-100 text-green-800 border border-green-500' 
                                 : event.status === 'cancelled'
-                                ? 'bg-red-100 text-red-800 border-2 border-red-500'
+                                ? 'bg-red-100 text-red-800 border border-red-500'
                                 : 'bg-orange-100 text-orange-800'}`}>
                             {event.status}
                             {event.status === 'scheduled' && (
@@ -63,10 +63,10 @@ export const EventCard = ({ event }) => {
                         </div>
                     )}
                 </div>
-                <div className="p-8 space-y-4">
-                    <h2 className="text-2xl font-bold text-orange-800 mb-3">{eventName}</h2>
-                    <p className="text-lg text-orange-700 mb-4">{description}</p>
-                    <div className="space-y-3 text-orange-700 text-lg">
+                <div className="p-4 space-y-2">
+                    <h2 className="text-xl font-bold text-orange-800 mb-2">{eventName}</h2>
+                    <p className="text-base text-orange-700 mb-3">{description}</p>
+                    <div className="space-y-2 text-orange-700 text-base">
                         <p className="flex items-center">
                             <span className="mr-2">📅</span>
                             {formatEventDate()}
