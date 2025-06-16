@@ -1,5 +1,5 @@
 // VolunteerDashboard.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { act, useEffect, useRef, useState } from "react";
 import { User, Calendar, Clock, MessageCircle, Plus, X } from "lucide-react";
 import { auth, db } from "../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
@@ -366,6 +366,7 @@ export default function VolunteerDashboard() {
                 onCloseChat={closeChat}
                 onScheduleSession={() => openScheduleModal(m)}
                 activeMatchId={activeMatchId}
+                handleScheduleSession={handleScheduleSession}
               />
             ))}
           </Section>
@@ -410,30 +411,30 @@ export default function VolunteerDashboard() {
 
       {/* Tabs */}
       <div className="flex gap-4 mb-4">
-        <button
-          className={`px-4 py-2 h-10 rounded-lg flex items-center justify-center ${activeTab === "directRequests" ? "bg-orange-600 text-white" : "bg-orange-100 text-orange-800"}`}
+        <Button
+          variant={activeTab === "directRequests" ? "default" : "outline"}
           onClick={() => setActiveTab("directRequests")}
         >
           בקשות ישירות
-        </button>
-        <button
-          className={`px-4 py-2 h-10 rounded-lg flex items-center justify-center ${activeTab === "openRequests" ? "bg-orange-600 text-white" : "bg-orange-100 text-orange-800"}`}
+        </Button>
+        <Button
+          variant={activeTab === "openRequests" ? "default" : "outline"}
           onClick={() => setActiveTab("openRequests")}
         >
           דפדוף בפונים פתוחים
-        </button>
-        <button
-          className={`px-4 py-2 h-10 rounded-lg flex items-center justify-center ${activeTab === "adminApproval" ? "bg-orange-600 text-white" : "bg-orange-100 text-orange-800"}`}
+        </Button>
+        <Button
+          variant={activeTab === "adminApproval" ? "default" : "outline"}
           onClick={() => setActiveTab("adminApproval")}
         >
           בקשות ממתינות לאישור מנהל
-        </button>
-        <button
-          className={`px-4 py-2 h-10 rounded-lg flex items-center justify-center ${activeTab === "activeMatches" ? "bg-orange-600 text-white" : "bg-orange-100 text-orange-800"}`}
+        </Button>
+        <Button
+          variant={activeTab === "activeMatches" ? "default" : "outline"}
           onClick={() => setActiveTab("activeMatches")}
         >
           שיבוצים פעילים
-        </button>
+        </Button>
       </div>
 
       {/* Tab Content */}
@@ -582,11 +583,15 @@ function RequestCard({ req, variant, onAction }) {
   );
 }
 
-function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMatchId }) {
+function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMatchId, handleScheduleSession }) {
   const { requester } = match;
   const isChatOpen = activeMatchId === match.id;
   const [sessions, setSessions] = useState([]);
   const [sessionToComplete, setSessionToComplete] = useState(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showUpcomingSessionsModal, setShowUpcomingSessionsModal] = useState(false);
+  const [showPastSessionsModal, setShowPastSessionsModal] = useState(false);
+  const [showCompletedSessionsModal, setShowCompletedSessionsModal] = useState(false);
 
   // Helper function to format session times in Hebrew
   const formatSessionTime = (date) => {
@@ -641,7 +646,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
             {requester?.fullName || "פונה ללא שם"}
           </p>
           <p className="text-orange-700 text-sm">
-            סשנים שהושלמו: {completedSessions.length}
+            מפגשים שהושלמו: {completedSessions.length}
           </p>
         </div>
       </div>
@@ -653,113 +658,62 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
         </Button>
         <Button 
           variant="outline" 
-          onClick={onScheduleSession}
+          onClick={() => setShowScheduleModal(true)}
           className="flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
           קבע מפגש
         </Button>
+        <Button 
+          variant="outline" 
+          onClick={() => setShowUpcomingSessionsModal(true)}
+          className="flex items-center gap-2"
+        >
+          מפגשים מתוכננים
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={() => setShowPastSessionsModal(true)}
+          className="flex items-center gap-2"
+        >
+          מפגשים שהסתיימו
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={() => setShowCompletedSessionsModal(true)}
+          className="flex items-center gap-2"
+        >
+          מפגשים שהושלמו
+        </Button>
       </div>
 
-      {/* Upcoming Sessions */}
-      {upcomingSessions.length > 0 && (
-        <div className="mt-4">
-          <h4 className="text-sm font-semibold text-orange-800 mb-2">מפגשים מתוכננים:</h4>
-          <div className="space-y-2">
-            {upcomingSessions.map(session => (
-              <div key={session.id} className="bg-orange-50 p-3 rounded-md text-sm border border-orange-100">
-                <div className="font-medium text-orange-800">
-                  {formatSessionTime(session.scheduledTime)}
-                </div>
-                <div className="text-orange-600 mt-1">
-                  {session.location === 'video' ? '🎥 שיחת וידאו' :
-                   session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
-                  {' • '}{session.durationMinutes} דקות
-                </div>
-                {session.notes && (
-                  <div className="text-orange-500 mt-1">
-                    {session.notes}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Modals */}
+      {showScheduleModal && (
+        <SessionScheduler
+          match={match}
+          onClose={() => setShowScheduleModal(false)}
+          handleScheduleSession={handleScheduleSession}
+        />
       )}
-
-      {/* Past Sessions Needing Completion */}
-      {pastSessions.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-orange-100">
-          <h4 className="text-sm font-semibold text-orange-700 mb-2">
-            מפגשים שהסתיימו:
-          </h4>
-          <div className="space-y-2">
-            {pastSessions.map(session => (
-              <div key={session.id} className="bg-yellow-50 p-3 rounded-md text-sm border border-yellow-200">
-                <div className="font-medium text-orange-800">
-                  {formatSessionTime(session.scheduledTime)}
-                </div>
-                <div className="text-orange-600">
-                  {session.location === 'video' ? '🎥 שיחת וידאו' :
-                   session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
-                  {' • '}{session.durationMinutes} דקות
-                </div>
-                {session.notes && (
-                  <div className="text-orange-500 mt-1">
-                    {session.notes}
-                  </div>
-                )}
-                <div className="mt-3 flex justify-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSessionToComplete(session)}
-                    className="text-sm bg-white hover:bg-orange-50"
-                  >
-                    סמן כהושלם
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {showUpcomingSessionsModal && (
+        <SessionModal
+          title="מפגשים מתוכננים"
+          sessions={upcomingSessions}
+          onClose={() => setShowUpcomingSessionsModal(false)}
+        />
       )}
-
-      {/* Completed Sessions */}
-      {completedSessions.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-orange-100">
-          <h4 className="text-sm font-semibold text-orange-700 mb-2">
-            מפגשים שהושלמו:
-          </h4>
-          <div className="space-y-2">
-            {completedSessions.slice(-3).map(session => (
-              <div key={session.id} className="bg-gray-50 p-3 rounded-md text-sm border border-gray-100">
-                <div className="font-medium text-gray-800">
-                  {formatSessionTime(session.scheduledTime)}
-                </div>
-                <div className="text-gray-600">
-                  {session.location === 'video' ? '🎥 שיחת וידאו' :
-                   session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
-                  {' • '}{session.durationMinutes} דקות
-                </div>
-                {session.sessionSummary && (
-                  <div className="mt-2 text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
-                    <span className="font-medium">סיכום: </span>
-                    {session.sessionSummary}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+      {showPastSessionsModal && (
+        <SessionModal
+          title="מפגשים שהסתיימו"
+          sessions={pastSessions}
+          onClose={() => setShowPastSessionsModal(false)}
+        />
       )}
-
-      {/* Completion Modal */}
-      {sessionToComplete && (
-        <SessionCompletionModal
-          session={sessionToComplete}
-          onClose={() => setSessionToComplete(null)}
-          onSubmit={() => setSessionToComplete(null)}
+      {showCompletedSessionsModal && (
+        <SessionModal
+          title="מפגשים שהושלמו"
+          sessions={completedSessions}
+          onClose={() => setShowCompletedSessionsModal(false)}
         />
       )}
     </div>
@@ -1057,6 +1011,71 @@ function SessionCompletionModal({ session, onClose, onSubmit }) {
             </Button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function SessionModal({ title, sessions, onClose }) {
+  const now = new Date();
+
+  // Helper function to format session times in Hebrew
+  const formatSessionTime = (date) => {
+    if (!date) return "—";
+    return new Date(date).toLocaleString('he-IL', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white p-4 rounded-lg border border-orange-200 max-w-md w-full">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-orange-800">{title}</h3>
+          <button 
+            onClick={onClose}
+            className="text-orange-400 hover:text-orange-600"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {sessions.length === 0 ? (
+          <p className="text-center text-orange-500 py-4">
+            אין מפגשים זמינים להצגה.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {sessions.map(session => (
+              <div key={session.id} className="bg-orange-50 p-3 rounded-md text-sm border border-orange-100">
+                <div className="font-medium text-orange-800">
+                  {formatSessionTime(session.scheduledTime)}
+                </div>
+                <div className="text-orange-600">
+                  {session.location === 'video' ? '🎥 שיחת וידאו' :
+                   session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
+                  {' • '}{session.durationMinutes} דקות
+                </div>
+                {session.notes && (
+                  <div className="text-orange-500 mt-1">
+                    {session.notes}
+                  </div>
+                )}
+                {session.status === 'completed' && session.sessionSummary && (
+                  <div className="mt-2 text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
+                    <span className="font-medium">סיכום: </span>
+                    {session.sessionSummary}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
