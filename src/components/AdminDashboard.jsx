@@ -1,5 +1,5 @@
 // AdminDashboard.jsx - Full Implementation
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { db } from "../firebaseConfig";
 import { 
   collection, 
@@ -11,7 +11,8 @@ import {
   query, 
   where, 
   addDoc,
-  getDoc 
+  getDoc, 
+  increment
 } from "firebase/firestore";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
@@ -72,47 +73,53 @@ export default function AdminDashboard() {
   
   // New States
   const [pendingRequests, setPendingRequests] = useState([]);
-  const [nonPersonalRequests, setNonPersonalRequests] = useState([]);
   const [showAISuggestions, setShowAISuggestions] = useState(false);
   const [selectedRequestForAI, setSelectedRequestForAI] = useState(null);
   const [aiLoadingRequesterId, setAiLoadingRequesterId] = useState(null);
   const [activeTab, setActiveTab] = useState("approvals");
+  const [userSearch, setUserSearch] = useState("");
+  const [sortColumn, setSortColumn] = useState(null);
+  const [sortOrder, setSortOrder] = useState("asc"); // 'asc' or 'desc'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all"); // 'all', 'approved', 'pending'
+  const [personalFilter, setPersonalFilter] = useState("all"); // 'all', 'true', 'false'
+  const [pendingRequestSearch, setPendingRequestSearch] = useState("");
+  const [activeMatchesFilter, setActiveMatchesFilter] = useState("all"); // 'all', 'hasMatches', 'noMatches'
+  const [activeMatches, setActiveMatches] = useState([]);
+  const [activeMatchSearch, setActiveMatchSearch] = useState("");
+  const [activeMatchCurrentPage, setActiveMatchCurrentPage] = useState(1);
+  const [matchRequesterFilter, setMatchRequesterFilter] = useState("all"); // filter by requester ID
+  const [matchVolunteerFilter, setMatchVolunteerFilter] = useState("all"); // filter by volunteer ID
+  const [matchSortColumn, setMatchSortColumn] = useState(null);
+  const [matchSortOrder, setMatchSortOrder] = useState("asc"); // 'asc' or 'desc'
+
+  // New states for session details
+  const [showSessionDetails, setShowSessionDetails] = useState(false);
+  const [selectedMatchForDetails, setSelectedMatchForDetails] = useState(null);
+  const [matchSessions, setMatchSessions] = useState([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
 
   // New states for hover info panels
   const [hoveredRequester, setHoveredRequester] = useState(null);
   const [hoveredVolunteer, setHoveredVolunteer] = useState(null);
+  // Refs for managing hover timeouts
+  const requesterHoverTimeoutRef = useRef(null);
+  const volunteerHoverTimeoutRef = useRef(null);
 
-  // Function to determine panel widths dynamically
-  const getPanelWidths = () => {
-    let requesterInfoWidth = "w-[40%]"; // Default
-    let requesterListWidth = "w-[20%]"; // Default
-    let volunteerListWidth = "w-[20%]"; // Default
-    let volunteerInfoWidth = "w-[20%]"; // Default
+  // New states for session summary
+  const [selectedSessionForView, setSelectedSessionForView] = useState(null);
 
-    if (selectedRequester && selectedVolunteer) {
-      // Both requester and volunteer selected (volunteer takes precedence for info display)
-      requesterInfoWidth = "w-[40%]"; // Shrink requester info
-      requesterListWidth = "w-[20%]"; // Shrink requester list
-      volunteerInfoWidth = "w-[40%]"; // Expand volunteer info
-      volunteerListWidth = "w-[20%]"; // Shrink volunteer list
-    } else if (selectedRequester && !selectedVolunteer) {
-      // Only requester selected
-      requesterInfoWidth = "w-[20%]"; // Expand requester info
-      requesterListWidth = "w-[20%]"; // Shrink requester list
-      volunteerListWidth = "w-[20%]"; // Shrink volunteer list for balance
-      volunteerInfoWidth = "w-[40%]"; // Keep volunteer info same for balance
-    }
-    // If neither, all remain at default w-[25%]
+  // useEffect for resetting currentPage (moved here to ensure unconditional call)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [userSearch, roleFilter, statusFilter, personalFilter, activeMatchesFilter]);
 
-    return {
-      requesterInfoWidth,
-      requesterListWidth,
-      volunteerListWidth,
-      volunteerInfoWidth,
-    };
-  };
-
-  const { requesterInfoWidth, requesterListWidth, volunteerListWidth, volunteerInfoWidth } = getPanelWidths();
+  // useEffect for resetting activeMatchCurrentPage when filters or search change
+  useEffect(() => {
+    setActiveMatchCurrentPage(1);
+  }, [activeMatchSearch, matchSortColumn, matchSortOrder]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -152,7 +159,7 @@ export default function AdminDashboard() {
 
       // Fetch pending requests (waiting_for_admin_approval)
       const pendingRequestsSnap = await getDocs(
-        query(collection(db, "requests"), where("status", "==", "waiting_for_admin_approval"))
+        query(collection(db, "Requests"), where("status", "==", "waiting_for_admin_approval"))
       );
       
       const pending = await Promise.all(
@@ -179,32 +186,34 @@ export default function AdminDashboard() {
         })
       );
 
-      // Fetch non-personal requests
-      const allRequestersWithRequests = await Promise.all(
-        r.filter(requester => !requester.personal).map(async (requester) => {
-          // Check if this requester has any unmatched requests
-          const requestsQuery = query(
-            collection(db, "requests"),
-            where("requesterId", "==", requester.id),
-            where("status", "in", ["waiting_for_first_approval", "declined"])
-          );
-          const requestsSnap = await getDocs(requestsQuery);
+      // Fetch all matches
+      const matchesSnap = await getDocs(collection(db, "Matches"));
+      const matches = await Promise.all(
+        matchesSnap.docs.map(async (docSnap) => {
+          const data = docSnap.data();
           
-          return requestsSnap.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            requesterInfo: requester
-          }));
+          // Fetch requester info
+          const requesterDoc = await getDoc(doc(db, "Users", "Info", "Requesters", data.requesterId));
+          const requesterInfo = requesterDoc.exists() ? requesterDoc.data() : null;
+          
+          // Fetch volunteer info
+          const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", data.volunteerId));
+          const volunteerInfo = volunteerDoc.exists() ? volunteerDoc.data() : null;
+          
+          return {
+            id: docSnap.id,
+            ...data,
+            requesterInfo,
+            volunteerInfo
+          };
         })
       );
-      
-      const nonPersonal = allRequestersWithRequests.flat();
 
       setVolunteers(v);
       setRequesters(r);
       setAllUsers([...v, ...r, ...a]);
       setPendingRequests(pending);
-      setNonPersonalRequests(nonPersonal);
+      setActiveMatches(matches);
       
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -212,18 +221,68 @@ export default function AdminDashboard() {
     setLoading(false);
   };
 
+  const fetchSessions = async (matchId) => {
+    setLoadingSessions(true);
+    try {
+      const sessionsSnap = await getDocs(query(collection(db, "Sessions"), where("matchId", "==", matchId)));
+      const sessionsData = sessionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setMatchSessions(sessionsData);
+    } catch (error) {
+      console.error("Error fetching sessions:", error);
+    }
+    setLoadingSessions(false);
+  };
+
+  const handleSort = (columnName) => {
+    if (sortColumn === columnName) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(columnName);
+      setSortOrder("asc");
+    }
+  };
+
+  const handleMatchSort = (columnName) => {
+    if (matchSortColumn === columnName) {
+      setMatchSortOrder(matchSortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setMatchSortColumn(columnName);
+      setMatchSortOrder("asc");
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (selectedMatchForDetails && showSessionDetails) {
+      fetchSessions(selectedMatchForDetails);
+    } else if (!selectedMatchForDetails) {
+      setMatchSessions([]);
+    }
+  }, [selectedMatchForDetails, showSessionDetails]);
+
   const approveVolunteer = async (id) => {
     try {
       await updateDoc(doc(db, "Users", "Info", "Volunteers", id), { approved: true });
+      await setDoc(doc(db, "Users", "Info"), { Volunteers: increment(1) }, { merge: true });
       alert("מתנדב אושר בהצלחה!");
       fetchData();
     } catch (error) {
       console.error("Error approving volunteer:", error);
       alert("שגיאה באישור המתנדב");
+    }
+  };
+
+  const declineVolunteer = async (id) => {
+    try {
+      await updateDoc(doc(db, "Users", "Info", "Volunteers", id), { approved: false });
+      alert("מתנדב נדחה בהצלחה.");
+      fetchData();
+    } catch (error) {
+      console.error("Error declining volunteer:", error);
+      alert("שגיאה בדחיית המתנדב");
     }
   };
 
@@ -249,7 +308,7 @@ export default function AdminDashboard() {
       });
 
       // Update request
-      batch.update(doc(db, "requests", requestId), {
+      batch.update(doc(db, "Requests", requestId), {
         status: "matched",
         matchId: matchId,
         matchedAt: new Date()
@@ -285,14 +344,14 @@ export default function AdminDashboard() {
         declinedAt: new Date()
       };
 
-      await updateDoc(doc(db, "requests", requestId), updateData);
+      await updateDoc(doc(db, "Requests", requestId), updateData);
       
       if (suggestAnother) {
         // Find the request in pendingRequests
         const request = pendingRequests.find(r => r.id === requestId);
         if (request) {
           // Move to non-personal requests for reassignment
-          setNonPersonalRequests([...nonPersonalRequests, {
+          setPendingRequests([...pendingRequests, {
             ...request,
             status: "waiting_for_reassignment"
           }]);
@@ -415,26 +474,70 @@ export default function AdminDashboard() {
     return <LoadingSpinner />;
   }
 
+  // Filter and sort users for the All Users table
+  const filteredAndSortedUsers = allUsers
+    .filter(u =>
+      u.fullName?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      u.email?.toLowerCase().includes(userSearch.toLowerCase())
+    )
+    .filter(u => {
+      if (roleFilter !== "all" && u.role !== roleFilter) return false;
+      if (statusFilter === "approved" && u.approved === false) return false;
+      if (statusFilter === "pending" && (u.approved === true || u.approved === undefined)) return false;
+      if (personalFilter === "true" && !u.personal) return false;
+      if (personalFilter === "false" && u.personal) return false;
+      if (activeMatchesFilter === "hasMatches" && (!u.activeMatchIds || u.activeMatchIds.length === 0)) return false;
+      if (activeMatchesFilter === "noMatches" && (u.activeMatchIds && u.activeMatchIds.length > 0)) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (!sortColumn) return 0;
+
+      let aValue;
+      let bValue;
+
+      if (sortColumn === 'activeMatchIds') {
+        aValue = a[sortColumn]?.length || 0;
+        bValue = b[sortColumn]?.length || 0;
+      } else if (sortColumn === 'approved') {
+        aValue = a[sortColumn] === undefined ? true : a[sortColumn];
+        bValue = b[sortColumn] === undefined ? true : b[sortColumn];
+      } else if (sortColumn === 'personal') {
+        aValue = a[sortColumn] === undefined ? false : a[sortColumn];
+        bValue = b[sortColumn] === undefined ? false : b[sortColumn];
+      } else {
+        aValue = a[sortColumn];
+        bValue = b[sortColumn];
+      }
+
+      if (aValue === undefined || aValue === null) return sortOrder === 'asc' ? 1 : -1;
+      if (bValue === undefined || bValue === null) return sortOrder === 'asc' ? -1 : 1;
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+      } else if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+        if (sortOrder === 'asc') {
+          return aValue - bValue;
+        } else {
+          return bValue - aValue;
+        }
+      } else {
+        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+    });
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentUsers = filteredAndSortedUsers.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredAndSortedUsers.length / itemsPerPage);
+
   return (
     <div className="p-6 space-y-6 mt-[-2rem]">
       <h2 className="text-3xl font-bold text-orange-800 text-center">לוח ניהול</h2>
 
       {/* Tab Navigation */}
       <div className="flex gap-2 mb-4 justify-center flex-wrap">
-        <Button
-          variant={activeTab === "approvals" ? "default" : "outline"}
-          onClick={() => setActiveTab("approvals")}
-          className="py-3 px-6 text-lg"
-        >
-          אישורים ממתינים ({pendingRequests.length})
-        </Button>
-        <Button
-          variant={activeTab === "nonPersonal" ? "default" : "outline"}
-          onClick={() => setActiveTab("nonPersonal")}
-          className="py-3 px-6 text-lg"
-        >
-          התאמות ידניות ({nonPersonalRequests.length})
-        </Button>
         <Button
           variant={activeTab === "volunteers" ? "default" : "outline"}
           onClick={() => setActiveTab("volunteers")}
@@ -443,11 +546,25 @@ export default function AdminDashboard() {
           מתנדבים לאישור ({volunteers.filter(v => !v.approved).length})
         </Button>
         <Button
+          variant={activeTab === "approvals" ? "default" : "outline"}
+          onClick={() => setActiveTab("approvals")}
+          className="py-3 px-6 text-lg"
+        >
+          התאמות ממתינות לאישור ({pendingRequests.length})
+        </Button>
+        <Button
           variant={activeTab === "matching" ? "default" : "outline"}
           onClick={() => setActiveTab("matching")}
           className="py-3 px-6 text-lg"
         >
           התאמה כללית
+        </Button>
+        <Button
+          variant={activeTab === "matches" ? "default" : "outline"}
+          onClick={() => setActiveTab("matches")}
+          className="py-3 px-6 text-lg"
+        >
+          פיקוח התאמות ({activeMatches.length})
         </Button>
         <Button
           variant={activeTab === "users" ? "default" : "outline"}
@@ -470,18 +587,47 @@ export default function AdminDashboard() {
             ) : (
               <div className="space-y-2">
                 {volunteers.filter(v => !v.approved).map(v => (
-                  <div key={v.id} className="flex justify-between items-center bg-orange-50/50 p-3 rounded border border-orange-100">
-                    <div>
-                      <p className="font-semibold text-orange-800">{v.fullName}</p>
-                      <p className="text-sm text-orange-600">{v.email} | {v.profession}</p>
+                  <div key={v.id} className="flex justify-between items-start bg-orange-50/50 p-3 rounded border border-orange-100">
+                    <div className="flex-grow">
+                      <div className="grid grid-cols-2 gap-x-8 w-full">
+                        <div>
+                          <h4 className="font-semibold text-orange-800 mb-2">פרטי מתנדב</h4>
+                          <p className="text-sm text-orange-600"><strong>שם:</strong> {v.fullName}</p>
+                          <p className="text-sm text-orange-600"><strong>אימייל:</strong> {v.email}</p>
+                          <p className="text-sm text-orange-600"><strong>מקצוע:</strong> {v.profession}</p>
+                          {v.age && <p className="text-sm text-orange-600"><strong>גיל:</strong> {v.age}</p>}
+                          {v.gender && <p className="text-sm text-orange-600"><strong>מגדר:</strong> {v.gender}</p>}
+                          {v.location && <p className="text-sm text-orange-600"><strong>מיקום:</strong> {v.location}</p>}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-orange-800 mb-2">פרטים נוספים</h4>
+                          {v.experience && <p className="text-sm text-orange-600"><strong>ניסיון:</strong> {v.experience}</p>}
+                          {v.maritalStatus && <p className="text-sm text-orange-600"><strong>מצב משפחתי:</strong> {v.maritalStatus}</p>}
+                          {v.motivation && <p className="text-sm text-orange-600"><strong>מוטיבציה:</strong> {v.motivation}</p>}
+                          {v.strengths && <p className="text-sm text-orange-600"><strong>חוזקות:</strong> {v.strengths}</p>}
+                          {v.availableDays && v.availableDays.length > 0 && (
+                            <p className="text-sm text-orange-600"><strong>ימים פנויים:</strong> {v.availableDays.join(", ")}</p>
+                          )}
+                          {v.availableHours && v.availableHours.length > 0 && (
+                            <p className="text-sm text-orange-600"><strong>שעות פנויות:</strong> {v.availableHours.join(", ")}</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => approveVolunteer(v.id)}
-                      className="bg-green-600 text-white hover:bg-green-700"
-                    >
-                      אשר מתנדב
-                    </Button>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => approveVolunteer(v.id)}
+                      >
+                        אשר מתנדב
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => declineVolunteer(v.id)}
+                      >
+                        דחה מתנדב
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -495,104 +641,57 @@ export default function AdminDashboard() {
         <Card>
           <CardContent>
             <h3 className="font-semibold mb-4 text-orange-700">
-              בקשות ממתינות לאישור מנהל
+              התאמות ממתינות לאישור
             </h3>
+            
             {pendingRequests.length === 0 ? (
-              <p className="text-orange-600/80">אין בקשות ממתינות.</p>
+              <p className="text-orange-600/80">אין התאמות ממתינות.</p>
             ) : (
               <div className="space-y-4">
-                {pendingRequests.map(request => (
-                  <div key={request.id} className="border rounded p-4 bg-orange-50/50">
-                    <div className="grid grid-cols-2 gap-4 mb-3">
+                {pendingRequests
+                  .map(request => (
+                  <div key={request.id} className="flex justify-between items-start border rounded p-4 bg-orange-50/50">
+                    <div className="grid grid-cols-2 gap-x-8 flex-grow">
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-2">פרטי הפונה</h4>
-                        <p><strong>שם:</strong> {request.requesterInfo?.fullName}</p>
-                        <p><strong>גיל:</strong> {request.requesterInfo?.age}</p>
-                        <p><strong>סיבת פנייה:</strong> {request.requesterInfo?.reason}</p>
+                        <p className="text-sm text-orange-600"><strong>שם:</strong> {request.requesterInfo?.fullName}</p>
+                        <p className="text-sm text-orange-600"><strong>אימייל:</strong> {request.requesterInfo?.email}</p>
+                        <p className="text-sm text-orange-600"><strong>גיל:</strong> {request.requesterInfo?.age}</p>
+                        {request.requesterInfo?.gender && <p className="text-sm text-orange-600"><strong>מגדר:</strong> {request.requesterInfo?.gender}</p>}
+                        <p className="text-sm text-orange-600"><strong>סיבת פנייה:</strong> {request.requesterInfo?.reason}</p>
                       </div>
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-2">פרטי המתנדב</h4>
-                        <p><strong>שם:</strong> {request.volunteerInfo?.fullName}</p>
-                        <p><strong>מקצוע:</strong> {request.volunteerInfo?.profession}</p>
-                        <p><strong>ניסיון:</strong> {request.volunteerInfo?.experience}</p>
+                        <p className="text-sm text-orange-600"><strong>שם:</strong> {request.volunteerInfo?.fullName}</p>
+                        <p className="text-sm text-orange-600"><strong>אימייל:</strong> {request.volunteerInfo?.email}</p>
+                        <p className="text-sm text-orange-600"><strong>מקצוע:</strong> {request.volunteerInfo?.profession}</p>
+                        <p className="text-sm text-orange-600"><strong>ניסיון:</strong> {request.volunteerInfo?.experience}</p>
+                        {request.volunteerInfo?.age && <p className="text-sm text-orange-600"><strong>גיל:</strong> {request.volunteerInfo?.age}</p>}
+                        {request.volunteerInfo?.gender && <p className="text-sm text-orange-600"><strong>מגדר:</strong> {request.volunteerInfo?.gender}</p>}
+                        {request.volunteerInfo?.location && <p className="text-sm text-orange-600"><strong>מיקום:</strong> {request.volunteerInfo?.location}</p>}
+                        {request.volunteerInfo?.maritalStatus && <p className="text-sm text-orange-600"><strong>מצב משפחתי:</strong> {request.volunteerInfo?.maritalStatus}</p>}
+                        {request.volunteerInfo?.motivation && <p className="text-sm text-orange-600"><strong>מוטיבציה:</strong> {request.volunteerInfo?.motivation}</p>}
+                        {request.volunteerInfo?.strengths && <p className="text-sm text-orange-600"><strong>חוזקות:</strong> {request.volunteerInfo?.strengths}</p>}
+                        {request.volunteerInfo?.availableDays && request.volunteerInfo.availableDays.length > 0 && (
+                          <p className="text-sm text-orange-600"><strong>ימים פנויים:</strong> {request.volunteerInfo.availableDays.join(", ")}</p>
+                        )}
+                        {request.volunteerInfo?.availableHours && request.volunteerInfo.availableHours.length > 0 && (
+                          <p className="text-sm text-orange-600"><strong>שעות פנויות:</strong> {request.volunteerInfo.availableHours.join(", ")}</p>
+                        )}
                       </div>
                     </div>
-                    <div className="border-t pt-3">
-                      <p className="mb-3"><strong>תוכן הבקשה:</strong> {request.messageRequest}</p>
-                      <div className="flex gap-2">
-                        <Button 
-                          className="bg-green-600 text-white hover:bg-green-700"
-                          onClick={() => approveRequest(request.id, request)}
-                        >
-                          אשר התאמה
-                        </Button>
-                        <Button 
-                          className="bg-red-600 text-white hover:bg-red-700"
-                          onClick={() => declineRequest(request.id, false)}
-                        >
-                          דחה
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Non-Personal Requests */}
-      {activeTab === "nonPersonal" && (
-        <Card>
-          <CardContent>
-            <h3 className="font-semibold mb-4 text-orange-700">
-              בקשות להתאמה ידנית (לא אישי)
-            </h3>
-            {nonPersonalRequests.length === 0 ? (
-              <p className="text-orange-600/80">אין בקשות להתאמה ידנית.</p>
-            ) : (
-              <div className="space-y-4">
-                {nonPersonalRequests.map(request => (
-                  <div key={request.id} className="border rounded p-4 bg-orange-50/50">
-                    <div className="mb-3">
-                      <p><strong>פונה:</strong> {request.requesterInfo?.fullName}</p>
-                      <p><strong>גיל:</strong> {request.requesterInfo?.age} | <strong>סיבה:</strong> {request.requesterInfo?.reason}</p>
-                      <p><strong>הודעה:</strong> {request.messageRequest}</p>
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <select 
-                        onChange={(e) => setSelectedVolunteer(e.target.value)}
-                        className="border rounded px-3 py-2 flex-1"
-                        defaultValue=""
-                      >
-                        <option value="">בחר מתנדב...</option>
-                        {volunteers
-                          .filter(v => v.approved && (v.isAvailable || v.isAvaliable) && !v.personal)
-                          .map(v => (
-                            <option key={v.id} value={v.id}>
-                              {v.fullName} - {v.profession} ({v.experience})
-                            </option>
-                          ))
-                        }
-                      </select>
+                    <div className="flex flex-col gap-2">
                       <Button
-                        disabled={!selectedVolunteer}
-                        onClick={() => {
-                          createManualMatch(request.requesterId, selectedVolunteer, request.id);
-                          setSelectedVolunteer(null);
-                        }}
+                        variant="outline"
+                        onClick={() => approveRequest(request.id, request)}
                       >
-                        שייך
+                        אשר התאמה
                       </Button>
                       <Button
                         variant="outline"
-                        onClick={() => {
-                          setSelectedRequestForAI(request);
-                          setShowAISuggestions(true);
-                        }}
+                        onClick={() => declineRequest(request.id, false)}
                       >
-                        הצעות AI
+                        דחה התאמה
                       </Button>
                     </div>
                   </div>
@@ -612,7 +711,22 @@ export default function AdminDashboard() {
             </h3>
             <div className="flex flex-grow gap-8">
               {/* Requester Info Panel */}
-              <div className={`${requesterInfoWidth} border rounded p-4 bg-gray-50/50 min-h-[200px]`}>
+              <div
+                className={`w-1/4 border rounded p-4 bg-gray-50/50 h-[280px] overflow-y-scroll`}
+                onMouseEnter={() => {
+                  if (requesterHoverTimeoutRef.current) {
+                    clearTimeout(requesterHoverTimeoutRef.current);
+                    requesterHoverTimeoutRef.current = null;
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (!selectedRequester) {
+                    requesterHoverTimeoutRef.current = setTimeout(() => {
+                      setHoveredRequester(null);
+                    }, 100); // Small delay to allow moving to panel
+                  }
+                }}
+              >
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי פונה</h3>
                 {(selectedRequester && requesters.find(r => r.id === selectedRequester)) ? (
                   <div className="space-y-2 text-base">
@@ -633,12 +747,12 @@ export default function AdminDashboard() {
                     <p><strong>התאמות פעילות:</strong> {hoveredRequester.activeMatchIds?.length || 0}</p>
                   </div>
                 ) : (
-                  <p className="text-gray-500">רחף על פונה כדי לראות פרטים.</p>
+                  <p className="text-gray-500">רחף על פונה או בחר אותו כדי לראות פרטים.</p>
                 )}
               </div>
 
               {/* Requesters List */}
-              <div className={`${requesterListWidth} border rounded p-4 bg-orange-50/50`}>
+              <div className={`w-1/4 border rounded p-4 bg-orange-50/50`}>
                 <div className="flex items-center gap-2 mb-2">
                   <input
                     type="text"
@@ -649,7 +763,7 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
-                <ul className="space-y-2 max-h-[48rem] overflow-y-auto">
+                <ul className="space-y-2 h-[280px] overflow-y-scroll">
                   {requesters
                     .filter(req => !(req.activeMatchIds && req.activeMatchIds.length > 0))
                     .filter(req =>
@@ -670,8 +784,20 @@ export default function AdminDashboard() {
                             setSelectedVolunteer(null); // Deselect volunteer when a new requester is chosen
                           }
                         }}
-                        onMouseEnter={() => setHoveredRequester(req)}
-                        onMouseLeave={() => { if (selectedRequester !== req.id) setHoveredRequester(null); }}
+                        onMouseEnter={() => {
+                          if (requesterHoverTimeoutRef.current) {
+                            clearTimeout(requesterHoverTimeoutRef.current);
+                            requesterHoverTimeoutRef.current = null;
+                          }
+                          setHoveredRequester(req);
+                        }}
+                        onMouseLeave={() => {
+                          if (!selectedRequester) {
+                            requesterHoverTimeoutRef.current = setTimeout(() => {
+                              setHoveredRequester(null);
+                            }, 100); // Small delay to allow moving to panel
+                          }
+                        }}
                       >
                         <span className="cursor-pointer">
                             <strong className="text-orange-800">{req.fullName}</strong>
@@ -687,7 +813,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Volunteers List */}
-              <div className={`${volunteerListWidth} border rounded p-4 bg-orange-50/50`}>
+              <div className={`w-1/4 border rounded p-4 bg-orange-50/50`}>
                 <div className="flex items-center gap-2 mb-2">
                   <input
                     type="text"
@@ -698,7 +824,7 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
-                <ul className="space-y-2 max-h-[48rem] overflow-y-auto">
+                <ul className="space-y-2 h-[280px] overflow-y-scroll">
                   {volunteers
                     .filter(v => v.approved && (v.isAvailable || v.isAvaliable) && !v.personal)
                     .filter(v =>
@@ -720,13 +846,23 @@ export default function AdminDashboard() {
                             }
                           }
                         }}
-                        onMouseEnter={() => setHoveredVolunteer(v)}
-                        onMouseLeave={() => { if (selectedVolunteer !== v.id) setHoveredVolunteer(null); }}
+                        onMouseEnter={() => {
+                          if (volunteerHoverTimeoutRef.current) {
+                            clearTimeout(volunteerHoverTimeoutRef.current);
+                            volunteerHoverTimeoutRef.current = null;
+                          }
+                          setHoveredVolunteer(v);
+                        }}
+                        onMouseLeave={() => {
+                          if (!selectedVolunteer) {
+                            volunteerHoverTimeoutRef.current = setTimeout(() => {
+                              setHoveredVolunteer(null);
+                            }, 100); // Small delay to allow moving to panel
+                          }
+                        }}
                       >
-                        <span className="cursor-pointer">
-                            <strong className="text-orange-800">{v.fullName}</strong>
-                            <span className="text-orange-600 text-sm"> ({v.profession})</span>
-                          </span>
+                        <strong className="text-orange-800">{v.fullName}</strong>
+                        <span className="text-orange-600 text-sm"> ({v.profession})</span>
                       </li>
                     ))
                   }
@@ -734,7 +870,22 @@ export default function AdminDashboard() {
               </div>
 
               {/* Volunteer Info Panel */}
-              <div className={`${volunteerInfoWidth} border rounded p-4 bg-gray-50/50 min-h-[200px]`}>
+              <div
+                className={`w-1/4 border rounded p-4 bg-gray-50/50 h-[280px] overflow-y-scroll`}
+                onMouseEnter={() => {
+                  if (volunteerHoverTimeoutRef.current) {
+                    clearTimeout(volunteerHoverTimeoutRef.current);
+                    volunteerHoverTimeoutRef.current = null;
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (!selectedVolunteer) {
+                    volunteerHoverTimeoutRef.current = setTimeout(() => {
+                      setHoveredVolunteer(null);
+                    }, 100); // Small delay to allow moving to panel
+                  }
+                }}
+              >
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי מתנדב</h3>
                 {(selectedVolunteer && volunteers.find(v => v.id === selectedVolunteer)) ? (
                   <div className="space-y-2 text-base">
@@ -755,7 +906,7 @@ export default function AdminDashboard() {
                     <p><strong>התאמות פעילות:</strong> {hoveredVolunteer.activeMatchIds?.length || 0}</p>
                   </div>
                 ) : (
-                  <p className="text-gray-500">רחף על מתנדב כדי לראות פרטים.</p>
+                  <p className="text-gray-500">רחף על מתנדב או בחר אותו כדי לראות פרטים.</p>
                 )}
               </div>
             </div>
@@ -807,24 +958,348 @@ export default function AdminDashboard() {
         </Card>
       )}
 
+      {/* Matches Supervision Table */}
+      {activeTab === "matches" && (
+        <Card>
+          <CardContent>
+            <h3 className="font-semibold mb-4 text-orange-700">פיקוח התאמות פעילות</h3>
+            {showSessionDetails ? (
+              <div className="space-y-4">
+                <Button onClick={() => {
+                  setShowSessionDetails(false);
+                  setSelectedMatchForDetails(null);
+                }}>
+                  חזור לרשימת ההתאמות
+                </Button>
+                <h4 className="text-xl font-semibold text-orange-800">פירוט פגישות עבור התאמה</h4>
+                {loadingSessions ? (
+                  <LoadingSpinner />
+                ) : matchSessions.length === 0 ? (
+                  <p className="text-orange-600/80">אין פגישות זמינות עבור התאמה זו.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-orange-50">
+                          <th className="border border-orange-100 p-2 text-orange-800">תאריך ושעה</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">סטטוס</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">משך (דקות)</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">מיקום</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">הערה</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">סיכום</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {matchSessions.map(session => (
+                          <tr key={session.id} className="hover:bg-orange-50/50">
+                            <td className="border border-orange-100 p-2 text-orange-700">
+                              {session.scheduledTime ? new Date(session.scheduledTime.seconds * 1000).toLocaleString() : 'N/A'}
+                            </td>
+                            <td className="border border-orange-100 p-2 text-orange-700">{session.status || 'N/A'}</td>
+                            <td className="border border-orange-100 p-2 text-orange-700">{session.durationMinutes || 'N/A'}</td>
+                            <td className="border border-orange-100 p-2 text-orange-700">{session.location || 'N/A'}</td>
+                            <td className="border border-orange-100 p-2 text-orange-700">{session.notes || 'N/A'}</td>
+                            <td className="border border-orange-100 p-2 text-orange-700">
+                              <span
+                                className="text-blue-600 hover:underline cursor-pointer"
+                                onClick={() => setSelectedSessionForView(session.sessionSummary)}
+                              >
+                                צפייה
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="חיפוש התאמה לפי שם פונה/מתנדב..."
+                    value={activeMatchSearch}
+                    onChange={e => setActiveMatchSearch(e.target.value)}
+                    className="border rounded px-3 py-2 w-full"
+                  />
+                </div>
+
+                {activeMatches.length === 0 ? (
+                  <p className="text-orange-600/80">אין התאמות פעילות.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-orange-50">
+                          <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('requesterInfo.fullName')}>פונה{matchSortColumn === 'requesterInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                          <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב{matchSortColumn === 'volunteerInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                          <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('meetingFrequency')}>תדירות פגישות{matchSortColumn === 'meetingFrequency' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">סיכום</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeMatches
+                          .filter(match =>
+                            match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                            match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                            match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
+                          )
+                          .filter(match => {
+                            if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
+                            if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
+                            return true;
+                          })
+                          .sort((a, b) => {
+                            if (!matchSortColumn) return 0;
+
+                            let aValue;
+                            let bValue;
+
+                            if (matchSortColumn === 'requesterInfo.fullName') {
+                              aValue = a.requesterInfo?.fullName || '';
+                              bValue = b.requesterInfo?.fullName || '';
+                            } else if (matchSortColumn === 'volunteerInfo.fullName') {
+                              aValue = a.volunteerInfo?.fullName || '';
+                              bValue = b.volunteerInfo?.fullName || '';
+                            } else if (matchSortColumn === 'meetingFrequency') {
+                              aValue = a[matchSortColumn] || '';
+                              bValue = b[matchSortColumn] || '';
+                            } else {
+                              aValue = a[matchSortColumn];
+                              bValue = b[matchSortColumn];
+                            }
+
+                            if (typeof aValue === 'string' && typeof bValue === 'string') {
+                              return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                            } else {
+                              return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+                            }
+                          })
+                          .slice(
+                            (activeMatchCurrentPage - 1) * itemsPerPage,
+                            activeMatchCurrentPage * itemsPerPage
+                          )
+                          .map(match => (
+                            <tr key={match.id} className="hover:bg-orange-50/50">
+                              <td className="border border-orange-100 p-2 text-orange-700">
+                                <HoverCard user={match.requesterInfo}>
+                                  {match.requesterInfo?.fullName || 'N/A'}
+                                </HoverCard>
+                              </td>
+                              <td className="border border-orange-100 p-2 text-orange-700">
+                                <HoverCard user={match.volunteerInfo}>
+                                  {match.volunteerInfo?.fullName || 'N/A'}
+                                </HoverCard>
+                              </td>
+                              <td className="border border-orange-100 p-2 text-orange-700">
+                                {match.meetingFrequency || 'N/A'}
+                              </td>
+                              <td className="border border-orange-100 p-2 text-center">
+                                <span
+                                  className="text-blue-600 hover:underline cursor-pointer"
+                                  onClick={() => {
+                                    setSelectedMatchForDetails(match.id);
+                                    setShowSessionDetails(true);
+                                  }}
+                                >
+                                  פירוט
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <div className="flex justify-between items-center mt-4">
+                  <Button
+                    onClick={() => setActiveMatchCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={activeMatchCurrentPage === 1}
+                    variant="outline"
+                  >
+                    הקודם
+                  </Button>
+                  <span className="text-orange-700">
+                    עמוד {activeMatchCurrentPage} מתוך {Math.ceil(activeMatches
+                      .filter(match =>
+                        match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                        match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                        match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
+                      )
+                      .filter(match => {
+                        if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
+                        if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
+                        return true;
+                      })
+                      .sort((a, b) => {
+                        if (!matchSortColumn) return 0;
+
+                        let aValue;
+                        let bValue;
+
+                        if (matchSortColumn === 'requesterInfo.fullName') {
+                          aValue = a.requesterInfo?.fullName || '';
+                          bValue = b.requesterInfo?.fullName || '';
+                        } else if (matchSortColumn === 'volunteerInfo.fullName') {
+                          aValue = a.volunteerInfo?.fullName || '';
+                          bValue = b.volunteerInfo?.fullName || '';
+                        } else if (matchSortColumn === 'meetingFrequency') {
+                          aValue = a[matchSortColumn] || '';
+                          bValue = b[matchSortColumn] || '';
+                        } else {
+                          aValue = a[matchSortColumn];
+                          bValue = b[matchSortColumn];
+                        }
+
+                        if (typeof aValue === 'string' && typeof bValue === 'string') {
+                          return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                        } else {
+                          return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+                        }
+                      }).length / itemsPerPage)}
+                  </span>
+                  <Button
+                    onClick={() => setActiveMatchCurrentPage(prev => Math.min(Math.ceil(activeMatches
+                      .filter(match =>
+                        match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                        match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                        match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
+                      )
+                      .filter(match => {
+                        if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
+                        if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
+                        return true;
+                      })
+                      .sort((a, b) => {
+                        if (!matchSortColumn) return 0;
+
+                        let aValue;
+                        let bValue;
+
+                        if (matchSortColumn === 'requesterInfo.fullName') {
+                          aValue = a.requesterInfo?.fullName || '';
+                          bValue = b.requesterInfo?.fullName || '';
+                        } else if (matchSortColumn === 'volunteerInfo.fullName') {
+                          aValue = a.volunteerInfo?.fullName || '';
+                          bValue = b.volunteerInfo?.fullName || '';
+                        } else if (matchSortColumn === 'meetingFrequency') {
+                          aValue = a[matchSortColumn] || '';
+                          bValue = b[matchSortColumn] || '';
+                        } else {
+                          aValue = a[matchSortColumn];
+                          bValue = b[matchSortColumn];
+                        }
+
+                        if (typeof aValue === 'string' && typeof bValue === 'string') {
+                          return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                        } else {
+                          return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+                        }
+                      }).length / itemsPerPage), prev + 1))}
+                    variant="outline"
+                  >
+                    הבא
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* All Users Table */}
       {activeTab === "users" && (
         <Card>
           <CardContent>
             <h3 className="font-semibold mb-4 text-orange-700">כל המשתמשים במערכת</h3>
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="חיפוש משתמש לפי שם או אימייל..."
+                value={userSearch}
+                onChange={e => setUserSearch(e.target.value)}
+                className="border rounded px-3 py-2 w-full"
+              />
+            </div>
+            <div className="flex gap-4 mb-4">
+              {/* Role Filter */}
+              <div className="flex flex-col">
+                <label htmlFor="roleFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי תפקיד:</label>
+                <select
+                  id="roleFilter"
+                  value={roleFilter}
+                  onChange={e => setRoleFilter(e.target.value)}
+                  className="border rounded px-3 py-2"
+                >
+                  <option value="all">כל התפקידים</option>
+                  <option value="volunteer">מתנדב</option>
+                  <option value="requester">פונה</option>
+                  <option value="admin-first">מנהל רמה 1</option>
+                  <option value="admin-second">מנהל רמה 2</option>
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div className="flex flex-col">
+                <label htmlFor="statusFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי סטטוס:</label>
+                <select
+                  id="statusFilter"
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  className="border rounded px-3 py-2"
+                >
+                  <option value="all">כל הסטטוסים</option>
+                  <option value="approved">פעיל</option>
+                  <option value="pending">ממתין לאישור</option>
+                </select>
+              </div>
+
+              {/* Personal Filter */}
+              <div className="flex flex-col">
+                <label htmlFor="personalFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי אישי:</label>
+                <select
+                  id="personalFilter"
+                  value={personalFilter}
+                  onChange={e => setPersonalFilter(e.target.value)}
+                  className="border rounded px-3 py-2"
+                >
+                  <option value="all">הכל</option>
+                  <option value="true">כן</option>
+                  <option value="false">לא</option>
+                </select>
+              </div>
+
+              {/* Active Matches Filter */}
+              <div className="flex flex-col">
+                <label htmlFor="activeMatchesFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי התאמות פעילות:</label>
+                <select
+                  id="activeMatchesFilter"
+                  value={activeMatchesFilter}
+                  onChange={e => setActiveMatchesFilter(e.target.value)}
+                  className="border rounded px-3 py-2"
+                >
+                  <option value="all">הכל</option>
+                  <option value="hasMatches">עם התאמות</option>
+                  <option value="noMatches">ללא התאמות</option>
+                </select>
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-orange-50">
-                    <th className="border border-orange-100 p-2 text-orange-800">שם</th>
-                    <th className="border border-orange-100 p-2 text-orange-800">אימייל</th>
-                    <th className="border border-orange-100 p-2 text-orange-800">תפקיד</th>
-                    <th className="border border-orange-100 p-2 text-orange-800">סטטוס</th>
-                    <th className="border border-orange-100 p-2 text-orange-800">התאמות פעילות</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('fullName')}>שם{sortColumn === 'fullName' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('email')}>אימייל{sortColumn === 'email' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('role')}>תפקיד{sortColumn === 'role' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('approved')}>סטטוס{sortColumn === 'approved' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('personal')}>אישי{sortColumn === 'personal' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('activeMatchIds')}>התאמות פעילות{sortColumn === 'activeMatchIds' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {allUsers.map(u => (
+                  {currentUsers.map(u => (
                     <tr key={`${u.id}-${u.role}`} className="hover:bg-orange-50/50">
                       <td className="border border-orange-100 p-2 text-orange-700">{u.fullName}</td>
                       <td className="border border-orange-100 p-2 text-orange-700">{u.email}</td>
@@ -842,12 +1317,34 @@ export default function AdminDashboard() {
                         )}
                       </td>
                       <td className="border border-orange-100 p-2 text-center">
+                        {u.personal ? 'כן' : 'לא'}
+                      </td>
+                      <td className="border border-orange-100 p-2 text-center">
                         {u.activeMatchIds?.length || 0}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+            <div className="flex justify-between items-center mt-4">
+              <Button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                variant="outline"
+              >
+                הקודם
+              </Button>
+              <span className="text-orange-700">
+                עמוד {currentPage} מתוך {totalPages}
+              </span>
+              <Button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                variant="outline"
+              >
+                הבא
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -865,6 +1362,33 @@ export default function AdminDashboard() {
         volunteers={volunteers}
         onSelectVolunteer={handleAIVolunteerSelection}
       />
+
+      {/* View Session Summary Modal */}
+      <ViewSessionSummaryModal
+        isOpen={!!selectedSessionForView}
+        onClose={() => setSelectedSessionForView(null)}
+        sessionSummary={selectedSessionForView}
+      />
     </div>
   );
 }
+
+const ViewSessionSummaryModal = ({ isOpen, onClose, sessionSummary }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-lg bg-white p-6 rounded-lg shadow-xl">
+        <CardContent>
+          <h2 className="text-2xl font-bold mb-4 text-orange-800">סיכום פגישה</h2>
+          <div className="space-y-4">
+            <p className="text-gray-700 whitespace-pre-wrap">{sessionSummary}</p>
+            <div className="flex justify-end gap-3 mt-6">
+              <Button onClick={onClose}>סגור</Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
