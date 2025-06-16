@@ -10,6 +10,7 @@ export const AdminEventList = () => {
     const [sortDirection, setSortDirection] = useState('desc');
     const [showEditModal, setShowEditModal] = useState(false);
     const [editForm, setEditForm] = useState({});
+    const [validationErrors, setValidationErrors] = useState({});
 
     useEffect(() => {
         const eventsQuery = query(
@@ -63,6 +64,56 @@ export const AdminEventList = () => {
         }
         return 'תאריך לא תקין';
     };
+
+    const validateField = (field, value) => {
+        const errors = {};
+        
+        switch (field) {
+            case 'mail':
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!value.trim()) {
+                    errors.mail = 'מייל הוא שדה חובה';
+                } else if (!emailRegex.test(value)) {
+                    errors.mail = 'כתובת מייל לא תקינה';
+                }
+                break;
+                
+            case 'Contact_info':
+                const phoneRegex = /^0\d{1,2}-?\d{7}$/; // Israeli phone format
+                if (!value.trim()) {
+                    errors.Contact_info = 'טלפון הוא שדה חובה';
+                } else if (!phoneRegex.test(value.replace(/\s/g, ''))) {
+                    errors.Contact_info = 'מספר טלפון לא תקין (צריך להיות 9-10 ספרות)';
+                }
+                break;
+                
+            case 'name':
+                if (!value.trim()) {
+                    errors.name = 'שם האירוע הוא שדה חובה';
+                } else if (value.trim().length < 2) {
+                    errors.name = 'שם האירוע חייב להכיל לפחות 2 תווים';
+                }
+                break;
+
+            case 'location':
+                if (!value.trim()) {
+                    errors.location = 'מיקום הוא שדה חובה';
+                } else if (value.trim().length < 2) {
+                    errors.location = 'מיקום חייב להכיל לפחות 2 תווים';
+                }
+                break;
+
+            case 'description':
+                if (!value.trim()) {
+                    errors.description = 'תיאור הוא שדה חובה';
+                } else if (value.trim().length < 5) {
+                    errors.description = 'תיאור חייב להכיל לפחות 5 תווים';
+                }
+                break;
+        }
+        
+        return errors;
+    };
     
     const deleteEvent = async (eventId) => {
         try {
@@ -84,24 +135,37 @@ export const AdminEventList = () => {
                     : Timestamp.now()
         };
         setEditForm(formattedEvent);
+        setValidationErrors({}); 
         setShowEditModal(true);
     }
 
     const closeModal = () => {
         setShowEditModal(false);
         setEditForm({});
+        setValidationErrors({});
     }
 
     const updateForm = (field, value) => {
+        setValidationErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors[field];
+            return newErrors;
+        });
+
         if (field === 'scheduled_time') {
-        const newDate = new Date(value);
+            const newDate = new Date(value);
+            if (field === 'scheduled_time' && newDate.getTime() < Date.now()) {
+                alert('יש לבחור זמן עתידי לאירוע');
+                return;
+            }
             if (!isNaN(newDate.getTime())) {
                 setEditForm(prev => ({
                     ...prev,
                     scheduled_time: Timestamp.fromDate(newDate)
                 }));
             }
-        } else {
+        }
+        else {
             setEditForm(prev => ({ ...prev, [field]: value }));
         }
     }
@@ -112,20 +176,38 @@ export const AdminEventList = () => {
             alert('שגיאה: לא נמצאו נתונים לעדכון');
             return;
         }
+
+        const allErrors = {};
+        const fieldsToValidate = ['name', 'mail', 'Contact_info', 'location', 'description'];
+        
+        fieldsToValidate.forEach(field => {
+            const fieldErrors = validateField(field, editForm[field] || '');
+            Object.assign(allErrors, fieldErrors);
+        });
+
+        if (!editForm.scheduled_time) {
+            allErrors.scheduled_time = 'זמן האירוע הוא שדה חובה';
+        }
+
+        if (Object.keys(allErrors).length > 0) {
+            setValidationErrors(allErrors);
+            alert('יש שגיאות בטופס, אנא תקן אותן לפני השמירה');
+            return;
+        }
+
         const eventData = {
             ...editForm,
-            // Ensure scheduled_time is a Timestamp
             scheduled_time: editForm.scheduled_time instanceof Timestamp 
             ? editForm.scheduled_time 
             : Timestamp.fromDate(new Date(editForm.scheduled_time))
         };
-        console.log("Updating event:", eventData);
+        
         try {
             const eventRef = doc(db, "Events", editForm.id);
-            console.log("Updating event:", eventRef.id);
             await updateDoc(eventRef, eventData);
             setEvents(events.map(event => event.id === eventData.id ? eventData : event));
             closeModal();
+            alert('האירוע עודכן בהצלחה!');
         } catch (error) {
             console.error("Error updating event:", error);
             alert('שגיאה בעדכון האירוע');
@@ -277,15 +359,16 @@ export const AdminEventList = () => {
 
             {showEditModal && (
                 <div 
-                    className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50"
+                    className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-start justify-center z-50 pt-8"
                     onClick={() => closeModal()}
                 >
                     <div 
-                        className="bg-white rounded-xl w-[600px] max-h-[90vh] overflow-hidden shadow-2xl mx-4 relative border border-orange-100 flex flex-col"
+                        className="bg-white rounded-xl w-[600px] max-h-[85vh] overflow-hidden shadow-2xl mx-4 relative border border-orange-100 flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Sticky Header */}
                         <div className="sticky top-0 bg-white py-4 px-6 border-b border-orange-100 flex justify-between items-center z-10">
+                            <h3 className="text-xl font-semibold text-orange-800">ערוך אירוע</h3>
                             <button
                                 onClick={closeModal}
                                 className="text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100 p-1"
@@ -295,78 +378,107 @@ export const AdminEventList = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
-                            <h3 className="text-xl font-semibold text-orange-800">ערוך אירוע</h3>
                         </div>
 
-                        {/* Scrollable Content */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">שם האירוע</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">שם האירוע <span className="text-red-500">*</span></label>
                                 <input
                                     type="text"
                                     value={editForm.name || ''}
                                     onChange={(e) => updateForm('name', e.target.value)}
-                                    className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                    className={`w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all ${
+                                        validationErrors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''
+                                    }`}
                                     dir="rtl"
                                 />
+                                {validationErrors.name && (
+                                    <p className="text-red-500 text-sm mt-1 text-right">{validationErrors.name}</p>
+                                )}
                             </div>
                             
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">זמן האירוע</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">זמן האירוע <span className="text-red-500">*</span></label>
                                 <input
                                     type="datetime-local"
                                     value={editForm.scheduled_time instanceof Timestamp
                                         ? editForm.scheduled_time.toDate().toISOString().slice(0, 16)
                                         : editForm.scheduled_time || ''}
                                     onChange={(e) => updateForm('scheduled_time', e.target.value)}
-                                    className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                    className={`w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all ${
+                                        validationErrors.scheduled_time ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''
+                                    }`}
                                     dir="ltr"
                                 />
+                                {validationErrors.scheduled_time && (
+                                    <p className="text-red-500 text-sm mt-1 text-right">{validationErrors.scheduled_time}</p>
+                                )}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">מיקום האירוע</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">מיקום האירוע <span className="text-red-500">*</span></label>
                                 <input
                                     type="text"
                                     value={editForm.location || ''}
                                     onChange={(e) => updateForm('location', e.target.value)}
-                                    className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                    className={`w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all ${
+                                        validationErrors.location ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''
+                                    }`}
                                     dir="rtl"
                                 />
+                                {validationErrors.location && (
+                                    <p className="text-red-500 text-sm mt-1 text-right">{validationErrors.location}</p>
+                                )}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">תיאור</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">תיאור <span className="text-red-500">*</span></label>
                                 <textarea
                                     value={editForm.description || ''}
                                     onChange={(e) => updateForm('description', e.target.value)}
-                                    className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                    className={`w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all ${
+                                        validationErrors.description ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''
+                                    }`}
                                     rows="3"
                                     dir="rtl"
                                 />
+                                {validationErrors.description && (
+                                    <p className="text-red-500 text-sm mt-1 text-right">{validationErrors.description}</p>
+                                )}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">טלפון</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">טלפון <span className="text-red-500">*</span></label>
                                 <input
                                     type="tel"
                                     value={editForm.Contact_info || ''}
                                     onChange={(e) => updateForm('Contact_info', e.target.value)}
-                                    className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                    className={`w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all ${
+                                        validationErrors.Contact_info ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''
+                                    }`}
                                     dir="ltr"
                                     placeholder="050-1234567"
                                 />
+                                {validationErrors.Contact_info && (
+                                    <p className="text-red-500 text-sm mt-1 text-right">{validationErrors.Contact_info}</p>
+                                )}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">מייל</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-right">מייל <span className="text-red-500">*</span></label>
                                 <input
                                     type="email"
                                     value={editForm.mail || ''}
                                     onChange={(e) => updateForm('mail', e.target.value)}
-                                    className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                    className={`w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all ${
+                                        validationErrors.mail ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''
+                                    }`}
                                     dir="ltr"
+                                    placeholder="example@domain.com"
                                 />
+                                {validationErrors.mail && (
+                                    <p className="text-red-500 text-sm mt-1 text-right">{validationErrors.mail}</p>
+                                )}
                             </div>
 
                             <div>
@@ -383,7 +495,6 @@ export const AdminEventList = () => {
                             </div>
                         </div>
 
-                        {/* Sticky Footer */}
                         <div className="sticky bottom-0 bg-white py-4 px-6 border-t border-orange-100">
                             <div className="flex justify-end gap-4">
                                 <button
