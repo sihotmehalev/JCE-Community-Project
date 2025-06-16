@@ -1,12 +1,29 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
+import { EventSlider } from "./EventSlider/EventSlider";
+import { fetchEvents } from "./providers/EventProvider"; 
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+        const loadEvents = async () => {
+            try {
+                const eventData = await fetchEvents();
+                setEvents(eventData);
+            } catch (error) {
+                console.error("Error:", error);
+            }
+
+        };
+
+        loadEvents();
+    }, []);
 
   return (
     <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-xl p-32 mx-auto">
@@ -70,6 +87,9 @@ export default function HomePage() {
           </CardContent>
         </Card>
       </motion.div>
+
+      <EventSlider events={events} />
+
     </div>
   );
 }
