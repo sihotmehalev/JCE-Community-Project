@@ -10,9 +10,22 @@ export function HoverCard({ user, children }) {
   const updatePosition = () => {
     if (targetRef.current) {
       const rect = targetRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+
+      // Calculate desired position to the right
+      let newLeft = rect.right + window.scrollX + 10;
+      let newTop = rect.top + window.scrollY + (rect.height / 2);
+
+      // Check if there's enough space on the right for the card (assuming card width of 220px + 10px padding)
+      const cardWidth = 220; // minWidth of the card
+      if (newLeft + cardWidth > viewportWidth + window.scrollX) {
+        // Not enough space on the right, position to the left
+        newLeft = rect.left + window.scrollX - cardWidth - 10; // 10px to the left
+      }
+
       setPosition({
-        top: rect.top + window.scrollY + (rect.height / 2),
-        left: rect.right + window.scrollX + 10, // 10px to the right of the element
+        top: newTop,
+        left: newLeft,
       });
     }
   };
