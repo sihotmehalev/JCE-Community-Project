@@ -56,15 +56,17 @@ const SessionCard = ({
       {/* Session Details */}
       <div className="space-y-2">
         {/* Time and Duration */}
-        <div className="flex items-start gap-2">
-          <div className="shrink-0">
-            <span className={`font-medium ${getTextStyles()}`}>מועד:</span>
+        {time && (
+          <div className="flex items-start gap-2">
+            <div className="shrink-0">
+              <span className={`font-medium ${getTextStyles()}`}>מועד:</span>
+            </div>
+            <div className={getTextStyles()}>
+              <div>{time}</div>
+              {duration && <div className="text-sm">משך: {duration} דקות</div>}
+            </div>
           </div>
-          <div className={getTextStyles()}>
-            <div>{time}</div>
-            {duration && <div className="text-sm">משך: {duration} דקות</div>}
-          </div>
-        </div>
+        )}
 
         {/* Location */}
         {location && (
@@ -95,17 +97,15 @@ const SessionCard = ({
             <div className={getTextStyles()}>{summary}</div>
           </div>
         )}
-      </div>
-
-      {/* Actions */}
+      </div>      {/* Actions */}
       {actions && actions.length > 0 && (
-        <div className="flex gap-2 mt-3 pt-2 border-t border-orange-100">
+        <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-orange-100">
           {actions.map((action, index) => (
             <Button
               key={index}
               onClick={action.onClick}
               variant={action.variant}
-              className="flex-1"
+              className={action.className || ''}
             >
               {action.label}
             </Button>

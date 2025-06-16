@@ -28,7 +28,7 @@ const SessionsModal = ({
         style={{ margin: 0, padding: 0 }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="bg-white rounded-lg border-2 border-orange-300 shadow-lg flex flex-col h-[652px]">
+        <div className="bg-white rounded-lg border-2 border-orange-300 shadow-lg flex flex-col h-[500px]">
           {/* Header */}
           <div className="flex justify-between items-center py-3 px-4 border-b border-orange-200 shrink-0">
             <h3 className="text-xl font-semibold text-orange-800">{title}</h3>
@@ -60,7 +60,8 @@ const SessionsModal = ({
                     actions={onSessionAction && actionLabel ? [{
                       label: actionLabel,
                       onClick: () => onSessionAction(session),
-                      variant: "outline"
+                      variant: "outline",
+                      className: "h-8 px-3 text-sm"
                     }] : undefined}
                   />
                 ))}

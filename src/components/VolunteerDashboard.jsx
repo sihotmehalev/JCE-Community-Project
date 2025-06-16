@@ -602,10 +602,9 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
   const matchActions = [
     {
       label: isChatOpen ? "סגור שיחה" : "💬 פתח שיחה",
-      onClick: isChatOpen ? onCloseChat : onOpenChat,
-      variant: "default",
-      className: "text-sm px-4 py-1.5" // Smaller size
-    },    {
+      onClick: isChatOpen ? onCloseChat : onOpenChat
+    },
+    {
       label: (
         <span className="flex items-center gap-1">
           <Plus className="w-4 h-4" />
@@ -613,28 +612,24 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
         </span>
       ),
       onClick: onScheduleSession,
-      variant: "outline",
-      className: "text-sm px-3 py-1.5 whitespace-nowrap" // Added whitespace-nowrap
+      variant: "outline"
     }
   ];  // Session summary buttons
   const sessionButtons = [
     {
       label: `מפגשים מתוכננים (${upcomingSessions.length})`,
       onClick: () => setActiveModal('upcoming'),
-      variant: "outline",
-      className: "text-sm px-3 py-1.5" // Smaller size
+      variant: "outline"
     },
     {
       label: `ממתינים לסיכום (${pastSessions.length})`,
       onClick: () => setActiveModal('past'),
-      variant: "outline",
-      className: "text-sm px-3 py-1.5" // Smaller size
+      variant: "outline"
     },
     {
       label: `מפגשים שהושלמו (${completedSessions.length})`,
       onClick: () => setActiveModal('completed'),
-      variant: "outline",
-      className: "text-sm px-3 py-1.5" // Smaller size
+      variant: "outline"
     }
   ];
 
@@ -644,7 +639,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
       <SessionCard
         userInfo={{
           name: requester?.fullName || "פונה ללא שם",
-          subtitle: `מפגשים שהושלמו: ${completedSessions.length}`
+          subtitle: ""
         }}
         actions={[...matchActions, ...sessionButtons]}
         className="bg-white"
