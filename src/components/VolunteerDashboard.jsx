@@ -604,7 +604,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
       label: isChatOpen ? "סגור שיחה" : "💬 פתח שיחה",
       onClick: isChatOpen ? onCloseChat : onOpenChat,
       variant: "default",
-      className: "text-sm px-3 py-1.5" // Smaller size
+      className: "text-sm px-4 py-1.5" // Smaller size
     },    {
       label: (
         <span className="flex items-center gap-1">
@@ -644,7 +644,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
       <SessionCard
         userInfo={{
           name: requester?.fullName || "פונה ללא שם",
-          subtitle: `סשנים שהושלמו: ${completedSessions.length}`
+          subtitle: `מפגשים שהושלמו: ${completedSessions.length}`
         }}
         actions={[...matchActions, ...sessionButtons]}
         className="bg-white"

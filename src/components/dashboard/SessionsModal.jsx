@@ -14,9 +14,9 @@ const SessionsModal = ({
 }) => {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg border-2 border-orange-300 shadow-lg w-full max-w-2xl">
+      <div className="bg-white rounded-lg border-2 border-orange-300 shadow-lg w-full max-w-md">
         {/* Header */}
-        <div className="flex justify-between items-center p-4 border-b border-orange-200">
+        <div className="flex justify-between items-center p-4 border-b border-orange-200 shrink-0">
           <h3 className="text-xl font-semibold text-orange-800">{title}</h3>
           <button 
             onClick={onClose}
@@ -27,7 +27,7 @@ const SessionsModal = ({
         </div>
 
         {/* Content */}
-        <div className="p-4 max-h-[calc(80vh-10rem)] overflow-y-auto">
+        <div className="p-4 flex-1 overflow-y-auto">
           {sessions.length === 0 ? (
             <div className="bg-orange-50 text-orange-600 p-3 rounded-md text-center">
               אין מפגשים להצגה
@@ -55,14 +55,7 @@ const SessionsModal = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-orange-200">
-          <Button 
-            variant="outline" 
-            onClick={onClose}
-            className="w-full"
-          >
-            סגור
-          </Button>
+        <div className="p-4 border-t border-orange-200 shrink-0">
         </div>
       </div>
     </div>
