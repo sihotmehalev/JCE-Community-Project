@@ -1,8 +1,24 @@
 import { EventCard } from "../EventCard/EventCard";
 import { useState } from "react";
+import { useEffect } from "react";
+import { fetchEvents } from "../providers/EventProvider";
 
-export const EventSlider = ({ events }) => {
+export const EventSlider = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [events, setEvents] = useState([]);
+
+    useEffect(() => {
+        const loadEvents = async () => {
+            try {
+                const eventData = await fetchEvents();
+                setEvents(eventData);
+            } catch (error) {
+                console.error("Error:", error);
+            }
+
+        };
+        loadEvents();
+    }, []);
     
     // if no events are provided, return a message
     if (!events || events.length === 0) {
