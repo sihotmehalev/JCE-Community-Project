@@ -11,7 +11,8 @@ import {
   query, 
   where, 
   addDoc,
-  getDoc 
+  getDoc, 
+  increment
 } from "firebase/firestore";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
@@ -265,6 +266,7 @@ export default function AdminDashboard() {
   const approveVolunteer = async (id) => {
     try {
       await updateDoc(doc(db, "Users", "Info", "Volunteers", id), { approved: true });
+      await setDoc(doc(db, "Users", "Info"), { Volunteers: increment(1) }, { merge: true });
       alert("מתנדב אושר בהצלחה!");
       fetchData();
     } catch (error) {
