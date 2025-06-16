@@ -593,19 +593,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
   const [showPastSessionsModal, setShowPastSessionsModal] = useState(false);
   const [showCompletedSessionsModal, setShowCompletedSessionsModal] = useState(false);
 
-  // Helper function to format session times in Hebrew
-  const formatSessionTime = (date) => {
-    if (!date) return "—";
-    return new Date(date).toLocaleString('he-IL', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   useEffect(() => {
     const sessionsRef = collection(db, "Sessions");
     return onSnapshot(
@@ -638,16 +625,25 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
     return acc;
   }, { upcomingSessions: [], pastSessions: [], completedSessions: [] });
 
+  // Get the count of past sessions that need to be completed
+  const pastSessionsNeedingCompletionCount = pastSessions.length;
+
   return (
-    <div className="border border-orange-100 bg-white rounded-lg p-4">
+    <div className="border border-orange-100 bg-orange-100 rounded-lg p-4">
       <div className="flex justify-between items-start mb-3">
         <div>
           <p className="font-semibold text-orange-800 text-lg mb-1">
             {requester?.fullName || "פונה ללא שם"}
           </p>
-          <p className="text-orange-700 text-sm">
-            מפגשים שהושלמו: {completedSessions.length}
-          </p>
+          <div className="flex gap-4 text-sm text-orange-700">
+            <p>מפגשים שהושלמו: {completedSessions.length}</p>
+            <p>מפגשים מתוכננים: {upcomingSessions.length}</p>
+            {pastSessionsNeedingCompletionCount > 0 && (
+              <p className="text-orange-600 font-medium">
+                ממתין להשלמה: {pastSessionsNeedingCompletionCount}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -668,33 +664,39 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
           variant="outline" 
           onClick={() => setShowUpcomingSessionsModal(true)}
           className="flex items-center gap-2"
+          disabled={upcomingSessions.length === 0}
         >
-          מפגשים מתוכננים
+          מפגשים מתוכננים ({upcomingSessions.length})
         </Button>
-        <Button 
-          variant="outline" 
-          onClick={() => setShowPastSessionsModal(true)}
-          className="flex items-center gap-2"
-        >
-          מפגשים שהסתיימו
-        </Button>
-        <Button 
-          variant="outline" 
-          onClick={() => setShowCompletedSessionsModal(true)}
-          className="flex items-center gap-2"
-        >
-          מפגשים שהושלמו
-        </Button>
+        {pastSessionsNeedingCompletionCount > 0 && (
+          <Button 
+            variant="outline"
+            onClick={() => setShowPastSessionsModal(true)}
+            className="flex items-center gap-2 border-orange-500 text-orange-600 hover:bg-orange-50"
+          >
+            מפגשים להשלמה ({pastSessionsNeedingCompletionCount})
+          </Button>
+        )}
+        {completedSessions.length > 0 && (
+          <Button 
+            variant="outline" 
+            onClick={() => setShowCompletedSessionsModal(true)}
+            className="flex items-center gap-2"
+          >
+            מפגשים שהושלמו ({completedSessions.length})
+          </Button>
+        )}
       </div>
 
-      {/* Modals */}
-      {showScheduleModal && (
-        <SessionScheduler
-          match={match}
-          onClose={() => setShowScheduleModal(false)}
-          handleScheduleSession={handleScheduleSession}
-        />
-      )}
+      {/* Modals */}        {showScheduleModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <SessionScheduler
+              match={match}
+              onClose={() => setShowScheduleModal(false)}
+              handleScheduleSession={handleScheduleSession}
+            />
+          </div>
+        )}
       {showUpcomingSessionsModal && (
         <SessionModal
           title="מפגשים מתוכננים"
@@ -704,9 +706,10 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
       )}
       {showPastSessionsModal && (
         <SessionModal
-          title="מפגשים שהסתיימו"
+          title="מפגשים להשלמה"
           sessions={pastSessions}
           onClose={() => setShowPastSessionsModal(false)}
+          showCompletionButton={true}
         />
       )}
       {showCompletedSessionsModal && (
@@ -714,6 +717,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
           title="מפגשים שהושלמו"
           sessions={completedSessions}
           onClose={() => setShowCompletedSessionsModal(false)}
+          readOnly={true}
         />
       )}
     </div>
@@ -818,11 +822,10 @@ function SessionScheduler({ match, onClose, handleScheduleSession }) {
     { value: "phone", label: "שיחת טלפון" },
     { value: "in_person", label: "פגישה פיזית" },
   ];
-
   return (
-    <div className="bg-white p-4 rounded-lg border border-orange-200">
+    <div className="bg-white p-6 rounded-lg border border-orange-200 shadow-lg max-w-md w-full">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-orange-800">קביעת מפגש חדש</h3>
+        <h3 className="text-xl font-semibold text-orange-800">קביעת מפגש חדש</h3>
         <button 
           onClick={onClose}
           className="text-orange-400 hover:text-orange-600"
@@ -1016,7 +1019,8 @@ function SessionCompletionModal({ session, onClose, onSubmit }) {
   );
 }
 
-function SessionModal({ title, sessions, onClose }) {
+function SessionModal({ title, sessions, onClose, showCompletionButton = false, readOnly = false }) {
+  const [sessionToComplete, setSessionToComplete] = useState(null);
   const now = new Date();
 
   // Helper function to format session times in Hebrew
@@ -1030,6 +1034,33 @@ function SessionModal({ title, sessions, onClose }) {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handleSessionCompletion = () => {
+    setSessionToComplete(null); // Reset after completion
+  };
+
+  const getSessionStatusColor = (session) => {
+    if (session.status === 'completed') {
+      return 'bg-green-50 border-green-100';
+    }
+    if (session.scheduledTime < now && !session.status === 'completed') {
+      return 'bg-orange-100 border-orange-200';
+    }
+    return 'bg-orange-50 border-orange-100';
+  };
+
+  const getLocationIcon = (location) => {
+    switch (location) {
+      case 'video':
+        return '🎥';
+      case 'phone':
+        return '📱';
+      case 'in_person':
+        return '🤝';
+      default:
+        return '📅';
+    }
   };
 
   return (
@@ -1050,31 +1081,67 @@ function SessionModal({ title, sessions, onClose }) {
             אין מפגשים זמינים להצגה.
           </p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
             {sessions.map(session => (
-              <div key={session.id} className="bg-orange-50 p-3 rounded-md text-sm border border-orange-100">
-                <div className="font-medium text-orange-800">
-                  {formatSessionTime(session.scheduledTime)}
+              <div 
+                key={session.id} 
+                className={`p-3 rounded-md text-sm transition-colors ${getSessionStatusColor(session)}`}
+              >
+                <div className="font-medium text-orange-800 flex items-center justify-between">
+                  <span>{formatSessionTime(session.scheduledTime)}</span>
+                  {session.status === 'completed' && (
+                    <span className="text-green-600 text-xs bg-green-100 px-2 py-1 rounded-full">
+                      הושלם
+                    </span>
+                  )}
                 </div>
-                <div className="text-orange-600">
-                  {session.location === 'video' ? '🎥 שיחת וידאו' :
-                   session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
+                
+                <div className="text-orange-600 mt-1">
+                  {getLocationIcon(session.location)}{' '}
+                  {session.location === 'video' ? 'שיחת וידאו' :
+                   session.location === 'phone' ? 'שיחת טלפון' : 'פגישה פיזית'}
                   {' • '}{session.durationMinutes} דקות
                 </div>
+
                 {session.notes && (
-                  <div className="text-orange-500 mt-1">
-                    {session.notes}
+                  <div className="text-orange-500 mt-2 bg-white/50 p-2 rounded">
+                    <strong>הערות:</strong> {session.notes}
                   </div>
                 )}
+
                 {session.status === 'completed' && session.sessionSummary && (
-                  <div className="mt-2 text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
-                    <span className="font-medium">סיכום: </span>
-                    {session.sessionSummary}
+                  <div className="mt-2 text-gray-600 bg-white/80 p-2 rounded border border-orange-100">
+                    <strong>סיכום המפגש:</strong> {session.sessionSummary}
+                  </div>
+                )}
+
+                {/* Show completion button for past sessions that aren't completed */}
+                {showCompletionButton && 
+                 session.scheduledTime < now && 
+                 session.status !== 'completed' &&
+                 !readOnly && (
+                  <div className="mt-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setSessionToComplete(session)}
+                      className="w-full border-orange-400 text-orange-600 hover:bg-orange-50"
+                    >
+                      סמן כהושלם והוסף סיכום
+                    </Button>
                   </div>
                 )}
               </div>
             ))}
           </div>
+        )}
+
+        {/* Session Completion Modal */}
+        {sessionToComplete && (
+          <SessionCompletionModal
+            session={sessionToComplete}
+            onClose={() => setSessionToComplete(null)}
+            onSubmit={handleSessionCompletion}
+          />
         )}
       </div>
     </div>
