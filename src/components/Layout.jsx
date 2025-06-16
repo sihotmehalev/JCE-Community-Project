@@ -7,7 +7,7 @@ export default function Test({ children }) {
             <Navbar />
 
             {/* Main Content */}
-            <main className="container mx-auto px-4 py-4 flex-grow flex flex-col items-center justify-center">
+            <main className="container mx-auto px-4 py-4 items-center justify-center">
                 {children}
             </main>
 
