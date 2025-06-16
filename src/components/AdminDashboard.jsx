@@ -57,6 +57,8 @@ import {
   monitorAuthState,
 } from "./firebaseHelpers";
 import LoadingSpinner from "../components/LoadingSpinner";
+import EventCreation from "./EventAdminManger/AdminAddEvent";
+import { AdminEventList } from './EventAdminManger/AdminEventList'
 
 export default function AdminDashboard() {
   // State Management
@@ -572,6 +574,20 @@ export default function AdminDashboard() {
           className="py-3 px-6 text-lg"
         >
           כל המשתמשים
+        </Button>
+        <Button
+            variant={activeTab === "EventCreation" ? "default" : "outline"}
+            onClick={() => setActiveTab("EventCreation")}
+            className="py-3 px-6 text-lg"
+        >
+            יצירת אירוע
+        </Button>
+        <Button
+            variant={activeTab === "EventList" ? "default" : "outline"}
+            onClick={() => setActiveTab("EventList")}
+            className="py-3 px-6 text-lg"
+        >
+            רשימת אירועים
         </Button>
       </div>
 
@@ -1348,6 +1364,14 @@ export default function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {activeTab === 'EventCreation' && (
+        <EventCreation/>
+      )}
+
+      {activeTab === 'EventList' && (
+        <AdminEventList/>
       )}
 
       {/* AI Suggestions Modal */}
