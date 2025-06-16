@@ -17,7 +17,10 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { Button } from "./ui/button";
-import LoadingSpinner from "../components/LoadingSpinner";
+import LoadingSpinner from "./LoadingSpinner";
+import DashboardLayout from "./dashboard/DashboardLayout";
+import DashboardSection from "./dashboard/DashboardSection";
+import SessionCard from "./dashboard/SessionCard";
 
 /* ────────────────────────── helpers ────────────────────────── */
 
@@ -313,43 +316,61 @@ export default function VolunteerDashboard() {
     return <LoadingSpinner />;
   }
 
-  return (
-    <div className="p-6">
-      {/* header + toggle */}
-      <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-orange-800">
-          שלום {userData?.fullName?.split(' ')[0] || ''} 👋
-        </h1>
-        <Button
-                  variant="outline"
-                  className="mr-2"
-                  onClick={() => window.location.href = '/profile'}
-                >
-                  הפרופיל שלי
-                </Button>
-        <div className="flex-1" />
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-orange-700">בחירה עצמית</span>
-          <button
-            onClick={flipPersonal}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${
-              personal ? 'bg-orange-600 border-orange-400' : 'bg-gray-200 border-orange-400'
+  // Prepare header content
+  const headerContent = (
+    <div className="flex items-center gap-4">
+      <h1 className="text-2xl font-bold text-orange-800">
+        שלום {userData?.fullName?.split(' ')[0] || ''} 👋
+      </h1>
+      <Button
+        variant="outline"
+        onClick={() => window.location.href = '/profile'}
+      >
+        הפרופיל שלי
+      </Button>
+      <div className="flex-1" />
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-orange-700">בחירה עצמית</span>
+        <button
+          onClick={flipPersonal}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${
+            personal ? 'bg-orange-600 border-orange-400' : 'bg-gray-200 border-orange-400'
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${
+              personal ? '-translate-x-1' : '-translate-x-6'
             }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${
-                personal ? '-translate-x-1' : '-translate-x-6'
-              }`}
-            />
-          </button>
-          <span className="text-sm text-orange-700">שיוך ע״י מנהל</span>
-        </div>
+          />
+        </button>
+        <span className="text-sm text-orange-700">שיוך ע״י מנהל</span>
       </div>
+    </div>
+  );
 
-      {/* personal mode */}
+  // Prepare chat panel if active
+  const chatPanel = activeMatchId ? (
+    <ChatPanel
+      messages={messages}
+      newMsg={newMsg}
+      setNewMsg={setNewMsg}
+      onSend={sendMessage}
+      chatPartnerName={matches.find(m => m.id === activeMatchId)?.requester?.fullName || 'שיחה'}
+    />
+  ) : null;
+
+  return (
+    <DashboardLayout
+      header={headerContent}
+      sideContent={chatPanel}
+    >
+      {/* Personal Mode Sections */}
       {personal && (
         <>
-          <Section title="בקשות ישירות" empty="אין בקשות ישירות">
+          <DashboardSection 
+            title="בקשות ישירות" 
+            empty="אין בקשות ישירות"
+          >
             {direct.map((r) => (
               <RequestCard
                 key={r.id}
@@ -358,9 +379,12 @@ export default function VolunteerDashboard() {
                 onAction={handleRequestAction}
               />
             ))}
-          </Section>
+          </DashboardSection>
 
-          <Section title="דפדוף בפונים פתוחים" empty="אין פונים זמינים">
+          <DashboardSection 
+            title="דפדוף בפונים פתוחים" 
+            empty="אין פונים זמינים"
+          >
             {pool.map((r) => (
               <RequestCard
                 key={r.id}
@@ -369,24 +393,32 @@ export default function VolunteerDashboard() {
                 onAction={handleRequestAction}
               />
             ))}
-          </Section>
+          </DashboardSection>
         </>
       )}
 
-      {/* Requests waiting for admin approval */}
-      <Section title="בקשות ממתינות לאישור מנהל" empty="אין בקשות הממתינות לאישור">
+      {/* Admin Approval Section */}
+      <DashboardSection 
+        title="בקשות ממתינות לאישור מנהל" 
+        empty="אין בקשות הממתינות לאישור"
+        fullWidth={true}
+      >
         {adminApprovalRequests.map((r) => (
           <RequestCard
             key={r.id}
             req={r}
-            variant="admin_approval" // Can reuse direct variant or create new if needed
+            variant="admin_approval"
             onAction={handleRequestAction}
           />
         ))}
-      </Section>
+      </DashboardSection>
 
-      {/* matches */}
-      <Section title="שיבוצים פעילים" empty="אין שיבוצים פעילים">
+      {/* Active Matches Section */}
+      <DashboardSection 
+        title="שיבוצים פעילים" 
+        empty="אין שיבוצים פעילים"
+        fullWidth={true}
+      >
         {matches.map((m) => (
           <MatchCard
             key={m.id}
@@ -397,18 +429,7 @@ export default function VolunteerDashboard() {
             activeMatchId={activeMatchId}
           />
         ))}
-      </Section>
-
-      {/* chat */}
-      {activeMatchId && (
-        <ChatPanel
-          messages={messages}
-          newMsg={newMsg}
-          setNewMsg={setNewMsg}
-          onSend={sendMessage}
-          chatPartnerName={matches.find(m => m.id === activeMatchId)?.requester?.fullName || 'שיחה'}
-        />
-      )}
+      </DashboardSection>
 
       {/* Schedule Session Modal */}
       {showScheduleModal && selectedMatch && (
@@ -418,7 +439,7 @@ export default function VolunteerDashboard() {
           handleScheduleSession={handleScheduleSession}
         />
       )}
-    </div>
+    </DashboardLayout>
   );
 }
 
@@ -448,49 +469,58 @@ function RequestCard({ req, variant, onAction }) {
   const formatList = (value) => {
     if (!value) return "—";
     if (Array.isArray(value)) {
-      return value.filter(v => v !== "אחר").join(", "); // Filter out "אחר"
+      return value.filter(v => v !== "אחר").join(", ");
     }
     return value;
   };
 
-    return (
-    <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
-      {/* Header Section */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
-            <User className="w-6 h-6 text-orange-600" />
-          </div>
-          <div>
-            <h3 className="font-bold text-orange-900 text-xl mb-1">
-              {requester?.fullName || "פונה ללא שם"}
-            </h3>
-            <div className="flex items-center gap-4 text-sm text-orange-700">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
-                גיל: {requester?.age ?? "—"}
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
-                מגדר: {requester?.gender ?? "—"}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+  // Determine actions based on variant
+  const getActions = () => {
+    switch (variant) {
+      case "direct":
+        return [
+          {
+            label: "אשר",
+            onClick: () => onAction(req, "accept"),
+            variant: "default"
+          },
+          {
+            label: "דחה",
+            onClick: () => onAction(req, "decline"),
+            variant: "outline"
+          }
+        ];
+      case "admin_approval":
+        return [
+          {
+            label: "בטל בקשה",
+            onClick: () => onAction(req, "withdraw"),
+            variant: "destructive"
+          }
+        ];
+      default: // pool
+        return [
+          {
+            label: "קח פונה זה",
+            onClick: () => onAction(req, "take"),
+            variant: "default"
+          }
+        ];
+    }
+  };
 
-      {/* Reason Section */}
-      <div className="mb-4">
-        <div className="bg-white/60 rounded-lg p-3 border border-orange-100">
-          <h4 className="font-semibold text-orange-800 text-sm mb-1">סיבת הפנייה</h4>
-          <p className="text-orange-700 leading-relaxed">
-            {requester?.reason ?? "—"}
-          </p>
-        </div>
-      </div>
-
-      {/* Scheduling Info Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  return (
+    <SessionCard
+      userInfo={{
+        name: requester?.fullName || "פונה ללא שם",
+        subtitle: `גיל: ${requester?.age ?? "—"} • מגדר: ${requester?.gender ?? "—"}`
+      }}
+      title="סיבת הפנייה"
+      notes={requester?.reason}
+      className="bg-gradient-to-r from-orange-50 to-amber-50"
+      actions={getActions()}
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
         <div className="bg-white/60 rounded-lg p-3 border border-orange-100">
           <div className="flex items-center gap-2 mb-2">
             <Calendar className="w-4 h-4 text-orange-600" />
@@ -523,22 +553,7 @@ function RequestCard({ req, variant, onAction }) {
           </div>
         )}
       </div>
-
-      {variant === "direct" ? (
-        <div className="flex gap-2">
-          <Button onClick={() => onAction(req, "accept")}>אשר</Button>
-          <Button variant="outline" onClick={() => onAction(req, "decline")}>
-            דחה
-          </Button>
-        </div>
-      ) : variant === "admin_approval" ? (
-        <div className="flex gap-2">
-          <Button variant="destructive" onClick={() => onAction(req, "withdraw")}>בטל בקשה</Button>
-        </div>
-      ) : (
-        <Button onClick={() => onAction(req, "take")}>קח פונה זה</Button>
-      )}
-    </div>
+    </SessionCard>
   );
 }
 
@@ -580,7 +595,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
     );
   }, [match.id]);
 
-  // Split sessions into categories: upcoming, past (needing completion), and completed
+  // Split sessions into categories
   const now = new Date();
   const { upcomingSessions, pastSessions, completedSessions } = sessions.reduce((acc, session) => {
     if (session.status === 'completed') {
@@ -593,124 +608,93 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
     return acc;
   }, { upcomingSessions: [], pastSessions: [], completedSessions: [] });
 
-  return (
-    <div className="border border-orange-100 bg-white rounded-lg p-4">
-      <div className="flex justify-between items-start mb-3">
-        <div>
-          <p className="font-semibold text-orange-800 text-lg mb-1">
-            {requester?.fullName || "פונה ללא שם"}
-          </p>
-          <p className="text-orange-700 text-sm">
-            סשנים שהושלמו: {completedSessions.length}
-          </p>
-        </div>
-      </div>
+  // Common actions for the match header
+  const matchActions = [
+    {
+      label: isChatOpen ? "סגור שיחה" : "💬 פתח שיחה",
+      onClick: isChatOpen ? onCloseChat : onOpenChat,
+      variant: "default"
+    },
+    {
+      label: "קבע מפגש",
+      onClick: onScheduleSession,
+      variant: "outline",
+      icon: <Plus className="w-4 h-4" />
+    }
+  ];
 
-      {/* Chat and Schedule Buttons */}
-      <div className="flex gap-2 flex-wrap">
-        <Button onClick={isChatOpen ? onCloseChat : onOpenChat}>
-          {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
-        </Button>
-        <Button 
-          variant="outline" 
-          onClick={onScheduleSession}
-          className="flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          קבע מפגש
-        </Button>
-      </div>
+  return (
+    <div className="space-y-4">
+      {/* Match Header Card */}
+      <SessionCard
+        userInfo={{
+          name: requester?.fullName || "פונה ללא שם",
+          subtitle: `סשנים שהושלמו: ${completedSessions.length}`
+        }}
+        actions={matchActions}
+        className="bg-white"
+      />
 
       {/* Upcoming Sessions */}
       {upcomingSessions.length > 0 && (
-        <div className="mt-4">
+        <div className="space-y-2">
           <h4 className="text-sm font-semibold text-orange-800 mb-2">מפגשים מתוכננים:</h4>
-          <div className="space-y-2">
-            {upcomingSessions.map(session => (
-              <div key={session.id} className="bg-orange-50 p-3 rounded-md text-sm border border-orange-100">
-                <div className="font-medium text-orange-800">
-                  {formatSessionTime(session.scheduledTime)}
-                </div>
-                <div className="text-orange-600 mt-1">
-                  {session.location === 'video' ? '🎥 שיחת וידאו' :
-                   session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
-                  {' • '}{session.durationMinutes} דקות
-                </div>
-                {session.notes && (
-                  <div className="text-orange-500 mt-1">
-                    {session.notes}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          {upcomingSessions.map(session => (
+            <SessionCard
+              key={session.id}
+              status="upcoming"
+              time={formatSessionTime(session.scheduledTime)}
+              location={session.location}
+              duration={session.durationMinutes}
+              notes={session.notes}
+            />
+          ))}
         </div>
       )}
 
       {/* Past Sessions Needing Completion */}
       {pastSessions.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-orange-100">
+        <div className="space-y-2">
           <h4 className="text-sm font-semibold text-orange-700 mb-2">
-            מפגשים שהסתיימו:
+            מפגשים שהסתיימו וממתינים לסיכום:
           </h4>
-          <div className="space-y-2">
-            {pastSessions.map(session => (
-              <div key={session.id} className="bg-yellow-50 p-3 rounded-md text-sm border border-yellow-200">
-                <div className="font-medium text-orange-800">
-                  {formatSessionTime(session.scheduledTime)}
-                </div>
-                <div className="text-orange-600">
-                  {session.location === 'video' ? '🎥 שיחת וידאו' :
-                   session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
-                  {' • '}{session.durationMinutes} דקות
-                </div>
-                {session.notes && (
-                  <div className="text-orange-500 mt-1">
-                    {session.notes}
-                  </div>
-                )}
-                <div className="mt-3 flex justify-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSessionToComplete(session)}
-                    className="text-sm bg-white hover:bg-orange-50"
-                  >
-                    סמן כהושלם
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
+          {pastSessions.map(session => (
+            <SessionCard
+              key={session.id}
+              status="past"
+              time={formatSessionTime(session.scheduledTime)}
+              location={session.location}
+              duration={session.durationMinutes}
+              notes={session.notes}
+              actions={[{
+                label: "סמן כהושלם והוסף סיכום",
+                onClick: () => setSessionToComplete(session),
+                variant: "outline",
+                size: "sm",
+                className: "bg-white hover:bg-orange-50"
+              }]}
+            />
+          ))}
         </div>
       )}
 
       {/* Completed Sessions */}
       {completedSessions.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-orange-100">
+        <div className="space-y-2">
           <h4 className="text-sm font-semibold text-orange-700 mb-2">
             מפגשים שהושלמו:
           </h4>
-          <div className="space-y-2">
-            {completedSessions.slice(-3).map(session => (
-              <div key={session.id} className="bg-gray-50 p-3 rounded-md text-sm border border-gray-100">
-                <div className="font-medium text-gray-800">
-                  {formatSessionTime(session.scheduledTime)}
-                </div>
-                <div className="text-gray-600">
-                  {session.location === 'video' ? '🎥 שיחת וידאו' :
-                   session.location === 'phone' ? '📱 שיחת טלפון' : '🤝 פגישה פיזית'}
-                  {' • '}{session.durationMinutes} דקות
-                </div>
-                {session.sessionSummary && (
-                  <div className="mt-2 text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
-                    <span className="font-medium">סיכום: </span>
-                    {session.sessionSummary}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          {completedSessions.slice(-3).map(session => (
+            <SessionCard
+              key={session.id}
+              status="completed"
+              time={formatSessionTime(session.scheduledTime)}
+              location={session.location}
+              duration={session.durationMinutes}
+              notes={session.notes}
+              summary={session.sessionSummary}
+            />
+          ))}
         </div>
       )}
 
