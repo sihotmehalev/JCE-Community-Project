@@ -17,6 +17,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { Button } from "./ui/button";
+import { Card } from "./ui/card";
 import LoadingSpinner from "../components/LoadingSpinner";
 
 /* ────────────────────────── helpers ────────────────────────── */
@@ -62,13 +63,12 @@ export default function VolunteerDashboard() {
   const [newMsg, setNewMsg]           = useState("");
   const [userData, setUserData]        = useState(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [selectedMatch, setSelectedMatch] = useState(null);  const [activeTab, setActiveTab]     = useState("directRequests");
-  // Set the appropriate first tab when switching modes
+  const [selectedMatch, setSelectedMatch] = useState(null);  const [activeTab, setActiveTab]     = useState("directRequests");  // Set the appropriate first tab when switching modes
   useEffect(() => {
     if (personal) {
       setActiveTab("directRequests");
     } else {
-      setActiveTab("adminApproval");
+      setActiveTab("activeMatches");
     }
   }, [personal]);
 
@@ -414,50 +414,76 @@ export default function VolunteerDashboard() {
           <span className="text-sm text-orange-700">שיוך ע״י מנהל</span>
         </div>
       </div>      {/* Tabs */}
-      <div className="flex gap-4 mb-4">
-        {personal && (
-          <>
-            <Button
-              variant={activeTab === "directRequests" ? "default" : "outline"}
-              onClick={() => setActiveTab("directRequests")}
-            >
-              בקשות ישירות
-            </Button>
-            <Button
-              variant={activeTab === "openRequests" ? "default" : "outline"}
-              onClick={() => setActiveTab("openRequests")}
-            >
-              דפדוף בפונים פתוחים
-            </Button>
-          </>
-        )}
-        <Button
-          variant={activeTab === "adminApproval" ? "default" : "outline"}
-          onClick={() => setActiveTab("adminApproval")}
-        >
-          בקשות ממתינות לאישור מנהל
-        </Button>
-        <Button
-          variant={activeTab === "activeMatches" ? "default" : "outline"}
-          onClick={() => setActiveTab("activeMatches")}
-        >
-          שיבוצים פעילים
-        </Button>
-      </div>
+      <Card className="mb-6">
+        <div className="flex border-b border-gray-200">
+          {personal && (
+            <>
+              <button
+                onClick={() => setActiveTab("directRequests")}
+                className={`
+                  flex-1 p-4 text-center font-medium text-sm focus:outline-none
+                  ${activeTab === "directRequests"
+                    ? 'border-b-2 border-orange-500 text-orange-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                  }
+                `}
+              >
+                בקשות ישירות
+              </button>
+              <button
+                onClick={() => setActiveTab("openRequests")}
+                className={`
+                  flex-1 p-4 text-center font-medium text-sm focus:outline-none
+                  ${activeTab === "openRequests"
+                    ? 'border-b-2 border-orange-500 text-orange-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                  }
+                `}
+              >
+                דפדוף בפונים פתוחים
+              </button>
+              <button
+                onClick={() => setActiveTab("adminApproval")}
+                className={`
+                  flex-1 p-4 text-center font-medium text-sm focus:outline-none
+                  ${activeTab === "adminApproval"
+                    ? 'border-b-2 border-orange-500 text-orange-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                  }
+                `}
+              >
+                בקשות ממתינות לאישור מנהל
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => setActiveTab("activeMatches")}
+            className={`
+              flex-1 p-4 text-center font-medium text-sm focus:outline-none
+              ${activeTab === "activeMatches"
+                ? 'border-b-2 border-orange-500 text-orange-600'
+                : 'text-gray-500 hover:text-gray-700'
+              }
+            `}
+          >
+            שיבוצים פעילים
+          </button>
+        </div>
+      </Card>
 
       {/* Tab Content */}
-      {renderTabContent()}
-
-      {/* chat */}
-      {activeMatchId && (
-        <ChatPanel
-          messages={messages}
-          newMsg={newMsg}
-          setNewMsg={setNewMsg}
-          onSend={sendMessage}
-          chatPartnerName={matches.find(m => m.id === activeMatchId)?.requester?.fullName || 'שיחה'}
-        />
-      )}
+      <div className="mt-6">
+        {renderTabContent()}
+      </div>{/* Chat Panel - Now shown as a floating window */}
+      <ChatPanel
+        isOpen={!!activeMatchId}
+        onClose={closeChat}
+        messages={messages}
+        newMsg={newMsg}
+        setNewMsg={setNewMsg}
+        onSend={sendMessage}
+        chatPartnerName={matches.find(m => m.id === activeMatchId)?.requester?.fullName || 'שיחה'}
+      />
 
       {/* Schedule Session Modal */}
       {showScheduleModal && selectedMatch && (
@@ -571,21 +597,21 @@ function RequestCard({ req, variant, onAction }) {
             </p>
           </div>
         )}
-      </div>
-
-      {variant === "direct" ? (
-        <div className="flex gap-2">
+      </div>      {variant === "direct" ? (
+        <div className="flex gap-2 mt-4 pt-4 border-t border-orange-200">
           <Button onClick={() => onAction(req, "accept")}>אשר</Button>
           <Button variant="outline" onClick={() => onAction(req, "decline")}>
             דחה
           </Button>
         </div>
       ) : variant === "admin_approval" ? (
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-4 pt-4 border-t border-orange-200">
           <Button variant="destructive" onClick={() => onAction(req, "withdraw")}>בטל בקשה</Button>
         </div>
       ) : (
-        <Button onClick={() => onAction(req, "take")}>קח פונה זה</Button>
+        <div className="mt-4 pt-4 border-t border-orange-200">
+          <Button onClick={() => onAction(req, "take")}>קח פונה זה</Button>
+        </div>
       )}
     </div>
   );
@@ -643,15 +669,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
           <p className="font-semibold text-orange-800 text-lg mb-1">
             {requester?.fullName || "פונה ללא שם"}
           </p>
-          <div className="flex gap-4 text-sm text-orange-700">
-            <p>מפגשים שהושלמו: {completedSessions.length}</p>
-            <p>מפגשים מתוכננים: {upcomingSessions.length}</p>
-            {pastSessionsNeedingCompletionCount > 0 && (
-              <p className="text-orange-600 font-medium">
-                ממתין להשלמה: {pastSessionsNeedingCompletionCount}
-              </p>
-            )}
-          </div>
         </div>
       </div>
 
@@ -732,49 +749,86 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
   );
 }
 
-function ChatPanel({ messages, newMsg, setNewMsg, onSend, chatPartnerName }) {
+function ChatPanel({ isOpen, onClose, messages, newMsg, setNewMsg, onSend, chatPartnerName }) {
   const bottomRef = useRef(null);
+  const inputRef = useRef(null);
 
   // auto-scroll on new message
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Focus input when chat opens
+  useEffect(() => {
+    if (isOpen) {
+      inputRef.current?.focus();
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
   return (
-    <div className="mt-8 border-t border-orange-200 pt-4">
-      <h2 className="text-xl font-bold mb-3 text-orange-800">שיחה עם {chatPartnerName}</h2>
-
-      <div className="h-64 overflow-y-scroll bg-orange-100 border border-orange-100 rounded-lg p-3 mb-3">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={
-              m.senderId === auth.currentUser.uid ? "text-right" : "text-left"
-            }
+    <div className="fixed bottom-4 right-4 z-50 w-[380px] flex flex-col">
+      {/* Chat Window */}
+      <div className="bg-white rounded-lg shadow-lg border border-orange-200 flex flex-col overflow-hidden">
+        {/* Chat Header */}
+        <div className="flex justify-between items-center px-4 py-3 bg-orange-50 border-b border-orange-200">
+          <h2 className="text-sm font-medium text-orange-800">
+            {chatPartnerName}
+          </h2>
+          <button 
+            onClick={onClose}
+            className="text-orange-400 hover:text-orange-600 p-1"
           >
-            <span
-              className={`inline-block rounded-lg px-3 py-1 my-1 max-w-[80%] ${
-                m.senderId === auth.currentUser.uid
-                  ? "bg-orange-600 text-white"
-                  : "bg-white border border-orange-100"
-              }`}
-            >
-              {m.text}
-            </span>
-          </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-      <div className="flex gap-2">
-        <input
-          className="flex-1 border border-orange-200 rounded-md px-3 py-2 focus:ring-orange-400 focus:border-orange-400 outline-none"
-          placeholder="כתוב הודעה..."
-          value={newMsg}
-          onChange={(e) => setNewMsg(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onSend()}
-        />
-        <Button onClick={onSend}>שלח</Button>
+        {/* Messages Area */}
+        <div className="flex-1 overflow-auto h-[300px] px-4 py-3">
+          <div className="space-y-2">
+            {messages.map((m) => (
+              <div
+                key={m.id}
+                className={
+                  m.senderId === auth.currentUser.uid ? "text-right" : "text-left"
+                }
+              >
+                <span
+                  className={`inline-block rounded-lg px-3 py-1.5 text-sm my-1 max-w-[85%] ${
+                    m.senderId === auth.currentUser.uid
+                      ? "bg-orange-600 text-white"
+                      : "bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  {m.text}
+                </span>
+              </div>
+            ))}
+            <div ref={bottomRef} />
+          </div>
+        </div>
+
+        {/* Input Area */}
+        <div className="border-t border-orange-100 p-3">
+          <div className="flex gap-2">
+            <input
+              ref={inputRef}
+              className="flex-1 border border-orange-200 rounded-md px-3 py-1.5 text-sm focus:ring-1 focus:ring-orange-400 focus:border-orange-400 outline-none"
+              placeholder="כתוב הודעה..."
+              value={newMsg}
+              onChange={(e) => setNewMsg(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && onSend()}
+            />
+            <Button 
+              onClick={onSend} 
+              size="sm"
+              className="px-4"
+            >
+              שלח
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

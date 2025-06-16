@@ -17,6 +17,8 @@ import {
 } from "firebase/firestore";
 import { Button } from "./ui/button";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { Card } from "./ui/card";
+import { User, Calendar, Clock, MessageCircle, Plus, X } from "lucide-react";
 
 /* ────────────────────────── helpers ────────────────────────── */
 
@@ -133,9 +135,17 @@ export default function RequesterDashboard() {
   const [activeMatchId, setActiveMatchId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState("");
-  const [userData, setUserData] = useState(null);
-  const [requestLoading, setRequestLoading] = useState(false);
+  const [userData, setUserData] = useState(null);  const [requestLoading, setRequestLoading] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [activeTab, setActiveTab] = useState("available");
+  // Set the appropriate first tab when switching modes
+  useEffect(() => {
+    if (personal) {
+      setActiveTab("available");
+    } else {
+      setActiveTab("current");
+    }
+  }, [personal]);
 
   /* listener refs */
   const unsubVolunteers = useRef(null);
@@ -391,6 +401,65 @@ export default function RequesterDashboard() {
   if (!authChecked || loading) {
     return <LoadingSpinner />;
   }
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "available":
+        return personal ? (
+          <div className="space-y-4">
+            {sortedVolunteers.length > 0 ? (
+              sortedVolunteers.map((vol) => (
+                <VolunteerCard
+                  key={vol.id}
+                  volunteer={vol}
+                  onRequest={() => requestVolunteer(vol.id)}
+                  isRecommended={vol.compatibilityScore >= 50}
+                  compatibilityScore={vol.compatibilityScore}
+                  requestLoading={requestLoading}
+                  pendingRequests={pendingRequests}
+                />
+              ))
+            ) : (
+              <Empty text="אין מתנדבים זמינים כרגע" />
+            )}
+          </div>
+        ) : null;
+
+      case "pending":
+        return (
+          <div className="space-y-4">
+            {adminApprovalRequests.length > 0 ? (
+              adminApprovalRequests.map((r) => (
+                <AdminApprovalCard
+                  key={r.id}
+                  request={r}
+                />
+              ))
+            ) : (
+              <Empty text="אין בקשות הממתינות לאישור" />
+            )}
+          </div>
+        );
+
+      case "current":
+        return (
+          <div className="space-y-4">
+            {activeMatch ? (
+              <MatchCard
+                match={activeMatch}
+                onOpenChat={openChat}
+                onCloseChat={closeChat}
+                isChatOpen={!!unsubChat.current}
+              />
+            ) : (
+              <Empty text="אין שיבוץ נוכחי" />
+            )}
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="p-6">
@@ -423,58 +492,64 @@ export default function RequesterDashboard() {
           </button>
           <span className="text-sm text-orange-700">ללא העדפה</span>
         </div>
-      </div>
+      </div>      {/* Tabs */}
+      <Card className="mb-6">
+        <div className="flex border-b border-gray-200">
+          {personal && (
+            <>
+              <button
+                onClick={() => setActiveTab("available")}
+                className={`
+                  flex-1 p-4 text-center font-medium text-sm focus:outline-none
+                  ${activeTab === "available"
+                    ? 'border-b-2 border-orange-500 text-orange-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                  }
+                `}
+              >
+                מתנדבים זמינים
+              </button>
+              <button
+                onClick={() => setActiveTab("pending")}
+                className={`
+                  flex-1 p-4 text-center font-medium text-sm focus:outline-none
+                  ${activeTab === "pending"
+                    ? 'border-b-2 border-orange-500 text-orange-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                  }
+                `}
+              >
+                בקשות שממתינות לאישור מנהל
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => setActiveTab("current")}
+            className={`
+              flex-1 p-4 text-center font-medium text-sm focus:outline-none
+              ${activeTab === "current"
+                ? 'border-b-2 border-orange-500 text-orange-600'
+                : 'text-gray-500 hover:text-gray-700'
+              }
+            `}
+          >
+            השיבוץ הנוכחי שלי
+          </button>
+        </div>
+      </Card>
 
-      {/* Personal mode - show available volunteers */}
-      {personal && (
-        <Section title="מתנדבים זמינים" empty="אין מתנדבים זמינים כרגע">          {sortedVolunteers.map((vol) => (
-            <VolunteerCard
-              key={vol.id}
-              volunteer={vol}
-              onRequest={() => requestVolunteer(vol.id)}
-              isRecommended={vol.compatibilityScore >= 50} // Consider >50% compatibility as recommended
-              compatibilityScore={vol.compatibilityScore}
-              requestLoading={requestLoading}
-              pendingRequests={pendingRequests}
-            />
-          ))}
-        </Section>
-      )}
-
-      {/* Non-personal mode - show requests waiting for admin approval */}
-      {!personal && (
-        <Section title="בקשות ממתינות לאישור מנהל" empty="אין בקשות הממתינות לאישור">
-          {adminApprovalRequests.map((r) => (
-            <AdminApprovalCard
-              key={r.id}
-              request={r}
-            />
-          ))}
-        </Section>
-      )}
-
-      {/* Current Match Section - Always shown */}
-      <Section title="השיבוץ הנוכחי שלי" empty="אין שיבוץ נוכחי">
-        {activeMatch ? (
-          <MatchCard
-            match={activeMatch}
-            onOpenChat={openChat}
-            onCloseChat={closeChat}
-            isChatOpen={!!unsubChat.current}
-          />
-        ) : null}
-      </Section>
-
-      {/* Chat Panel - Only shown when chat is open */}
-      {unsubChat.current && activeMatch && (
-        <ChatPanel
-          messages={messages}
-          newMsg={newMsg}
-          setNewMsg={setNewMsg}
-          onSend={sendMessage}
-          chatPartnerName={activeMatch.volunteer?.fullName || 'שיחה'}
-        />
-      )}
+      {/* Tab Content */}      <div className="mt-6">
+        {renderTabContent()}
+      </div>      {/* Chat Panel - Now shown as a floating window */}
+      <ChatPanel
+        isOpen={!!unsubChat.current && !!activeMatch}
+        onClose={closeChat}
+        messages={messages}
+        newMsg={newMsg}
+        setNewMsg={setNewMsg}
+        onSend={sendMessage}
+        chatPartnerName={activeMatch?.volunteer?.fullName || 'שיחה'}
+      />
     </div>
   );
 }
@@ -583,68 +658,300 @@ function AdminApprovalCard({ request }) {
   );
 }
 
-function MatchCard({ match, onOpenChat, onCloseChat, isChatOpen }) {
+function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
   const { volunteer } = match;
+  const isChatOpen = activeMatchId === match.id;
+  const [sessions, setSessions] = useState([]);
+  const [showUpcomingSessionsModal, setShowUpcomingSessionsModal] = useState(false);
+  const [showPastSessionsModal, setShowPastSessionsModal] = useState(false);
+  const [showCompletedSessionsModal, setShowCompletedSessionsModal] = useState(false);
+
+  useEffect(() => {
+    const sessionsRef = collection(db, "Sessions");
+    return onSnapshot(
+      query(
+        sessionsRef,
+        where("matchId", "==", match.id),
+        orderBy("scheduledTime", "asc")
+      ),
+      (snapshot) => {
+        const sessionData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          scheduledTime: doc.data().scheduledTime?.toDate()
+        }));
+        setSessions(sessionData);
+      }
+    );
+  }, [match.id]);
+
+  // Split sessions into categories: upcoming, past, and completed
+  const now = new Date();
+  const { upcomingSessions, pastSessions, completedSessions } = sessions.reduce((acc, session) => {
+    if (session.status === 'completed') {
+      acc.completedSessions.push(session);
+    } else if (session.scheduledTime > now) {
+      acc.upcomingSessions.push(session);
+    } else {
+      acc.pastSessions.push(session);
+    }
+    return acc;
+  }, { upcomingSessions: [], pastSessions: [], completedSessions: [] });
+
+  // Get the count of past sessions
+  const pastSessionsCount = pastSessions.length;
+
   return (
-    <div className="border border-orange-100 bg-white rounded-lg p-4 flex justify-between items-center">
-      <div>
-        <p className="font-semibold text-orange-800 text-lg mb-1">
-          {volunteer?.fullName || "מתנדב/ת"}
-        </p>
-        <p className="text-orange-700 text-sm">
-          סשנים שהושלמו: {match.totalSessions ?? 0}
-        </p>
+    <div className="border border-orange-100 bg-orange-100 rounded-lg p-4">
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <p className="font-semibold text-orange-800 text-lg mb-1">
+            {volunteer?.fullName || "מתנדב/ת ללא שם"}
+          </p>
+
+        </div>
       </div>
-      <Button onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}>
-        {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
-      </Button>
+
+      {/* Chat and Sessions Buttons */}
+      <div className="flex gap-2 flex-wrap">
+        <Button onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}>
+          {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={() => setShowUpcomingSessionsModal(true)}
+          className="flex items-center gap-2"
+          disabled={upcomingSessions.length === 0}
+        >
+          מפגשים מתוכננים ({upcomingSessions.length})
+        </Button>
+        {pastSessionsCount > 0 && (
+          <Button 
+            variant="outline"
+            onClick={() => setShowPastSessionsModal(true)}
+            className="flex items-center gap-2"
+          >
+            מפגשים שהסתיימו ({pastSessionsCount})
+          </Button>
+        )}
+        {completedSessions.length > 0 && (
+          <Button 
+            variant="outline" 
+            onClick={() => setShowCompletedSessionsModal(true)}
+            className="flex items-center gap-2"
+          >
+            מפגשים שהושלמו ({completedSessions.length})
+          </Button>
+        )}
+      </div>
+
+      {/* Modals */}
+      {showUpcomingSessionsModal && (
+        <SessionModal
+          title="מפגשים מתוכננים"
+          sessions={upcomingSessions}
+          onClose={() => setShowUpcomingSessionsModal(false)}
+        />
+      )}
+      {showPastSessionsModal && (
+        <SessionModal
+          title="מפגשים שהסתיימו"
+          sessions={pastSessions}
+          onClose={() => setShowPastSessionsModal(false)}
+          readOnly={true}
+        />
+      )}
+      {showCompletedSessionsModal && (
+        <SessionModal
+          title="מפגשים שהושלמו"
+          sessions={completedSessions}
+          onClose={() => setShowCompletedSessionsModal(false)}
+          readOnly={true}
+        />
+      )}
     </div>
   );
 }
 
-function ChatPanel({ messages, newMsg, setNewMsg, onSend, chatPartnerName }) {
+function ChatPanel({ isOpen, onClose, messages, newMsg, setNewMsg, onSend, chatPartnerName }) {
   const bottomRef = useRef(null);
+  const inputRef = useRef(null);
 
   // auto-scroll on new message
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Focus input when chat opens
+  useEffect(() => {
+    if (isOpen) {
+      inputRef.current?.focus();
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
   return (
-    <div className="mt-8 border-t border-orange-200 pt-4">
-      <h2 className="text-xl font-bold mb-3 text-orange-800">שיחה עם {chatPartnerName}</h2>
-
-      <div className="h-64 overflow-y-scroll bg-orange-100 border border-orange-100 rounded-lg p-3 mb-3">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={
-              m.senderId === auth.currentUser.uid ? "text-right" : "text-left"
-            }
+    <div className="fixed bottom-4 right-4 z-50 w-[380px] flex flex-col">
+      {/* Chat Window */}
+      <div className="bg-white rounded-lg shadow-lg border border-orange-200 flex flex-col overflow-hidden">
+        {/* Chat Header */}
+        <div className="flex justify-between items-center px-4 py-3 bg-orange-50 border-b border-orange-200">
+          <h2 className="text-sm font-medium text-orange-800">
+            {chatPartnerName}
+          </h2>
+          <button 
+            onClick={onClose}
+            className="text-orange-400 hover:text-orange-600 p-1"
           >
-            <span
-              className={`inline-block rounded-lg px-3 py-1 my-1 max-w-[80%] ${
-                m.senderId === auth.currentUser.uid
-                  ? "bg-orange-600 text-white"
-                  : "bg-white border border-orange-100"
-              }`}
-            >
-              {m.text}
-            </span>
-          </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-      <div className="flex gap-2">
-        <input
-          className="flex-1 border border-orange-200 rounded-md px-3 py-2 focus:ring-orange-400 focus:border-orange-400 outline-none"
-          placeholder="כתוב הודעה..."
-          value={newMsg}
-          onChange={(e) => setNewMsg(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onSend()}
-        />
-        <Button onClick={onSend}>שלח</Button>
+        {/* Messages Area */}
+        <div className="flex-1 overflow-auto h-[300px] px-4 py-3">
+          <div className="space-y-2">
+            {messages.map((m) => (
+              <div
+                key={m.id}
+                className={
+                  m.senderId === auth.currentUser.uid ? "text-right" : "text-left"
+                }
+              >
+                <span
+                  className={`inline-block rounded-lg px-3 py-1.5 text-sm my-1 max-w-[85%] ${
+                    m.senderId === auth.currentUser.uid
+                      ? "bg-orange-600 text-white"
+                      : "bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  {m.text}
+                </span>
+              </div>
+            ))}
+            <div ref={bottomRef} />
+          </div>
+        </div>
+
+        {/* Input Area */}
+        <div className="border-t border-orange-100 p-3">
+          <div className="flex gap-2">
+            <input
+              ref={inputRef}
+              className="flex-1 border border-orange-200 rounded-md px-3 py-1.5 text-sm focus:ring-1 focus:ring-orange-400 focus:border-orange-400 outline-none"
+              placeholder="כתוב הודעה..."
+              value={newMsg}
+              onChange={(e) => setNewMsg(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && onSend()}
+            />
+            <Button 
+              onClick={onSend} 
+              size="sm"
+              className="px-4"
+            >
+              שלח
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SessionModal({ title, sessions, onClose, readOnly = false }) {
+  const now = new Date();
+
+  // Helper function to format session times in Hebrew
+  const formatSessionTime = (date) => {
+    if (!date) return "—";
+    return new Date(date).toLocaleString('he-IL', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getSessionStatusColor = (session) => {
+    if (session.status === 'completed') {
+      return 'bg-green-50 border-green-100';
+    }
+    if (session.scheduledTime < now && !session.status === 'completed') {
+      return 'bg-orange-100 border-orange-200';
+    }
+    return 'bg-orange-50 border-orange-100';
+  };
+
+  const getLocationIcon = (location) => {
+    switch (location) {
+      case 'video':
+        return '🎥';
+      case 'phone':
+        return '📱';
+      case 'in_person':
+        return '🤝';
+      default:
+        return '📅';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white p-4 rounded-lg border border-orange-200 max-w-md w-full">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-orange-800">{title}</h3>
+          <button 
+            onClick={onClose}
+            className="text-orange-400 hover:text-orange-600"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {sessions.length === 0 ? (
+          <p className="text-center text-orange-500 py-4">
+            אין מפגשים זמינים להצגה.
+          </p>
+        ) : (
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            {sessions.map(session => (
+              <div 
+                key={session.id} 
+                className={`p-3 rounded-md text-sm transition-colors ${getSessionStatusColor(session)}`}
+              >
+                <div className="font-medium text-orange-800 flex items-center justify-between">
+                  <span>{formatSessionTime(session.scheduledTime)}</span>
+                  {session.status === 'completed' && (
+                    <span className="text-green-600 text-xs bg-green-100 px-2 py-1 rounded-full">
+                      הושלם
+                    </span>
+                  )}
+                </div>
+                
+                <div className="text-orange-600 mt-1">
+                  {getLocationIcon(session.location)}{' '}
+                  {session.location === 'video' ? 'שיחת וידאו' :
+                   session.location === 'phone' ? 'שיחת טלפון' : 'פגישה פיזית'}
+                  {' • '}{session.durationMinutes} דקות
+                </div>
+
+                {session.notes && (
+                  <div className="text-orange-500 mt-2 bg-white/50 p-2 rounded">
+                    <strong>הערות:</strong> {session.notes}
+                  </div>
+                )}
+
+                {session.status === 'completed' && session.sessionSummary && (
+                  <div className="mt-2 text-gray-600 bg-white/80 p-2 rounded border border-orange-100">
+                    <strong>סיכום המפגש:</strong> {session.sessionSummary}
+                  </div>
+                )}
+              </div>
+            ))} 
+          </div>
+        )}
       </div>
     </div>
   );
