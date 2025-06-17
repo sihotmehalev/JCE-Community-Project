@@ -111,16 +111,6 @@ export default function VolunteerDashboard() {
     const unsubVol = onSnapshot(
       volRef,
       async (snap) => {
-        if (!snap.exists()) {
-          // first login → create skeleton profile
-          await setDoc(volRef, {
-            approved: "pending",
-            personal: true,
-            isAvailable: true,
-            createdAt: serverTimestamp(),
-          });
-          return;                 // wait for next snapshot
-        }
         const data = snap.data();
         setVolProfile(data);
         setPersonal(data.personal ?? true);
@@ -684,7 +674,18 @@ function RequestCard({ req, variant, onAction }) {
           </div>
           <div>
             <h3 className="font-bold text-orange-900 text-xl mb-1">
-              {requester?.fullName || "פונה ללא שם"}
+              {/* {requester?.fullName || "פונה ללא שם"} */}
+              {(() => {
+                if (requester?.gender === "זכר") {
+                    return "פונה אנונימי";
+                }
+                else if (requester?.gender === "נקבה") {
+                    return "פונה אנונימית";
+                }
+                else {
+                    return "פונה";
+                }
+              })()}
             </h3>
             <div className="flex items-center gap-4 text-sm text-orange-700">
               <span className="flex items-center gap-1">
@@ -766,8 +767,8 @@ function RequestCard({ req, variant, onAction }) {
 function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMatchId, handleScheduleSession }) {
   const { requester } = match;
   const isChatOpen = activeMatchId === match.id;  const [sessions, setSessions] = useState([]);
-  // Commented out unused state variables
-  // const [sessionToComplete, setSessionToComplete] = useState(null);
+  // eslint-disable-next-line no-unused-vars
+  const [sessionToComplete, setSessionToComplete] = useState(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showUpcomingSessionsModal, setShowUpcomingSessionsModal] = useState(false);
   const [showPastSessionsModal, setShowPastSessionsModal] = useState(false);
@@ -810,11 +811,31 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
 
   return (
     <div className="border border-orange-100 bg-orange-100 rounded-lg p-4">
-      <div className="flex justify-between items-start mb-3">
-        <div>
-          <p className="font-semibold text-orange-800 text-lg mb-1">
-            {requester?.fullName || "פונה ללא שם"}
-          </p>
+      {/* Header Section */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
+            <User className="w-6 h-6 text-orange-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-orange-900 text-xl mb-1">
+              {requester?.fullName || "פונה ללא שם"}
+            </h3>
+            <div className="flex items-center gap-4 text-sm text-orange-700">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                גיל: {requester?.age ?? "—"}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                מגדר: {requester?.gender ?? "—"}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                טלפון: {requester?.phone ?? "—"}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1054,7 +1075,6 @@ function SessionCompletionModal({ session, onClose, onSubmit }) {
     setError(null);
 
     try {
-      // Fix: Use "Sessions" (capital S) to match your collection name
       await updateDoc(doc(db, "Sessions", session.id), {
         status: "completed",
         sessionSummary: summary,
