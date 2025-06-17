@@ -1,5 +1,5 @@
-import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import React, { useRef, useState } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import Layout from "../components/layout/Layout";
 import HomePage from "./HomePage";
 import RegisterVolunteerPage from "../components/auth/RegisterVolunteerPage";
@@ -11,14 +11,75 @@ import AdminDashboard from "../components/dashboards/AdminDashboard";
 import AboutPage from "./AboutPage";
 import ProfilePage from "./ProfilePage";
 import { auth, db } from "../config/firebaseConfig";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
+import CustomAlert from "../components/ui/CustomAlert";
+
+const IDLE_TIMEOUT = 1 * 60 * 1000; // 1 minute in milliseconds (for testing)
+const WARNING_TIMEOUT = 10 * 1000; // 10 seconds before actual logout
 
 function ProtectedRoute({ children, allowedRoles }) {
   const [user, setUser] = React.useState(null);
   const [role, setRole] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
+  const navigate = useNavigate();
+  const idleTimer = useRef(null);
+  const warningTimer = useRef(null);
+  const [showIdleWarning, setShowIdleWarning] = useState(false);
+
+  const logoutUser = React.useCallback(() => {
+    signOut(auth).then(() => {
+      console.log("User logged out due to inactivity");
+      navigate("/login");
+    }).catch((error) => {
+      console.error("Error signing out due to inactivity:", error);
+    });
+  }, [navigate]);
+
+  const startIdleTimer = React.useCallback(() => {
+    if (idleTimer.current) {
+      clearTimeout(idleTimer.current);
+    }
+    if (warningTimer.current) {
+      clearTimeout(warningTimer.current);
+    }
+    setShowIdleWarning(false);
+
+    if (user) {
+      idleTimer.current = setTimeout(() => {
+        setShowIdleWarning(true);
+        warningTimer.current = setTimeout(() => {
+          logoutUser();
+        }, WARNING_TIMEOUT);
+      }, IDLE_TIMEOUT - WARNING_TIMEOUT);
+    }
+  }, [user, logoutUser]);
+
+  const resetIdleTimer = React.useCallback(() => {
+    startIdleTimer();
+  }, [startIdleTimer]);
+
+  React.useEffect(() => {
+    resetIdleTimer(); // Initialize or reset timer on mount
+
+    const activityEvents = ["mousemove", "keydown", "scroll", "click"];
+    activityEvents.forEach(event => {
+      window.addEventListener(event, resetIdleTimer);
+    });
+
+    return () => {
+      if (idleTimer.current) {
+        clearTimeout(idleTimer.current);
+      }
+      if (warningTimer.current) {
+        clearTimeout(warningTimer.current);
+      }
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, resetIdleTimer);
+      });
+    };
+  }, [resetIdleTimer]);
 
   React.useEffect(() => {
     const checkAdminRole = async (uid) => {
@@ -44,6 +105,7 @@ function ProtectedRoute({ children, allowedRoles }) {
       }
 
       setUser(currentUser);
+      resetIdleTimer(); // Reset timer on auth state change (login)
       
       // First check if user is an admin
       const adminRole = await checkAdminRole(currentUser.uid);
@@ -71,7 +133,7 @@ function ProtectedRoute({ children, allowedRoles }) {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [resetIdleTimer]);
 
   if (loading) return <LoadingSpinner />;
   
@@ -85,7 +147,18 @@ function ProtectedRoute({ children, allowedRoles }) {
   
   if (!user || !hasAllowedRole) return <Navigate to="/login" />;
 
-  return children;
+  return (
+    <>
+      {children}
+      {showIdleWarning && (
+        <CustomAlert
+          message="תתנתק בקרוב עקב חוסר פעילות. לחץ/י בכל מקום כדי להישאר מחובר/ת."
+          type="warning"
+          onClose={() => setShowIdleWarning(false)} // This might not be needed as activity will hide it
+        />
+      )}
+    </>
+  );
 }
 
 function App() {
