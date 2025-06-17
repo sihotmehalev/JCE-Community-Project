@@ -14,29 +14,34 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  deleteField,
 } from "firebase/firestore";
 import { Button } from "../ui/button";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { Card } from "../ui/card";
 import { X } from "lucide-react";
+import ChatPanel from "../ui/ChatPanel";
 import CustomAlert from "../ui/CustomAlert";
 
 /* ────────────────────────── helpers ────────────────────────── */
 
 // one-shot fetch of a volunteer's public profile
 const fetchVolunteer = async (uid) => {
+  console.log("[DEBUG-FETCH] fetchVolunteer called with UID:", uid);
   if (!uid) {
-    console.warn("fetchVolunteer called with invalid UID. Returning null.");
+    console.warn("[DEBUG-FETCH] fetchVolunteer called with invalid UID. Returning null.");
     return null;
   }
   const snap = await getDoc(
     doc(db, "Users", "Info", "Volunteers", uid)
   );
+  console.log("[DEBUG-FETCH] fetchVolunteer result:", uid, snap.exists() ? "exists" : "not found");
   return snap.exists() ? { id: uid, ...snap.data() } : null;
 };
 
 // Calculate compatibility score between requester and volunteer preferences
 const calculateCompatibilityScore = (requesterProfile, volunteer) => {
+  console.log("[DEBUG-COMPAT] Starting compatibility calculation for volunteer:", volunteer.id);
   let score = 0;
   let maxScore = 0;
 
@@ -46,7 +51,7 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
     const match = timeSlot.match(/^([^(]+)/);
     return match ? match[1].trim() : timeSlot;
   };
-
+  
   // Check frequency and days compatibility
   if (requesterProfile.frequency && (volunteer.availableDays || volunteer.frequency)) {
     maxScore += 3;
@@ -57,6 +62,8 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
     
     // Filter out "אחר" from requester frequencies
     const validFreqs = requesterFreqs.filter(f => f !== "אחר");
+    
+    console.log("[DEBUG-COMPAT] Frequency check - Requester:", validFreqs, "Volunteer days:", volunteer.availableDays);
     
     if (validFreqs.length > 0) {
       const volunteerDaysCount = volunteer.availableDays?.length || 0;
@@ -83,6 +90,8 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
     // Extract just the time period names from volunteer hours
     const volunteerPeriods = volunteer.availableHours.map(extractTimePeriod);
     
+    console.log("[DEBUG-COMPAT] Time check - Requester:", validTimes, "Volunteer:", volunteerPeriods);
+    
     // Count matching time periods
     const matchingPeriods = validTimes.filter(rt => 
       volunteerPeriods.some(vp => vp === rt)
@@ -97,7 +106,9 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
     }
   }
 
-  return maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+  const finalScore = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+  console.log("[DEBUG-COMPAT] Final compatibility score for", volunteer.id, ":", finalScore, "(score:", score, "/ maxScore:", maxScore, ")");
+  return finalScore;
 };
 
 // Sort volunteers by compatibility
@@ -127,18 +138,17 @@ export default function RequesterDashboard() {
   /* -------- UI state -------- */
   const [loading, setLoading] = useState(true);
   const [requestProfile, setRequestProfile] = useState({});
-  const [personal, setPersonal] = useState(true); // true = פנייה ישירה למתנדב, false = ללא העדפה
+  const [personal, setPersonal] = useState(true); // true = פנייה ישירה למתנדב, false = ללא העדפה  
   const [availableVolunteers, setAvailableVolunteers] = useState([]);
   const [sortedVolunteers, setSortedVolunteers] = useState([]);
   const [adminApprovalRequests, setAdminApprovalRequests] = useState([]);
   // eslint-disable-next-line no-unused-vars
   const [matches, setMatches] = useState([]);
   const [activeMatch, setActiveMatch] = useState(null);
-  const [setActiveMatchId] = useState(null);
+  const [activeMatchId, setActiveMatchId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState("");
-  const [userData, setUserData] = useState(null);
-  const [requestLoading, setRequestLoading] = useState(false);
+  const [userData, setUserData] = useState(null);  const [requestLoading, setRequestLoading] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [activeTab, setActiveTab] = useState("available");
   const [alertMessage, setAlertMessage] = useState(null);
@@ -158,53 +168,104 @@ export default function RequesterDashboard() {
   const unsubMatch = useRef(null);
   const unsubChat = useRef(null);
   const unsubPendingRequests = useRef(null);
-
   /* -------- bootstrap requester profile -------- */
   useEffect(() => {
     if (!authChecked || !user) return;
 
+    console.log("[DEBUG] Initializing requester profile for user:", user.uid);
     const reqRef = doc(db, "Users", "Info", "Requesters", user.uid);
 
     const unsubReq = onSnapshot(
       reqRef,
       async (snap) => {
         if (!snap.exists()) {
+          console.log("[DEBUG] First login - creating skeleton profile");
           // first login → create skeleton profile
           await setDoc(reqRef, {
             personal: true, // default to פנייה ישירה למתנדב
-            approved: "true", // Add approved status for consistency
             createdAt: serverTimestamp(),
           });
           return; // wait for next snapshot
         }
         const data = snap.data();
+        console.log("[DEBUG] Loaded requester profile:", data);
         setRequestProfile(data);
         setPersonal(data.personal ?? true);
         setUserData(data);
         setLoading(false);
       },
       (err) => {
-        console.error("Requester doc error:", err);
+        console.error("[DEBUG ERROR] Requester doc error:", err);
         setLoading(false);
       }
     );
 
     return () => unsubReq();
   }, [authChecked, user]);
+  /* -------- fetch declined volunteers list from request -------- */
+  const [declinedVolunteers, setDeclinedVolunteers] = useState([]);
 
+  // Fetch the request document to get the declinedVolunteers list
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchDeclinedVolunteers = async () => {
+      try {
+        // Query for the requester's request
+        const requestsRef = collection(db, "Requests");
+        const q = query(
+          requestsRef,
+          where("requesterId", "==", user.uid),
+          where("status", "==", "waiting_for_first_approval")
+        );
+        
+        const snapshot = await getDocs(q);
+        
+        if (!snapshot.empty) {
+          // Get the first request document (there should only be one per requester)
+          const requestDoc = snapshot.docs[0];
+          const requestData = requestDoc.data();
+          
+          // Extract declinedVolunteers array or use empty array if it doesn't exist
+          const declined = requestData.declinedVolunteers || [];
+          console.log("Declined volunteers list:", declined);
+          setDeclinedVolunteers(declined);
+        } else {
+          setDeclinedVolunteers([]);
+        }
+      } catch (error) {
+        console.error("Error fetching declined volunteers:", error);
+      }
+    };
+    
+    fetchDeclinedVolunteers();
+  }, [user, pendingRequests]); // Re-fetch when pendingRequests changes
+  
   /* -------- sort volunteers when data changes -------- */
   useEffect(() => {
     if (availableVolunteers.length > 0 && requestProfile) {
-      const sorted = sortVolunteersByCompatibility(availableVolunteers, requestProfile);
+      // Filter out any volunteers that are in the declinedVolunteers list
+      const filteredVolunteers = availableVolunteers.filter(
+        volunteer => !declinedVolunteers.includes(volunteer.id)
+      );
+      
+      console.log("Filtering volunteers:", {
+        total: availableVolunteers.length,
+        declined: declinedVolunteers.length,
+        filtered: filteredVolunteers.length,
+      });
+      
+      const sorted = sortVolunteersByCompatibility(filteredVolunteers, requestProfile);
       setSortedVolunteers(sorted);
     } else {
       setSortedVolunteers([]);
     }
-  }, [availableVolunteers, requestProfile]);
+  }, [availableVolunteers, requestProfile, declinedVolunteers]);
 
-  /* -------- attach / detach listeners based on mode -------- */
-  useEffect(() => {
+  /* -------- attach / detach listeners based on mode -------- */  useEffect(() => {
     if (loading || !user) return;
+
+    console.log("[DEBUG] Setting up listeners for user:", user.uid);
 
     // ---- active matches (always) ----
     unsubMatch.current?.();
@@ -215,14 +276,18 @@ export default function RequesterDashboard() {
         where("status", "==", "active")
       ),
       async (snap) => {
+        console.log("[DEBUG] Active matches snapshot received:", snap.docs.length, "matches");
         const arr = [];
         for (const d of snap.docs) {
           const m = d.data();
+          console.log("[DEBUG] Processing match:", d.id, m);
           const vol = await fetchVolunteer(m.volunteerId);
           if (vol) {
             arr.push({ id: d.id, ...m, volunteer: vol });
+          } else {
+            console.warn("[DEBUG] Failed to fetch volunteer for match:", m);
           }
-        }
+        }        console.log("[DEBUG] Final matches array:", arr);
         setActiveMatch(arr.length > 0 ? arr[0] : null); // Keep existing activeMatch behavior
         setMatches(arr);
       }
@@ -230,20 +295,23 @@ export default function RequesterDashboard() {
 
     // ---- personal mode sections ----
     if (personal) {
+      console.log("[DEBUG] Setting up listeners for personal mode (direct volunteer selection)");
       // available volunteers
       unsubVolunteers.current = onSnapshot(
         query(
           collection(db, "Users", "Info", "Volunteers"),
-          where("approved", "==", true),
+          where("approved", "==", "true"),
           where("isAvailable", "==", true)
         ),
         (snap) => {
+          console.log("[DEBUG] Available volunteers snapshot received:", snap.docs.length, "volunteers");
           setAvailableVolunteers(
             snap.docs.map(d => ({ id: d.id, ...d.data() }))
           );
         }
       );
     } else {
+      console.log("[DEBUG] Setting up listeners for non-personal mode (admin approval)");
       // ללא העדפה mode - show requests waiting for admin approval
       unsubAdminApproval.current = onSnapshot(
         query(
@@ -252,6 +320,7 @@ export default function RequesterDashboard() {
           where("status", "==", "waiting_for_admin_approval")
         ),
         async (snap) => {
+          console.log("[DEBUG] Admin approval requests snapshot received:", snap.docs.length, "requests");
           const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
@@ -284,15 +353,24 @@ export default function RequesterDashboard() {
 
   /* -------- listen for pending requests -------- */
   useEffect(() => {
-    if (!user) return;
-
-    unsubPendingRequests.current = onSnapshot(
+    if (!user) return;    unsubPendingRequests.current = onSnapshot(
       query(
         collection(db, "Requests"),
         where("requesterId", "==", user.uid),
         where("status", "in", ["waiting_for_first_approval", "waiting_for_admin_approval"])
       ),
       async (snap) => {
+        console.log("Pending requests snapshot received:", snap.docs.map(d => ({id: d.id, ...d.data()})));
+        
+        // Look for the waiting_for_first_approval request to get declinedVolunteers
+        const firstApprovalRequest = snap.docs.find(d => d.data().status === "waiting_for_first_approval");
+        if (firstApprovalRequest) {
+          const data = firstApprovalRequest.data();
+          // Update declined volunteers list
+          setDeclinedVolunteers(data.declinedVolunteers || []);
+          console.log("Updated declined volunteers from snapshot:", data.declinedVolunteers || []);
+        }
+        
         const requests = await Promise.all(snap.docs.map(async (d) => {
           const data = d.data();
           if (data.volunteerId) {
@@ -301,7 +379,12 @@ export default function RequesterDashboard() {
           }
           return { id: d.id, ...data };
         }));
-        setPendingRequests(requests);
+        
+        // Filter out requests that don't have a volunteerId
+        const requestsWithVolunteer = requests.filter(req => req.volunteerId);
+        console.log("Pending requests with volunteer:", requestsWithVolunteer);
+        
+        setPendingRequests(requestsWithVolunteer);
       }
     );
 
@@ -318,22 +401,29 @@ export default function RequesterDashboard() {
       { personal: newVal },
       { merge: true }
     );
-  };
-
-  const requestVolunteer = async (volunteerId) => {
+  };  const requestVolunteer = async (volunteerId) => {
     try {
+      console.log("[DEBUG] Requesting volunteer:", volunteerId);
       setRequestLoading(true);
       
       // First verify the volunteer is still available
       const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", volunteerId));
       if (!volunteerDoc.exists()) {
-        setAlertMessage({ message: "המתנדב/ת לא נמצא/ה במערכת", type: "error" });
+        console.warn("[DEBUG] Volunteer not found:", volunteerId);
+        alert("המתנדב/ת לא נמצא/ה במערכת");
         return;
       }
       
       const volunteerData = volunteerDoc.data();
+      console.log("[DEBUG] Volunteer data:", { 
+        isAvailable: volunteerData.isAvailable, 
+        approved: volunteerData.approved,
+        fullName: volunteerData.fullName
+      });
+      
       if (!volunteerData.isAvailable || !volunteerData.approved) {
-        setAlertMessage({ message: "המתנדב/ת אינו/ה זמין/ה כעת", type: "error" });
+        console.warn("[DEBUG] Volunteer is unavailable or not approved");
+        alert("המתנדב/ת אינו/ה זמין/ה כעת");
         return;
       }
 
@@ -345,27 +435,92 @@ export default function RequesterDashboard() {
         where("status", "==", "waiting_for_first_approval")
       );
       
+      console.log("[DEBUG] Searching for existing request for requester:", user.uid);
       const snapshot = await getDocs(q);
+      console.log("[DEBUG] Found", snapshot.docs.length, "existing requests");
       
       if (!snapshot.empty) {
         const requestDoc = snapshot.docs[0];
+        const requestId = requestDoc.id;
+        console.log("[DEBUG] Updating existing request:", requestId);
+        
         // Update the existing request with the selected volunteer
-        await updateDoc(doc(db, "Requests", requestDoc.id), {
+        await updateDoc(doc(db, "Requests", requestId), {
           volunteerId: volunteerId,
           initiatedBy: user.uid,
-          status: "waiting_for_admin_approval",
           updatedAt: serverTimestamp(),
         });
+        
+        // Update the local state to reflect this change
+        const updatedPendingRequests = [...pendingRequests];
+        const existingReqIndex = updatedPendingRequests.findIndex(req => req.id === requestId);
+        console.log("[DEBUG] Request found in pending requests:", existingReqIndex >= 0);
+        
+        if (existingReqIndex >= 0) {
+          // Update existing request
+          updatedPendingRequests[existingReqIndex] = {
+            ...updatedPendingRequests[existingReqIndex],
+            volunteerId,
+            initiatedBy: user.uid
+          };
+        } else {
+          // Add as a new request to the pending list
+          updatedPendingRequests.push({
+            id: requestId,
+            requesterId: user.uid,
+            volunteerId,
+            initiatedBy: user.uid,
+            status: "waiting_for_first_approval",
+            volunteer: volunteerData
+          });
+        }
+        
+        setPendingRequests(updatedPendingRequests);
       }
       
-      // Clear selected volunteer from UI
-      const updatedVolunteers = availableVolunteers.filter(v => v.id !== volunteerId);
-      setAvailableVolunteers(updatedVolunteers);
-      
-      setAlertMessage({ message: "הבקשה נשלחה בהצלחה וממתינה לאישור מנהל", type: "success" });
+      alert("הבקשה נשלחה בהצלחה וממתינה לאישור");
     } catch (error) {
       console.error("Error requesting volunteer:", error);
-      setAlertMessage({ message: "אירעה שגיאה בשליחת הבקשה. אנא נסה שוב", type: "error" });
+      alert("אירעה שגיאה בשליחת הבקשה. אנא נסה שוב");
+    } finally {
+      setRequestLoading(false);
+    }
+  };
+  const cancelRequest = async (requestId) => {
+    try {
+      setRequestLoading(true);
+      
+      // Find the request to extract current data before updating
+      const requestDoc = await getDoc(doc(db, "Requests", requestId));
+      if (!requestDoc.exists()) {
+        alert("הבקשה לא נמצאה במערכת");
+        return;
+      }
+      
+      console.log("Canceling request with ID:", requestId);
+      console.log("Current pending requests:", pendingRequests);
+      
+      // Update the request to remove the volunteerId and initiatedBy fields
+      await updateDoc(doc(db, "Requests", requestId), {
+        volunteerId: deleteField(),
+        initiatedBy: deleteField(),
+        updatedAt: serverTimestamp(),
+      });
+      
+      // In this specific case, since we're using a live snapshot,
+      // we don't need to update the state manually as the Firestore 
+      // listener in the useEffect above will automatically update the UI
+      // when the document changes. However, we can still update it optimistically
+      // for better UX.
+      const updatedPendingRequests = pendingRequests.filter(req => req.id !== requestId);
+      setPendingRequests(updatedPendingRequests);
+      
+      console.log("Updated pending requests after cancel:", updatedPendingRequests);
+      
+      alert("הבקשה בוטלה בהצלחה");
+    } catch (error) {
+      console.error("Error canceling request:", error);
+      alert("אירעה שגיאה בביטול הבקשה. אנא נסה שוב");
     } finally {
       setRequestLoading(false);
     }
@@ -406,14 +561,16 @@ export default function RequesterDashboard() {
   /* -------- render -------- */
   if (!authChecked || loading) {
     return <LoadingSpinner />;
-  }
-  const renderTabContent = () => {
+  }  const renderTabContent = () => {
     switch (activeTab) {
       case "available":
         return personal ? (
           <div className="space-y-4">
-            {sortedVolunteers.length > 0 ? (
-              sortedVolunteers.map((vol) => (
+            {activeMatch ? (
+              <div className="bg-orange-100 border border-orange-200 rounded-lg p-4 text-orange-700 text-center">
+                <p className="font-medium">יש לך כבר שיבוץ פעיל עם מתנדב/ת. אין אפשרות לפנות למתנדבים נוספים.</p>
+              </div>
+            ) : sortedVolunteers.length > 0 ? (              sortedVolunteers.map((vol) => (
                 <VolunteerCard
                   key={vol.id}
                   volunteer={vol}
@@ -422,6 +579,7 @@ export default function RequesterDashboard() {
                   compatibilityScore={vol.compatibilityScore}
                   requestLoading={requestLoading}
                   pendingRequests={pendingRequests}
+                  cancelRequest={cancelRequest}
                 />
               ))
             ) : (
@@ -441,12 +599,10 @@ export default function RequesterDashboard() {
                 />
               ))
             ) : (
-              <Empty text="אין בקשות הממתינות לאישור מנהל" />
+              <Empty text="אין בקשות הממתינות לאישור" />
             )}
           </div>
-        );
-
-      case "current":
+        );      case "current":
         return (
           <div className="space-y-4">
             {activeMatch ? (
@@ -454,7 +610,7 @@ export default function RequesterDashboard() {
                 match={activeMatch}
                 onOpenChat={openChat}
                 onCloseChat={closeChat}
-                isChatOpen={!!unsubChat.current}
+                activeMatchId={activeMatchId}
               />
             ) : (
               <Empty text="אין שיבוץ נוכחי" />
@@ -502,8 +658,7 @@ export default function RequesterDashboard() {
       <Card className="mb-6">
         <div className="flex border-b border-gray-200">
           {personal && (
-            <>
-              <button
+            <>              <button
                 onClick={() => setActiveTab("available")}
                 className={`
                   flex-1 p-4 text-center font-medium text-sm focus:outline-none
@@ -513,7 +668,7 @@ export default function RequesterDashboard() {
                   }
                 `}
               >
-                מתנדבים זמינים
+                מתנדבים זמינים ({sortedVolunteers.length})
               </button>
               <button
                 onClick={() => setActiveTab("pending")}
@@ -525,11 +680,10 @@ export default function RequesterDashboard() {
                   }
                 `}
               >
-                בקשות שממתינות לאישור מנהל
+                בקשות שממתינות לאישור מנהל ({adminApprovalRequests.length})
               </button>
             </>
-          )}
-          <button
+          )}          <button
             onClick={() => setActiveTab("current")}
             className={`
               flex-1 p-4 text-center font-medium text-sm focus:outline-none
@@ -539,7 +693,7 @@ export default function RequesterDashboard() {
               }
             `}
           >
-            השיבוץ הנוכחי שלי
+            השיבוץ הנוכחי שלי ({activeMatch ? 1 : 0})
           </button>
         </div>
       </Card>
@@ -568,25 +722,13 @@ export default function RequesterDashboard() {
 
 /* ────────────────────────── presentational helpers ───────────────────────── */
 
-// eslint-disable-next-line no-unused-vars
-const Section = ({ title, empty, children }) => (
-  <>
-    <h2 className="text-xl font-semibold text-orange-800 mb-2">{title}</h2>
-    {React.Children.count(children) === 0 ? (
-      <Empty text={empty} />
-    ) : (
-      <div className="space-y-4">{children}</div>
-    )}
-  </>
-);
-
 const Empty = ({ text }) => (
   <p className="bg-orange-100 border border-orange-100 rounded-lg py-4 px-6 text-orange-700">
     {text}
   </p>
 );
 
-function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore, requestLoading, pendingRequests }) {
+function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore, requestLoading, pendingRequests, cancelRequest }) {
   const formatList = (list) => {
     if (!list) return "—";
     if (Array.isArray(list)) {
@@ -594,11 +736,18 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
     }
     return list;
   };
-
   // Check if there's a pending request for this volunteer
   const pendingRequest = pendingRequests.find(req => req.volunteerId === volunteer.id);
   const isPending = !!pendingRequest;
-  const isWaitingForAdmin = pendingRequest?.status === "waiting_for_admin_approval";
+  // const isWaitingForAdmin = pendingRequest?.status === "waiting_for_admin_approval"; // Commented out as it's not used
+  // Check if there's any pending request to any volunteer (to hide buttons for other volunteers)
+  const hasAnyPendingRequest = pendingRequests.length > 0;
+  const showOtherVolunteers = !hasAnyPendingRequest || isPending;
+  
+  // Don't show the button if this is not the pending volunteer and there's another pending request
+  const shouldShowButton = showOtherVolunteers || isPending;
+  
+  console.log(`Volunteer ${volunteer.id}: isPending=${isPending}, hasAnyPending=${hasAnyPendingRequest}, shouldShow=${shouldShowButton}`);
 
   return (    <div className="border border-orange-100 rounded-lg p-4 bg-orange-100">
       {isRecommended && (
@@ -622,31 +771,42 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
 
       {/* Show availability information */}
       {volunteer.availableHours && (
-        <p className="text-sm mb-2 text-orange-600">
+        <p className="text-sm mb-2 text-orange-700">
           שעות זמינות: {formatList(volunteer.availableHours)}
         </p>
       )}
       
       {volunteer.availableDays && (
-        <p className="text-sm mb-2 text-orange-600">
+        <p className="text-sm mb-2 text-orange-700">
           ימים זמינים: {formatList(volunteer.availableDays)}
         </p>
       )}
 
       {volunteer.frequency && (
-        <p className="text-sm mb-3 text-orange-600">
+        <p className="text-sm mb-3 text-orange-700">
           תדירות: {formatList(volunteer.frequency)}
         </p>
-      )}      <Button 
-        onClick={onRequest}
-        className={`${(requestLoading || isPending) ? 'opacity-50 cursor-not-allowed' : ''}`}
-        disabled={requestLoading || isPending}
-      >
-        {requestLoading ? 'שולח בקשה...' : 
-         isWaitingForAdmin ? 'ממתין לאישור מנהל' :
-         isPending ? 'ממתין לאישור מתנדב/ת' :
-         'פנה למתנדב/ת'}
-      </Button>
+      )}
+      
+      {shouldShowButton && (
+        isPending ? (
+          <Button 
+            onClick={() => cancelRequest(pendingRequest.id)}
+            className={requestLoading ? 'opacity-50 cursor-not-allowed bg-red-600 hover:bg-red-700' : 'bg-red-600 hover:bg-red-700'}
+            disabled={requestLoading}
+          >
+            {requestLoading ? 'מבטל בקשה...' : 'בטל בקשה'}
+          </Button>
+        ) : (
+          <Button 
+            onClick={onRequest}
+            className={requestLoading ? 'opacity-50 cursor-not-allowed' : ''}
+            disabled={requestLoading}
+          >
+            {requestLoading ? 'שולח בקשה...' : 'פנה למתנדב/ת'}
+          </Button>
+        )
+      )}
     </div>
   );
 }
@@ -786,91 +946,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
   );
 }
 
-function ChatPanel({ isOpen, onClose, messages, newMsg, setNewMsg, onSend, chatPartnerName }) {
-  const bottomRef = useRef(null);
-  const inputRef = useRef(null);
-
-  // auto-scroll on new message
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  // Focus input when chat opens
-  useEffect(() => {
-    if (isOpen) {
-      inputRef.current?.focus();
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed bottom-4 right-4 z-50 w-[380px] flex flex-col">
-      {/* Chat Window */}
-      <div className="bg-white rounded-lg shadow-lg border border-orange-200 flex flex-col overflow-hidden">
-        {/* Chat Header */}
-        <div className="flex justify-between items-center px-4 py-3 bg-orange-50 border-b border-orange-200">
-          <h2 className="text-sm font-medium text-orange-800">
-            {chatPartnerName}
-          </h2>
-          <button 
-            onClick={onClose}
-            className="text-orange-400 hover:text-orange-600 p-1"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Messages Area */}
-        <div className="flex-1 overflow-auto h-[300px] px-4 py-3">
-          <div className="space-y-2">
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                className={
-                  m.senderId === auth.currentUser.uid ? "text-right" : "text-left"
-                }
-              >
-                <span
-                  className={`inline-block rounded-lg px-3 py-1.5 text-sm my-1 max-w-[85%] ${
-                    m.senderId === auth.currentUser.uid
-                      ? "bg-orange-600 text-white"
-                      : "bg-gray-100 border border-gray-200"
-                  }`}
-                >
-                  {m.text}
-                </span>
-              </div>
-            ))}
-            <div ref={bottomRef} />
-          </div>
-        </div>
-
-        {/* Input Area */}
-        <div className="border-t border-orange-100 p-3">
-          <div className="flex gap-2">
-            <input
-              ref={inputRef}
-              className="flex-1 border border-orange-200 rounded-md px-3 py-1.5 text-sm focus:ring-1 focus:ring-orange-400 focus:border-orange-400 outline-none"
-              placeholder="כתוב הודעה..."
-              value={newMsg}
-              onChange={(e) => setNewMsg(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && onSend()}
-            />
-            <Button 
-              onClick={onSend} 
-              size="sm"
-              className="px-4"
-            >
-              שלח
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function SessionModal({ title, sessions, onClose, readOnly = false }) {
   const now = new Date();
 
@@ -956,11 +1031,6 @@ function SessionModal({ title, sessions, onClose, readOnly = false }) {
                   </div>
                 )}
 
-                {session.status === 'completed' && session.sessionSummary && (
-                  <div className="mt-2 text-gray-600 bg-white/80 p-2 rounded border border-orange-100">
-                    <strong>סיכום המפגש:</strong> {session.sessionSummary}
-                  </div>
-                )}
               </div>
             ))} 
           </div>
