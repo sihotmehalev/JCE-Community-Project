@@ -11,6 +11,7 @@ import {
   query, 
   where, 
   getDoc, 
+  arrayUnion,
   increment
 } from "firebase/firestore";
 import { Card, CardContent } from "../ui/card";
