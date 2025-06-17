@@ -415,9 +415,12 @@ export default function AdminDashboard() {
   };
 
   const declineRequest = async (requestId, suggestAnother = false) => {
+    const docRef = doc(db, "Requests", requestId);
+    const docSnap = await getDoc(docRef);
     try {
       const updateData = {
         status: "declined",
+        declinedVolunteers: arrayUnion(docSnap.data().volunteerId), // Add to declined list
         declinedAt: new Date()
       };
 
