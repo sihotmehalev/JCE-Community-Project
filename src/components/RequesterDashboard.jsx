@@ -919,6 +919,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
 function ChatPanel({ isOpen, onClose, messages, newMsg, setNewMsg, onSend, chatPartnerName }) {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   // auto-scroll on new message
   useEffect(() => {
@@ -935,9 +936,9 @@ function ChatPanel({ isOpen, onClose, messages, newMsg, setNewMsg, onSend, chatP
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-[380px] flex flex-col">
+    <div className="fixed bottom-4 right-4 z-50 w-[340px] flex flex-col">
       {/* Chat Window */}
-      <div className="bg-white rounded-lg shadow-lg border border-orange-200 flex flex-col overflow-hidden">
+      <div className="bg-white rounded-lg shadow-lg border border-orange-200 flex flex-col overflow-hidden" style={{ height: '440px' }}>
         {/* Chat Header */}
         <div className="flex justify-between items-center px-4 py-3 bg-orange-50 border-b border-orange-200">
           <h2 className="text-sm font-medium text-orange-800">
@@ -951,9 +952,13 @@ function ChatPanel({ isOpen, onClose, messages, newMsg, setNewMsg, onSend, chatP
           </button>
         </div>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-auto h-[300px] px-4 py-3">
-          <div className="space-y-2">
+        {/* Messages Area*/}
+        <div 
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto px-4 py-3"
+          style={{ height: '350px', maxHeight: '350px' }}
+        >          
+        <div className="space-y-2">
             {messages.map((m) => (
               <div
                 key={m.id}
