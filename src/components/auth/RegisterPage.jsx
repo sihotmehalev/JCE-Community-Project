@@ -36,7 +36,7 @@ export default function RegisterLayout({ title, additionalFields, role, setRole 
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-violet-100">
-      <Card className="w-full max-w-md p-6 shadow-xl rounded-2xl">
+      <Card className="w-full max-w-md p-6">
         <CardContent>
           <h2 className="text-2xl font-bold text-center mb-4">{title}</h2>
           <form className="space-y-4" onSubmit={handleRegister}>

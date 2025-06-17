@@ -1396,7 +1396,7 @@ const ViewSessionSummaryModal = ({ isOpen, onClose, sessionSummary }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-lg bg-white p-6 rounded-lg shadow-xl">
+      <Card className="w-full max-w-lg bg-white p-6">
         <CardContent>
           <h2 className="text-2xl font-bold mb-4 text-orange-800">סיכום פגישה</h2>
           <div className="space-y-4">

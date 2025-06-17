@@ -224,7 +224,7 @@ export default function ProfilePage() {
         
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {/* Personal Information Card */}
-          <Card className="shadow-xl border-0 bg-white/70 backdrop-blur-sm hover:shadow-2xl transition-all duration-300">
+          <Card className="border-0 bg-white/70 backdrop-blur-sm hover:shadow-2xl transition-all duration-300">
             <CardContent className="p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -293,7 +293,7 @@ export default function ProfilePage() {
           {userData.role === "volunteer" ? (
             <>
               {/* Volunteer Information Card */}
-              <Card className="shadow-xl border-0 bg-white/70 backdrop-blur-sm hover:shadow-2xl transition-all duration-300">
+              <Card className="border-0 bg-white/70 backdrop-blur-sm hover:shadow-2xl transition-all duration-300">
                 <CardContent className="p-8">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
@@ -345,7 +345,7 @@ export default function ProfilePage() {
               </Card>
 
               {/* Volunteer Status Card */}
-              <Card className="shadow-xl border-0 bg-white/70 backdrop-blur-sm hover:shadow-2xl transition-all duration-300 xl:col-span-2">
+              <Card className="border-0 bg-white/70 backdrop-blur-sm hover:shadow-2xl transition-all duration-300 xl:col-span-2">
                 <CardContent className="p-8">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -371,7 +371,7 @@ export default function ProfilePage() {
           ) : userData.role === "requester" && (
             <>
               {/* Requester Preferences Card */}
-              <Card className="shadow-xl border-0 bg-white/70 backdrop-blur-sm hover:shadow-2xl transition-all duration-300">
+              <Card className="border-0 bg-white/70 backdrop-blur-sm hover:shadow-2xl transition-all duration-300">
                 <CardContent className="p-8">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -406,7 +406,7 @@ export default function ProfilePage() {
               </Card>
 
               {/* Request Details Card */}
-              <Card className="shadow-xl border-0 bg-white/70 backdrop-blur-sm hover:shadow-2xl transition-all duration-300">
+              <Card className="border-0 bg-white/70 backdrop-blur-sm hover:shadow-2xl transition-all duration-300">
                 <CardContent className="p-8">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">

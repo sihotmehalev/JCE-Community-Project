@@ -4,7 +4,7 @@ import { Card, CardContent } from "../ui/card";
 export default function RegisterLayout({ title, children, onSubmit, loading, message }) {
   return (
     <div className="flex items-center justify-center p-6">
-      <Card className="w-[500px] shadow-lg bg-gradient-to-br from-white to-orange-50/80">
+      <Card className="w-[500px] bg-gradient-to-br from-white to-orange-50/80">
         <CardContent className="px-8 py-6">
           <h2 className="text-2xl font-bold text-center mb-8 text-orange-800">{title}</h2>
           <form className="space-y-5" onSubmit={onSubmit}>
