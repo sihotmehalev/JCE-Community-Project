@@ -565,9 +565,7 @@ export default function RequesterDashboard() {
               <Empty text="אין בקשות הממתינות לאישור" />
             )}
           </div>
-        );
-
-      case "current":
+        );      case "current":
         return (
           <div className="space-y-4">
             {activeMatch ? (
@@ -575,7 +573,7 @@ export default function RequesterDashboard() {
                 match={activeMatch}
                 onOpenChat={openChat}
                 onCloseChat={closeChat}
-                isChatOpen={!!unsubChat.current}
+                activeMatchId={activeMatchId}
               />
             ) : (
               <Empty text="אין שיבוץ נוכחי" />
