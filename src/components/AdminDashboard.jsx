@@ -12,7 +12,8 @@ import {
   where, 
   addDoc,
   getDoc, 
-  increment
+  increment,
+  deleteDoc
 } from "firebase/firestore";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
@@ -58,7 +59,8 @@ import {
 } from "./firebaseHelpers";
 import LoadingSpinner from "../components/LoadingSpinner";
 import EventCreation from "./EventAdminManger/AdminAddEvent";
-import { AdminEventList } from './EventAdminManger/AdminEventList'
+import { AdminEventList } from './EventAdminManger/AdminEventList';
+import { CancelMatchModal } from './ui/CancelMatchModal';
 
 export default function AdminDashboard() {
   // State Management
@@ -112,6 +114,9 @@ export default function AdminDashboard() {
 
   // New states for session summary
   const [selectedSessionForView, setSelectedSessionForView] = useState(null);
+
+  // New state for cancel match modal
+  const [showCancelMatchModal, setShowCancelMatchModal] = useState(false);
 
   // useEffect for resetting currentPage (moved here to ensure unconditional call)
   useEffect(() => {
@@ -304,7 +309,6 @@ export default function AdminDashboard() {
         startDate: new Date(),
         endDate: null,
         meetingFrequency: "weekly",
-        lastSessionId: null,
         totalSessions: 0,
         notes: ""
       });
@@ -425,7 +429,6 @@ export default function AdminDashboard() {
         startDate: new Date(),
         endDate: null,
         meetingFrequency: "weekly",
-        lastSessionId: null,
         totalSessions: 0,
         notes: "Manual match by admin"
       });
@@ -474,6 +477,52 @@ export default function AdminDashboard() {
 
   if (loading) {
     return <LoadingSpinner />;
+  }
+
+  const cancelMatch = async (match_id) => {
+    try {
+      // Get match document first
+      const matchDoc = await getDoc(doc(db, "Matches", match_id));
+      if (!matchDoc.exists()) {
+        throw new Error("Match not found");
+      }
+      
+      const matchData = matchDoc.data();
+      const vol_id = matchData.volunteerId;
+      const request_id = matchData.requestId;
+
+      // Get volunteer document to update their activeMatchIds
+      const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", vol_id));
+      const currentMatches = volunteerDoc.data().activeMatchIds || [];
+      const updatedMatches = currentMatches.filter(id => id !== match_id);
+
+      // Run all updates in parallel for better performance
+      await Promise.all([
+        // Delete match
+        deleteDoc(doc(db, "Matches", match_id)),
+
+        // Update request status
+        updateDoc(doc(db, "Requests", request_id), {
+          status: "waiting_for_first_approval",
+          volunteerId: null
+        }),
+
+        // Update volunteer's active matches
+        updateDoc(doc(db, "Users", "Info", "Volunteers", vol_id), {
+          activeMatchIds: updatedMatches
+        })
+      ]);
+
+      // Update UI
+      setActiveMatches(prev => prev.filter(match => match.id !== match_id));
+      setShowCancelMatchModal(false);
+      alert("ההתאמה בוטלה בהצלחה");
+
+    } catch (error) {
+      console.error("Error cancelling match:", error);
+      alert("שגיאה בביטול ההתאמה");
+    }
+  
   }
 
   // Filter and sort users for the All Users table
@@ -1053,6 +1102,7 @@ export default function AdminDashboard() {
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב{matchSortColumn === 'volunteerInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('meetingFrequency')}>תדירות פגישות{matchSortColumn === 'meetingFrequency' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                           <th className="border border-orange-100 p-2 text-orange-800">סיכום</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">ביטול התאמה</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1122,6 +1172,19 @@ export default function AdminDashboard() {
                                 >
                                   פירוט
                                 </span>
+                              </td>
+                              <td className="border border-orange-100 p-2 text-center">
+                                <Button
+                                  className="text-red-600 hover:text-red-800"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedMatchForDetails(match.id);
+                                    setShowSessionDetails(false);
+                                    setShowCancelMatchModal(true);
+                                  }}
+                                >
+                                  ביטול התאמה
+                                </Button>
                               </td>
                             </tr>
                           ))}
@@ -1392,6 +1455,13 @@ export default function AdminDashboard() {
         isOpen={!!selectedSessionForView}
         onClose={() => setSelectedSessionForView(null)}
         sessionSummary={selectedSessionForView}
+      />
+
+      <CancelMatchModal
+        isOpen={showCancelMatchModal}
+        onClose={() => setShowCancelMatchModal(false)}
+        match={activeMatches.find(m => m.id === selectedMatchForDetails)}
+        onConfirm={() => cancelMatch(selectedMatchForDetails)}
       />
     </div>
   );
