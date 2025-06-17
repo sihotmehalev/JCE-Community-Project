@@ -19,6 +19,7 @@ import { Button } from "../ui/button";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { Card } from "../ui/card";
 import { X } from "lucide-react";
+import CustomAlert from "../ui/CustomAlert";
 
 /* ────────────────────────── helpers ────────────────────────── */
 
@@ -136,9 +137,11 @@ export default function RequesterDashboard() {
   const [setActiveMatchId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState("");
-  const [userData, setUserData] = useState(null);  const [requestLoading, setRequestLoading] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [requestLoading, setRequestLoading] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [activeTab, setActiveTab] = useState("available");
+  const [alertMessage, setAlertMessage] = useState(null);
 
   // Set the appropriate first tab when switching modes
   useEffect(() => {
@@ -323,13 +326,13 @@ export default function RequesterDashboard() {
       // First verify the volunteer is still available
       const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", volunteerId));
       if (!volunteerDoc.exists()) {
-        alert("המתנדב/ת לא נמצא/ה במערכת");
+        setAlertMessage({ message: "המתנדב/ת לא נמצא/ה במערכת", type: "error" });
         return;
       }
       
       const volunteerData = volunteerDoc.data();
       if (!volunteerData.isAvailable || !volunteerData.approved) {
-        alert("המתנדב/ת אינו/ה זמין/ה כעת");
+        setAlertMessage({ message: "המתנדב/ת אינו/ה זמין/ה כעת", type: "error" });
         return;
       }
 
@@ -358,10 +361,10 @@ export default function RequesterDashboard() {
       const updatedVolunteers = availableVolunteers.filter(v => v.id !== volunteerId);
       setAvailableVolunteers(updatedVolunteers);
       
-      alert("הבקשה נשלחה בהצלחה וממתינה לאישור מנהל");
+      setAlertMessage({ message: "הבקשה נשלחה בהצלחה וממתינה לאישור מנהל", type: "success" });
     } catch (error) {
       console.error("Error requesting volunteer:", error);
-      alert("אירעה שגיאה בשליחת הבקשה. אנא נסה שוב");
+      setAlertMessage({ message: "אירעה שגיאה בשליחת הבקשה. אנא נסה שוב", type: "error" });
     } finally {
       setRequestLoading(false);
     }
@@ -551,6 +554,12 @@ export default function RequesterDashboard() {
         setNewMsg={setNewMsg}
         onSend={sendMessage}
         chatPartnerName={activeMatch?.volunteer?.fullName || 'שיחה'}
+      />
+
+      <CustomAlert
+        message={alertMessage?.message}
+        onClose={() => setAlertMessage(null)}
+        type={alertMessage?.type}
       />
     </div>
   );

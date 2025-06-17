@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, updateDoc, doc, query, orderBy, deleteDoc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '../../../config/firebaseConfig';
 import { Card, CardContent } from '../../../components/ui/card';
+import CustomAlert from "../../ui/CustomAlert";
 
 export const AdminEventList = () => {
     const [events, setEvents] = useState([]);
@@ -12,6 +13,7 @@ export const AdminEventList = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [editForm, setEditForm] = useState({});
     const [validationErrors, setValidationErrors] = useState({});
+    const [alertMessage, setAlertMessage] = useState(null);
 
     useEffect(() => {
         const eventsQuery = query(
@@ -150,7 +152,7 @@ export const AdminEventList = () => {
         }
         catch (error) {
             console.error("Error deleting event:", error);
-            alert('שגיאה במחיקת האירוע');
+            setAlertMessage({ message: 'שגיאה במחיקת האירוע', type: 'error' });
         }
     }
 
@@ -184,7 +186,7 @@ export const AdminEventList = () => {
         if (field === 'scheduled_time') {
             const newDate = new Date(value);
             if (field === 'scheduled_time' && newDate.getTime() < Date.now()) {
-                alert('יש לבחור זמן עתידי לאירוע');
+                setAlertMessage({ message: 'יש לבחור זמן עתידי לאירוע', type: 'error' });
                 return;
             }
             if (!isNaN(newDate.getTime())) {
@@ -202,7 +204,7 @@ export const AdminEventList = () => {
     const updateEvent = async () => {
         if (!editForm || !editForm.id) {
             console.error("No event data to update");
-            alert('שגיאה: לא נמצאו נתונים לעדכון');
+            setAlertMessage({ message: 'שגיאה: לא נמצאו נתונים לעדכון', type: 'error' });
             return;
         }
 
@@ -220,7 +222,7 @@ export const AdminEventList = () => {
 
         if (Object.keys(allErrors).length > 0) {
             setValidationErrors(allErrors);
-            alert('יש שגיאות בטופס, אנא תקן אותן לפני השמירה');
+            setAlertMessage({ message: 'יש שגיאות בטופס, אנא תקן אותן לפני השמירה', type: 'error' });
             return;
         }
 
@@ -236,10 +238,10 @@ export const AdminEventList = () => {
             await updateDoc(eventRef, eventData);
             setEvents(events.map(event => event.id === eventData.id ? eventData : event));
             closeModal();
-            alert('האירוע עודכן בהצלחה!');
+            setAlertMessage({ message: 'האירוע עודכן בהצלחה!', type: 'success' });
         } catch (error) {
             console.error("Error updating event:", error);
-            alert('שגיאה בעדכון האירוע');
+            setAlertMessage({ message: 'שגיאה בעדכון האירוע', type: 'error' });
         }
     }
 
@@ -528,6 +530,11 @@ export const AdminEventList = () => {
                     </div>
                 )}
             </CardContent>
+            <CustomAlert
+                message={alertMessage?.message}
+                onClose={() => setAlertMessage(null)}
+                type={alertMessage?.type}
+            />
         </Card>
     );
 };

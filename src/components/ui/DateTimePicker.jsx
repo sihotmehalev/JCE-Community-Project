@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import CustomAlert from "./CustomAlert";
 
 export default function DateTimePicker({ onSelect, onCancel, initialDateTime }) {
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [selectedDay, setSelectedDay] = useState('');
+  const [alertMessage, setAlertMessage] = useState(null);
 
   const daysOfWeek = [
     'ראשון',
@@ -23,7 +25,7 @@ export default function DateTimePicker({ onSelect, onCancel, initialDateTime }) 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!selectedDay || !selectedTime) {
-      alert('נא לבחור יום ושעה');
+      setAlertMessage({ message: 'נא לבחור יום ושעה', type: 'error' });
       return;
     }
     onSelect(`יום ${selectedDay}, ${selectedTime}`);
@@ -99,6 +101,11 @@ export default function DateTimePicker({ onSelect, onCancel, initialDateTime }) 
           </div>
         </form>
       </div>
+      <CustomAlert
+        message={alertMessage?.message}
+        onClose={() => setAlertMessage(null)}
+        type={alertMessage?.type}
+      />
     </div>
   );
 } 

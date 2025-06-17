@@ -19,6 +19,7 @@ import {
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import LoadingSpinner from "../ui/LoadingSpinner";
+import CustomAlert from "../ui/CustomAlert";
 
 /* ────────────────────────── helpers ────────────────────────── */
 
@@ -64,7 +65,10 @@ export default function VolunteerDashboard() {
   const [newMsg, setNewMsg]           = useState("");
   const [userData, setUserData]        = useState(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [selectedMatch, setSelectedMatch] = useState(null);  const [activeTab, setActiveTab]     = useState("directRequests");  // Set the appropriate first tab when switching modes
+  const [selectedMatch, setSelectedMatch] = useState(null);
+  const [activeTab, setActiveTab]     = useState("directRequests");
+  const [alertMessage, setAlertMessage] = useState(null);
+
   useEffect(() => {
     if (personal) {
       setActiveTab("directRequests");
@@ -234,19 +238,24 @@ export default function VolunteerDashboard() {
     const ref = doc(db, "Requests", req.id);
     if (action === "accept") {
       await updateDoc(ref, { status: "waiting_for_admin_approval" });
+      setAlertMessage({ message: "הבקשה נשלחה לאישור מנהל.", type: "info" });
     } else if (action === "decline") {
       await updateDoc(ref, { status: "declined" });
+      setAlertMessage({ message: "הבקשה נדחתה בהצלחה.", type: "info" });
     } else if (action === "take") {
       await updateDoc(ref, {
         volunteerId: user.uid,
         initiatedBy: user.uid,
         status:      "waiting_for_admin_approval",
       });
+      setAlertMessage({ message: "הבקשה נלקחה ונשלחה לאישור מנהל.", type: "info" });
     } else if (action === "withdraw") {
       await updateDoc(ref, {
         volunteerId: null,
+        initiatedBy: null,
         status:      "waiting_for_first_approval",
       });
+      setAlertMessage({ message: "הבקשה הוחזרה למאגר הפתוח.", type: "info" });
     }
   };
 
@@ -296,24 +305,28 @@ export default function VolunteerDashboard() {
     try {
       const sessionData = {
         matchId: match.id,
-        volunteerId: match.volunteerId,
+        volunteerId: user.uid,
         requesterId: match.requesterId,
-        scheduledTime: new Date(scheduledTime),
-        status: "scheduled",
-        notes: notes,
-        durationMinutes: duration,
+        scheduledTime: scheduledTime ? new Date(scheduledTime) : null,
+        durationMinutes: parseInt(duration, 10),
         location: location,
+        notes: notes,
+        status: "scheduled",
         createdAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, "Sessions"), sessionData);
-      console.log("Session scheduled successfully");
-      onSuccess?.();
-      return true;
+      const sessionRef = await addDoc(collection(db, "Sessions"), sessionData);
+
+      await updateDoc(doc(db, "Matches", match.id), {
+        lastSessionId: sessionRef.id,
+        totalSessions: (match.totalSessions || 0) + 1,
+      });
+      setAlertMessage({ message: "המפגש נקבע בהצלחה!", type: "success" });
+      onSuccess();
     } catch (error) {
       console.error("Error scheduling session:", error);
-      onError?.(error);
-      return false;
+      setAlertMessage({ message: "אירעה שגיאה בקביעת המפגש. אנא נסה שוב.", type: "error" });
+      onError(error);
     }
   };
   /* -------- render -------- */
@@ -494,6 +507,11 @@ export default function VolunteerDashboard() {
           handleScheduleSession={handleScheduleSession}
         />
       )}
+      <CustomAlert
+        message={alertMessage?.message}
+        onClose={() => setAlertMessage(null)}
+        type={alertMessage?.type}
+      />
     </div>
   );
 }
@@ -860,7 +878,6 @@ function SessionScheduler({ match, onClose, handleScheduleSession }) {
       location,
       notes,
       onSuccess: () => {
-        alert("המפגש נקבע בהצלחה!");
         onClose();
       },
       onError: (error) => {

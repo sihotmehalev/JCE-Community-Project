@@ -3,6 +3,7 @@ import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../../config/firebaseConfig';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
+import CustomAlert from "../../ui/CustomAlert";
 
 const AdminAddEvent = ({ onEventAdded }) => {
     const [formData, setFormData] = useState({
@@ -16,6 +17,7 @@ const AdminAddEvent = ({ onEventAdded }) => {
         image: ''
     });
     const [validationErrors, setValidationErrors] = useState({});
+    const [alertMessage, setAlertMessage] = useState(null);
 
     const validateField = (field, value) => {
         const errors = {};
@@ -101,7 +103,7 @@ const AdminAddEvent = ({ onEventAdded }) => {
 
         if (Object.keys(allErrors).length > 0) {
             setValidationErrors(allErrors);
-            alert('יש למלא את כל השדות הנדרשים בצורה תקינה');
+            setAlertMessage({ message: 'יש למלא את כל השדות הנדרשים בצורה תקינה', type: 'error' });
             return;
         }
 
@@ -113,11 +115,11 @@ const AdminAddEvent = ({ onEventAdded }) => {
                 scheduled_time: Timestamp.fromDate(new Date(formData.scheduled_time))
             };
             if (!eventData.scheduled_time || eventData.scheduled_time.toDate().getTime() < Date.now()) {
-                alert('יש לבחור זמן עתידי לאירוע');
+                setAlertMessage({ message: 'יש לבחור זמן עתידי לאירוע', type: 'error' });
                 return;
             }
             await addDoc(collection(db, "Events"), eventData);
-            alert('אירוע נוצר בהצלחה!');
+            setAlertMessage({ message: 'אירוע נוצר בהצלחה!', type: 'success' });
             
             setFormData({
                 name: '',
@@ -134,7 +136,7 @@ const AdminAddEvent = ({ onEventAdded }) => {
             }
         } catch (error) {
             console.error("Error creating event:", error);
-            alert('שגיאה ביצירת האירוע');
+            setAlertMessage({ message: 'שגיאה ביצירת האירוע', type: 'error' });
         }
     };
 
@@ -247,12 +249,17 @@ const AdminAddEvent = ({ onEventAdded }) => {
 
                     <Button
                         type="submit"
-                        className="w-full py-3 px-6 text-lg"
+                        className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded transition-colors"
                     >
                         צור אירוע
                     </Button>
                 </form>
             </CardContent>
+            <CustomAlert
+                message={alertMessage?.message}
+                onClose={() => setAlertMessage(null)}
+                type={alertMessage?.type}
+            />
         </Card>
     );
 };

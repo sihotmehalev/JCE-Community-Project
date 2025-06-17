@@ -21,6 +21,7 @@ import { generateRandomId } from "../../utils/firebaseHelpers";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import EventCreation from "../admin/event-management/AdminAddEvent";
 import { AdminEventList } from '../admin/event-management/AdminEventList'
+import CustomAlert from "../ui/CustomAlert";
 
 export default function AdminDashboard() {
   // State Management
@@ -71,6 +72,7 @@ export default function AdminDashboard() {
 
   // New states for session summary
   const [selectedSessionForView, setSelectedSessionForView] = useState(null);
+  const [alertMessage, setAlertMessage] = useState(null);
 
   // useEffect for resetting currentPage (moved here to ensure unconditional call)
   useEffect(() => {
@@ -228,22 +230,22 @@ export default function AdminDashboard() {
     try {
       await updateDoc(doc(db, "Users", "Info", "Volunteers", id), { approved: true });
       await setDoc(doc(db, "Users", "Info"), { Volunteers: increment(1) }, { merge: true });
-      alert("מתנדב אושר בהצלחה!");
+      setAlertMessage({ message: "מתנדב אושר בהצלחה!", type: "success" });
       fetchData();
     } catch (error) {
       console.error("Error approving volunteer:", error);
-      alert("שגיאה באישור המתנדב");
+      setAlertMessage({ message: "שגיאה באישור המתנדב", type: "error" });
     }
   };
 
   const declineVolunteer = async (id) => {
     try {
       await updateDoc(doc(db, "Users", "Info", "Volunteers", id), { approved: false });
-      alert("מתנדב נדחה בהצלחה.");
+      setAlertMessage({ message: "מתנדב נדחה בהצלחה.", type: "info" });
       fetchData();
     } catch (error) {
       console.error("Error declining volunteer:", error);
-      alert("שגיאה בדחיית המתנדב");
+      setAlertMessage({ message: "שגיאה בדחיית המתנדב", type: "error" });
     }
   };
 
@@ -290,11 +292,11 @@ export default function AdminDashboard() {
       });
 
       await batch.commit();
-      alert("הבקשה אושרה והתאמה נוצרה בהצלחה!");
+      setAlertMessage({ message: "הבקשה אושרה והתאמה נוצרה בהצלחה!", type: "success" });
       fetchData();
     } catch (error) {
       console.error("Error approving request:", error);
-      alert("שגיאה באישור הבקשה");
+      setAlertMessage({ message: "שגיאה באישור הבקשה", type: "error" });
     }
   };
 
@@ -319,11 +321,11 @@ export default function AdminDashboard() {
         }
       }
       
-      alert(suggestAnother ? "הבקשה נדחתה. ניתן לבחור מתנדב אחר." : "הבקשה נדחתה.");
+      setAlertMessage({ message: suggestAnother ? "הבקשה נדחתה. ניתן לבחור מתנדב אחר." : "הבקשה נדחתה.", type: "info" });
       fetchData();
     } catch (error) {
       console.error("Error declining request:", error);
-      alert("שגיאה בדחיית הבקשה");
+      setAlertMessage({ message: "שגיאה בדחיית הבקשה", type: "error" });
     }
   };
 
@@ -403,11 +405,11 @@ export default function AdminDashboard() {
       });
 
       await batch.commit();
-      alert("התאמה נוצרה בהצלחה!");
+      setAlertMessage({ message: "התאמה נוצרה בהצלחה!", type: "success" });
       fetchData();
     } catch (error) {
       console.error("Error creating match:", error);
-      alert("שגיאה ביצירת התאמה");
+      setAlertMessage({ message: "שגיאה ביצירת התאמה", type: "error" });
     }
   };
 
@@ -1351,6 +1353,13 @@ export default function AdminDashboard() {
         isOpen={!!selectedSessionForView}
         onClose={() => setSelectedSessionForView(null)}
         sessionSummary={selectedSessionForView}
+      />
+
+      {/* Custom Alert */}
+      <CustomAlert
+        message={alertMessage?.message}
+        onClose={() => setAlertMessage(null)}
+        type={alertMessage?.type}
       />
     </div>
   );

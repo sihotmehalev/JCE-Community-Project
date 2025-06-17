@@ -2,9 +2,10 @@ import { db } from "../config/firebaseConfig";
 import { collection, getDocs, addDoc, Timestamp } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import { EventSlider } from "../components/EventSlider/EventSlider";
+import CustomAlert from "../components/ui/CustomAlert";
 
 
-const handleAddEvent = async () => {
+const handleAddEvent = async (setAlertMessage) => {
     try {
       await addDoc(collection(db, "Events"), {
         Contact_info: "054-9876-333",
@@ -15,9 +16,10 @@ const handleAddEvent = async () => {
         scheduled_time: Timestamp.fromDate(new Date("2025-08-29T20:00:00+03:00")),
         status: "cancelled"
       });
-      alert("Event added successfully!");
+      setAlertMessage({ message: "Event added successfully!", type: "success" });
     } catch (error) {
       console.error("Error adding event:", error);
+      setAlertMessage({ message: `Error adding event: ${error.message}`, type: "error" });
     }
 };
 
@@ -25,6 +27,7 @@ export default function TestEventPage() {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [alertMessage, setAlertMessage] = useState(null);
 
     useEffect(() => {
         const fetchEvents = async () => {
@@ -56,8 +59,13 @@ export default function TestEventPage() {
             <h1 className="text-2xl font-bold mb-4">אירועים</h1>
             <EventSlider events={events} />
             <div>
-                <button onClick={handleAddEvent}>Add Second Event</button>
+                <button onClick={() => handleAddEvent(setAlertMessage)}>Add Second Event</button>
             </div>
+            <CustomAlert
+              message={alertMessage?.message}
+              onClose={() => setAlertMessage(null)}
+              type={alertMessage?.type}
+            />
         </div>
 
     );
