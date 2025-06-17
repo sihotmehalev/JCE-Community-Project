@@ -16,7 +16,7 @@ import { doc, getDoc } from "firebase/firestore";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import CustomAlert from "../components/ui/CustomAlert";
 
-const IDLE_TIMEOUT = 1 * 60 * 1000; // 1 minute in milliseconds (for testing)
+const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minute in milliseconds
 const WARNING_TIMEOUT = 10 * 1000; // 10 seconds before actual logout
 
 function ProtectedRoute({ children, allowedRoles }) {
