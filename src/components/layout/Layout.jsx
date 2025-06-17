@@ -9,7 +9,7 @@ export default function Layout({ children },) {
     const shouldShowEvents = showEventsPages.includes(location.pathname);
 
     return (
-        <div className="min-h-screen flex flex-col bg-gradient-to-br from-red-200 via-orange-200 to-red-300">
+        <div className="min-h-screen flex flex-col" style={{ background: 'radial-gradient(circle at 70% 10%, #ffd7bd 0%, #ffb488 50%, #f49b8c 100%)' }}>
             <Navbar />
 
             {/* Main Content */}
