@@ -4,13 +4,19 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../config/firebaseConfig";
 import { Card, CardContent } from "../ui/card";
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(prev => !prev);
+  };
 
   const checkUserRole = async (uid) => {
     // Check FirstLevel admins
@@ -102,8 +108,10 @@ export default function LoginPage() {
           <form className="space-y-5" onSubmit={handleLogin}>
             <div className="max-w-[300px] mx-auto">
               <div className="relative">
+                <label htmlFor="email" className="text-orange-700">אימייל</label>
                 <input
                   type="email"
+                  id="email"
                   placeholder="אימייל"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -114,14 +122,23 @@ export default function LoginPage() {
             </div>
             <div className="max-w-[300px] mx-auto">
               <div className="relative">
+                <label htmlFor="password" className="text-orange-700">סיסמה</label>
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
+                  id="password"
                   placeholder="סיסמה"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 outline-none text-sm transition-all duration-200 bg-white/70 backdrop-blur-sm hover:border-orange-300"
+                  className="w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 outline-none text-sm transition-all duration-200 bg-white/70 backdrop-blur-sm hover:border-orange-300 pl-10"
                 />
+                <button
+                  type="button"
+                  onClick={togglePasswordVisibility}
+                  className="absolute inset-y-12 left-0 pl-3 flex items-center text-gray-500"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
             <div className="max-w-[300px] mx-auto pt-2">

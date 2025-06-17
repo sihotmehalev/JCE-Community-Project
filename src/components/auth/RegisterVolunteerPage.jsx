@@ -4,6 +4,7 @@ import { auth, db } from "../../config/firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, increment, writeBatch, serverTimestamp } from "firebase/firestore";
 import RegisterLayout from "../layout/RegisterLayout";
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function RegisterVolunteerPage() {
   const genderOptions = ['זכר', 'נקבה', 'אחר'];
@@ -88,6 +89,11 @@ export default function RegisterVolunteerPage() {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(prev => !prev);
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -226,32 +232,47 @@ export default function RegisterVolunteerPage() {
       <div className="max-w-[400px] mx-auto space-y-4">
         {/* Basic Information */}
         <div className="space-y-4">
+          <label htmlFor="email" className="block text-sm font-medium text-orange-700">אימייל</label>
           <input
             type="email"
             name="email"
+            id="email"
             placeholder="אימייל"
             value={formData.email}
             onChange={handleChange}
             required
             className={inputClassName}
           />
-          <input
-            type="password"
-            name="password"
-            placeholder="סיסמה"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            className={inputClassName}
-          />
+          <label htmlFor="password" className="block text-sm font-medium text-orange-700">סיסמה</label>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              id="password"
+              placeholder="סיסמה"
+              value={formData.password}
+              onChange={handleChange}
+              required
+              className={`${inputClassName} pl-10`}
+            />
+            <button
+              type="button"
+              onClick={togglePasswordVisibility}
+              className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
         </div>
 
         {/* Personal Information */}
         <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
           <h3 className="font-semibold text-orange-800 mb-2">פרטים אישיים</h3>
+          <label htmlFor="fullName" className="block text-sm font-medium text-orange-700">שם מלא</label>
           <input
             type="text"
             name="fullName"
+            id="fullName"
             placeholder="שם מלא"
             value={formData.fullName}
             onChange={handleChange}
@@ -263,8 +284,10 @@ export default function RegisterVolunteerPage() {
           <div className="space-y-4">
             {/* Gender Field */}
             <div>
+              <label htmlFor="gender" className="block text-sm font-medium text-orange-700">מגדר</label>
               <select
                 name="gender"
+                id="gender"
                 value={formData.gender || ""}
                 onChange={handleChange}
                 required
@@ -277,8 +300,10 @@ export default function RegisterVolunteerPage() {
               </select>
               {showCustomInput.gender && (
                 <div className="mt-2">
+                  <label htmlFor="custom_gender">פרט/י מגדר</label>
                   <input
                     name="custom_gender"
+                    id="custom_gender"
                     placeholder="פרט/י מגדר"
                     value={customInputs.gender}
                     onChange={handleChange}
@@ -289,8 +314,10 @@ export default function RegisterVolunteerPage() {
             </div>
 
             {/* Age Field */}
+            <label htmlFor="age" className="block text-sm font-medium text-orange-700">גיל</label>
             <input
               name="age"
+              id="age"
               placeholder="גיל"
               value={formData.age}
               onChange={handleChange}
@@ -299,8 +326,10 @@ export default function RegisterVolunteerPage() {
 
             {/* Marital Status Field */}
             <div>
+              <label htmlFor="maritalStatus" className="block text-sm font-medium text-orange-700">מצב משפחתי</label>
               <select
                 name="maritalStatus"
+                id="maritalStatus"
                 value={formData.maritalStatus || ""}
                 onChange={handleChange}
                 required
@@ -313,8 +342,10 @@ export default function RegisterVolunteerPage() {
               </select>
               {showCustomInput.maritalStatus && (
                 <div className="mt-2">
+                  <label htmlFor="custom_maritalStatus">פרט/י מצב משפחתי</label>
                   <input
                     name="custom_maritalStatus"
+                    id="custom_maritalStatus"
                     placeholder="פרט/י מצב משפפחתי"
                     value={customInputs.maritalStatus}
                     onChange={handleChange}
@@ -326,8 +357,10 @@ export default function RegisterVolunteerPage() {
 
             {/* Profession Field */}
             <div>
+              <label htmlFor="profession" className="block text-sm font-medium text-orange-700">מקצוע</label>
               <select
                 name="profession"
+                id="profession"
                 value={formData.profession || ""}
                 onChange={handleChange}
                 required
@@ -340,8 +373,10 @@ export default function RegisterVolunteerPage() {
               </select>
               {showCustomInput.profession && (
                 <div className="mt-2">
+                  <label htmlFor="custom_profession">פרט/י מקצוע</label>
                   <input
                     name="custom_profession"
+                    id="custom_profession"
                     placeholder="פרט/י מקצוע"
                     value={customInputs.profession}
                     onChange={handleChange}
@@ -352,8 +387,10 @@ export default function RegisterVolunteerPage() {
             </div>
 
             {/* Phone Field */}
+            <label htmlFor="phone" className="block text-sm font-medium text-orange-700">טלפון</label>
             <input
               name="phone"
+              id="phone"
               placeholder="טלפון"
               value={formData.phone}
               onChange={handleChange}
@@ -361,8 +398,10 @@ export default function RegisterVolunteerPage() {
             />
 
             {/* Location Field */}
+            <label htmlFor="location" className="block text-sm font-medium text-orange-700">מקום מגורים</label>
             <input
               name="location"
+              id="location"
               placeholder="מקום מגורים"
               value={formData.location}
               onChange={handleChange}
@@ -377,8 +416,10 @@ export default function RegisterVolunteerPage() {
           
           {/* Experience Field */}
           <div>
+            <label htmlFor="experience" className="block text-sm font-medium text-orange-700">רמת ניסיון</label>
             <select
               name="experience"
+              id="experience"
               value={formData.experience || ""}
               onChange={handleChange}
               required
@@ -391,8 +432,10 @@ export default function RegisterVolunteerPage() {
             </select>
             {showCustomInput.experience && (
               <div className="mt-2">
+                <label htmlFor="custom_experience">פרט/י את הניסיון שלך</label>
                 <textarea
                   name="custom_experience"
+                  id="custom_experience"
                   placeholder="פרט/י את הניסיון שלך"
                   value={customInputs.experience}
                   onChange={handleChange}
@@ -447,8 +490,10 @@ export default function RegisterVolunteerPage() {
             </div>
             {formData.availableHours.includes('אחר') && (
               <div className="mt-2">
+                <label htmlFor="custom_availableHours">פרט/י שעות זמינות</label>
                 <input
                   name="custom_availableHours"
+                  id="custom_availableHours"
                   placeholder="פרט/י שעות זמינות"
                   value={customInputs.availableHours}
                   onChange={handleChange}
@@ -462,16 +507,20 @@ export default function RegisterVolunteerPage() {
         {/* Motivation and Strengths */}
         <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
           <h3 className="font-semibold text-orange-800 mb-2">מוטיבציה וחוזקות</h3>
+          <label htmlFor="strengths" className="block text-sm font-medium text-orange-700">מהם החוזקות שלך כאדם / כמתנדב?</label>
           <textarea
             name="strengths"
+            id="strengths"
             placeholder="מהם החוזקות שלך כאדם / כמתנדב?"
             value={formData.strengths}
             onChange={handleChange}
             rows="3"
             className={inputClassName}
           />
+          <label htmlFor="motivation" className="block text-sm font-medium text-orange-700">מה מביא אותך להתנדב במסגרת כזו?</label>
           <textarea
             name="motivation"
+            id="motivation"
             placeholder="מה מביא אותך להתנדב במסגרת כזו?"
             value={formData.motivation}
             onChange={handleChange}

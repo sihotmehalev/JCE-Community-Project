@@ -3,6 +3,7 @@ import { auth, db } from "../../config/firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, increment, writeBatch, collection, serverTimestamp } from "firebase/firestore";
 import RegisterLayout from "../layout/RegisterLayout";
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function RegisterRequesterPage() {
   const [formData, setFormData] = useState({
@@ -30,6 +31,7 @@ export default function RegisterRequesterPage() {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const genderOptions = ['זכר', 'נקבה', 'אחר'];
   const maritalStatusOptions = ['רווק/ה', 'נשוי/אה', 'גרוש/ה', 'אלמן/ה', 'אחר'];
@@ -201,6 +203,10 @@ export default function RegisterRequesterPage() {
     setLoading(false);
   };
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(prev => !prev);
+  };
+
   const inputClassName = "w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 outline-none text-sm transition-all duration-200 bg-white/70 backdrop-blur-sm hover:border-orange-300";
 
   return (
@@ -213,24 +219,37 @@ export default function RegisterRequesterPage() {
       <div className="max-w-[400px] mx-auto space-y-4">
         {/* Basic Information */}
         <div className="space-y-4">
+          <label htmlFor="email" className="block text-sm font-medium text-orange-700">אימייל</label>
           <input
             type="email"
             name="email"
+            id="email"
             placeholder="אימייל"
             value={formData.email}
             onChange={handleChange}
             required
             className={inputClassName}
           />
-          <input
-            type="password"
-            name="password"
-            placeholder="סיסמה"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            className={inputClassName}
-          />
+          <label htmlFor="password" className="block text-sm font-medium text-orange-700">סיסמה</label>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              id="password"
+              placeholder="סיסמה"
+              value={formData.password}
+              onChange={handleChange}
+              required
+              className={`${inputClassName} pl-10`}
+            />
+            <button
+              type="button"
+              onClick={togglePasswordVisibility}
+              className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
         </div>
 
         {/* Personal Information */}
