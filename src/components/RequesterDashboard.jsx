@@ -313,7 +313,6 @@ export default function RequesterDashboard() {
       { merge: true }
     );
   };
-
   const requestVolunteer = async (volunteerId) => {
     try {
       setRequestLoading(true);
@@ -351,14 +350,36 @@ export default function RequesterDashboard() {
         });
       }
       
-      // Clear selected volunteer from UI
-      const updatedVolunteers = availableVolunteers.filter(v => v.id !== volunteerId);
-      setAvailableVolunteers(updatedVolunteers);
-      
       alert("הבקשה נשלחה בהצלחה וממתינה לאישור");
+      
+      // Reload the page to refresh the UI
+      window.location.reload();
     } catch (error) {
       console.error("Error requesting volunteer:", error);
       alert("אירעה שגיאה בשליחת הבקשה. אנא נסה שוב");
+    } finally {
+      setRequestLoading(false);
+    }
+  };
+  
+  const cancelRequest = async (requestId) => {
+    try {
+      setRequestLoading(true);
+      
+      // Update the request to remove the volunteerId and initiatedBy fields
+      await updateDoc(doc(db, "Requests", requestId), {
+        volunteerId: null,
+        initiatedBy: null,
+        updatedAt: serverTimestamp(),
+      });
+      
+      alert("הבקשה בוטלה בהצלחה");
+      
+      // Reload the page to refresh the UI
+      window.location.reload();
+    } catch (error) {
+      console.error("Error canceling request:", error);
+      alert("אירעה שגיאה בביטול הבקשה. אנא נסה שוב");
     } finally {
       setRequestLoading(false);
     }
@@ -399,14 +420,16 @@ export default function RequesterDashboard() {
   /* -------- render -------- */
   if (!authChecked || loading) {
     return <LoadingSpinner />;
-  }
-  const renderTabContent = () => {
+  }  const renderTabContent = () => {
     switch (activeTab) {
       case "available":
         return personal ? (
           <div className="space-y-4">
-            {sortedVolunteers.length > 0 ? (
-              sortedVolunteers.map((vol) => (
+            {activeMatch ? (
+              <div className="bg-orange-100 border border-orange-200 rounded-lg p-4 text-orange-700 text-center">
+                <p className="font-medium">יש לך כבר שיבוץ פעיל עם מתנדב/ת. אין אפשרות לפנות למתנדבים נוספים.</p>
+              </div>
+            ) : sortedVolunteers.length > 0 ? (              sortedVolunteers.map((vol) => (
                 <VolunteerCard
                   key={vol.id}
                   volunteer={vol}
@@ -415,6 +438,7 @@ export default function RequesterDashboard() {
                   compatibilityScore={vol.compatibilityScore}
                   requestLoading={requestLoading}
                   pendingRequests={pendingRequests}
+                  cancelRequest={cancelRequest}
                 />
               ))
             ) : (
@@ -570,7 +594,7 @@ const Empty = ({ text }) => (
   </p>
 );
 
-function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore, requestLoading, pendingRequests }) {
+function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore, requestLoading, pendingRequests, cancelRequest }) {
   const formatList = (list) => {
     if (!list) return "—";
     if (Array.isArray(list)) {
@@ -583,6 +607,13 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
   const pendingRequest = pendingRequests.find(req => req.volunteerId === volunteer.id);
   const isPending = !!pendingRequest;
   const isWaitingForAdmin = pendingRequest?.status === "waiting_for_admin_approval";
+  
+  // Check if there's any pending request to any volunteer (to hide buttons for other volunteers)
+  const hasAnyPendingRequest = pendingRequests.some(req => req.volunteerId !== null);
+  const showOtherVolunteers = !hasAnyPendingRequest || isPending;
+  
+  // Don't show the button if this is not the pending volunteer and there's another pending request
+  const shouldShowButton = showOtherVolunteers || isPending;
 
   return (    <div className="border border-orange-100 rounded-lg p-4 bg-orange-100">
       {isRecommended && (
@@ -621,16 +652,27 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
         <p className="text-sm mb-3 text-orange-700">
           תדירות: {formatList(volunteer.frequency)}
         </p>
-      )}      <Button 
-        onClick={onRequest}
-        className={`${(requestLoading || isPending) ? 'opacity-50 cursor-not-allowed' : ''}`}
-        disabled={requestLoading || isPending}
-      >
-        {requestLoading ? 'שולח בקשה...' : 
-         isWaitingForAdmin ? 'ממתין לאישור מנהל' :
-         isPending ? 'ממתין לאישור מתנדב/ת' :
-         'פנה למתנדב/ת'}
-      </Button>
+      )}
+      
+      {shouldShowButton && (
+        isPending ? (
+          <Button 
+            onClick={() => cancelRequest(pendingRequest.id)}
+            className={requestLoading ? 'opacity-50 cursor-not-allowed bg-red-600 hover:bg-red-700' : 'bg-red-600 hover:bg-red-700'}
+            disabled={requestLoading}
+          >
+            {requestLoading ? 'מבטל בקשה...' : 'בטל בקשה'}
+          </Button>
+        ) : (
+          <Button 
+            onClick={onRequest}
+            className={requestLoading ? 'opacity-50 cursor-not-allowed' : ''}
+            disabled={requestLoading}
+          >
+            {requestLoading ? 'שולח בקשה...' : 'פנה למתנדב/ת'}
+          </Button>
+        )
+      )}
     </div>
   );
 }
