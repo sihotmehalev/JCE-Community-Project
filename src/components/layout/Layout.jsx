@@ -1,6 +1,7 @@
 import Navbar from './Navbar';
 import { EventSlider } from "../../components/EventSlider/EventSlider";
 import { useLocation } from 'react-router-dom';
+import FlyingHearts from '../ui/FlyingHearts';
 
 export default function Layout({ children },) {
 
@@ -10,10 +11,11 @@ export default function Layout({ children },) {
 
     return (
         <div className="min-h-screen flex flex-col" style={{ background: 'radial-gradient(circle at 70% 10%, #ffd7bd 0%, #ffb488 50%, #f49b8c 100%)' }}>
+            <FlyingHearts />
             <Navbar />
 
             {/* Main Content */}
-            <main className="container mx-auto px-4 py-4 items-center justify-center">
+            <main className="container mx-auto px-4 py-4 items-center justify-center" style={{ position: 'relative', zIndex: 1 }}>
                 {children}
             </main>
 
