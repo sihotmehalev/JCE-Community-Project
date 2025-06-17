@@ -178,13 +178,20 @@ const reqPass  = (i) => `req${i}Ttest`;
 const volEmail = (i) => `vol${i}T@test.com`;
 const volPass  = (i) => `vol${i}Ttest`;
 
+const getRandomDateInLastMonth = () => {
+  const now = new Date();
+  const ninetyDaysAgo = new Date(now.setDate(now.getDate() - 90));
+  const randomTime = ninetyDaysAgo.getTime() + Math.random() * (new Date().getTime() - ninetyDaysAgo.getTime());
+  return new Date(randomTime);
+};
+
 /*─────────────────────────────────────────────────────────────────────*
  |                            4. GENERATE                              |
  *─────────────────────────────────────────────────────────────────────*/
 async function generate() {
-  const requesterCount = 0;   // מספר מבקשים
+  const requesterCount = 3;   // מספר מבקשים
   const volunteerCount = 3;    // מספר מתנדבים
-  const startId        = 6;    // מתחילים מ-1 לשני הסוגים
+  const startId        = 25;    // מתחילים מ-1 לשני הסוגים
 
   console.log(`\n➤ יוצר ${requesterCount} מבקשים ו-${volunteerCount} מתנדבים (IDs 1..)…\n`);
 
@@ -218,7 +225,9 @@ async function generate() {
       note: "",
       personal: true,
       activeMatchId: null,
-      createdAt: new Date()
+      approved: "true",
+      createdAt: new Date(),
+      lastActivity: getRandomDateInLastMonth()
     });
 
     await db.collection("Requests").add({
@@ -256,11 +265,12 @@ async function generate() {
       strengths: rand(strengthsPool),
       motivation: rand(motivationPool),
       agree: true,
-      approved: false,
+      approved: "pending",
       isAvailable: true,
       activeMatchIds: [],
       requestIds: [],
-      createdAt: new Date()
+      createdAt: new Date(),
+      lastActivity: getRandomDateInLastMonth()
     });
 
     console.log(`   ✓ Volunteer ${email} נוצר`);

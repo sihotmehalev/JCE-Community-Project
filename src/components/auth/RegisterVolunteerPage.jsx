@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { auth, db } from "../../config/firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, increment, writeBatch } from "firebase/firestore";
+import { doc, increment, writeBatch, serverTimestamp } from "firebase/firestore";
 import RegisterLayout from "../layout/RegisterLayout";
 
 export default function RegisterVolunteerPage() {
@@ -186,11 +186,12 @@ export default function RegisterVolunteerPage() {
         availableHours: formData.availableHours.includes('אחר') 
           ? [...formData.availableHours.filter(h => h !== 'אחר'), customInputs.availableHours] 
           : formData.availableHours,
-        approved: false,
+        approved: "pending",
         isAvailable: true,
         activeMatchIds: [],
         requestIds: [],
         createdAt: new Date(),
+        lastActivity: serverTimestamp(),
       };
 
       // Add user data to Users/Info/Volunteers collection
@@ -314,7 +315,7 @@ export default function RegisterVolunteerPage() {
                 <div className="mt-2">
                   <input
                     name="custom_maritalStatus"
-                    placeholder="פרט/י מצב משפחתי"
+                    placeholder="פרט/י מצב משפפחתי"
                     value={customInputs.maritalStatus}
                     onChange={handleChange}
                     className={inputClassName}

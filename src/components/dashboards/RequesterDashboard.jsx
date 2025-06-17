@@ -172,6 +172,7 @@ export default function RequesterDashboard() {
           // first login → create skeleton profile
           await setDoc(reqRef, {
             personal: true, // default to פנייה ישירה למתנדב
+            approved: "true", // Add approved status for consistency
             createdAt: serverTimestamp(),
           });
           return; // wait for next snapshot

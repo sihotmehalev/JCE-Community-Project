@@ -34,7 +34,7 @@ export default function InitTestData() {
         age: 35,
         profession: "יועץ נפשי",
         experience: "5 שנים",
-        approved: true,
+        approved: "pending",
         createdAt: serverTimestamp()
       }, { merge: true });
       log.push("✅ פרופיל המתנדב עודכן");

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../config/firebaseConfig";
 import { Card, CardContent } from "../ui/card";
 
@@ -41,13 +41,33 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const userCred = await signInWithEmailAndPassword(auth, email, password);
-      const userInfo = await checkUserRole(userCred.user.uid);
+      const uid = userCred.user.uid;
+      const userInfo = await checkUserRole(uid);
 
       if (!userInfo) {
         throw new Error("User record not found");
       }
 
       const { role, data } = userInfo;
+
+      // Determine the correct Firestore collection path for the user's role
+      let userDocPath;
+      if (role === "volunteer") {
+        userDocPath = doc(db, "Users", "Info", "Volunteers", uid);
+      } else if (role === "requester") {
+        userDocPath = doc(db, "Users", "Info", "Requesters", uid);
+      } else if (role === "admin-first") {
+        userDocPath = doc(db, "Users", "Info", "Admins", "Level", "FirstLevel", uid);
+      } else if (role === "admin-second") {
+        userDocPath = doc(db, "Users", "Info", "Admins", "Level", "SecondLevel", uid);
+      }
+
+      // Update lastActivity timestamp in Firestore
+      if (userDocPath) {
+        await updateDoc(userDocPath, {
+          lastActivity: serverTimestamp()
+        });
+      }
 
       switch (role) {
         case "admin-first":

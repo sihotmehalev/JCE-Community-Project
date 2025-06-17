@@ -168,7 +168,9 @@ export default function RegisterRequesterPage() {
           formData.chatPref,
         personal: true,
         activeMatchId: null,
+        approved: "true",
         createdAt: new Date(),
+        lastActivity: serverTimestamp(),
       };      // Add user data to Users/Info/Requesters collection
       const userDocRef = doc(db, "Users", "Info", "Requesters", uid);
       batch.set(userDocRef, finalData);

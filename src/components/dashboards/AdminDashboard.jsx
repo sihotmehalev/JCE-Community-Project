@@ -97,27 +97,79 @@ export default function AdminDashboard() {
 
       // Fetch requesters
       const requestersSnap = await getDocs(collection(db, "Users", "Info", "Requesters"));
-      const r = requestersSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        role: "requester"
-      }));
+      const r = requestersSnap.docs.map(doc => {
+        const data = doc.data();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const lastActivityTimestamp = data.lastActivity || data.lastLogin || data.createdAt;
+        let isActiveByTime = false;
+        if (lastActivityTimestamp) {
+            const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
+            isActiveByTime = lastActivityDate >= thirtyDaysAgo;
+        }
+
+        const requesterDerivedStatus = (
+          data.agree1 === true && 
+          data.agree2 === true && 
+          data.agree3 === true && 
+          isActiveByTime
+        ) ? "פעיל" : "לא פעיל";
+
+        return {
+          id: doc.id,
+          ...data,
+          role: "requester",
+          derivedDisplayStatus: requesterDerivedStatus,
+          lastActivity: lastActivityTimestamp
+        };
+      });
 
       // Fetch admins
       const adminsFirst = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "FirstLevel"));
       const adminsSecond = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "SecondLevel"));
       
       const a = [
-        ...adminsFirst.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          role: "admin-first"
-        })),
-        ...adminsSecond.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          role: "admin-second"
-        }))
+        ...adminsFirst.docs.map(doc => {
+          const data = doc.data();
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+          const lastActivityTimestamp = data.lastActivity || data.lastLogin || data.createdAt;
+          let isActiveByTime = false;
+          if (lastActivityTimestamp) {
+              const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
+              isActiveByTime = lastActivityDate >= thirtyDaysAgo;
+          }
+
+          return {
+            id: doc.id,
+            ...data,
+            role: "admin-first",
+            derivedDisplayStatus: isActiveByTime ? "פעיל" : "לא פעיל", // Admins are active based on login
+            lastActivity: lastActivityTimestamp
+          };
+        }),
+        ...adminsSecond.docs.map(doc => {
+          const data = doc.data();
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+          const lastActivityTimestamp = data.lastActivity || data.lastLogin || data.createdAt;
+          let isActiveByTime = false;
+          if (lastActivityTimestamp) {
+              const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
+              isActiveByTime = lastActivityDate >= thirtyDaysAgo;
+          }
+
+          return {
+            id: doc.id,
+            ...data,
+            role: "admin-second",
+            derivedDisplayStatus: isActiveByTime ? "פעיל" : "לא פעיל", // Admins are active based on login
+            lastActivity: lastActivityTimestamp
+          };
+        })
       ];
 
       // Fetch pending requests (waiting_for_admin_approval)
@@ -172,9 +224,42 @@ export default function AdminDashboard() {
         })
       );
 
-      setVolunteers(v);
+      setVolunteers(v.map(vol => {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const lastActivityTimestamp = vol.lastActivity || vol.lastLogin || vol.createdAt;
+        let isActiveByTime = false;
+        if (lastActivityTimestamp) {
+            const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
+            isActiveByTime = lastActivityDate >= thirtyDaysAgo;
+        }
+
+        let volunteerDerivedStatus;
+        if (vol.approved === "true" && isActiveByTime) {
+            volunteerDerivedStatus = "פעיל";
+        } else if (vol.approved === "pending") {
+            volunteerDerivedStatus = "ממתין לאישור";
+        } else if (vol.approved === "declined") {
+            volunteerDerivedStatus = "נדחה";
+        } else {
+            volunteerDerivedStatus = "לא פעיל"; // Default for non-approved or inactive
+        }
+
+        return {
+            ...vol,
+            derivedDisplayStatus: volunteerDerivedStatus,
+            lastActivity: lastActivityTimestamp
+        };
+    }));
       setRequesters(r);
-      setAllUsers([...v, ...r, ...a]);
+      setAllUsers([
+        ...v.map(vol => ({
+            ...vol,
+            derivedDisplayStatus: vol.approved === "true" ? "פעיל" : (vol.approved === "pending" ? "ממתין לאישור" : "נדחה")
+        })),
+        ...r,
+        ...a
+      ]);
       setPendingRequests(pending);
       setActiveMatches(matches);
       
@@ -228,7 +313,7 @@ export default function AdminDashboard() {
 
   const approveVolunteer = async (id) => {
     try {
-      await updateDoc(doc(db, "Users", "Info", "Volunteers", id), { approved: true });
+      await updateDoc(doc(db, "Users", "Info", "Volunteers", id), { approved: "true" });
       await setDoc(doc(db, "Users", "Info"), { Volunteers: increment(1) }, { merge: true });
       setAlertMessage({ message: "מתנדב אושר בהצלחה!", type: "success" });
       fetchData();
@@ -240,7 +325,7 @@ export default function AdminDashboard() {
 
   const declineVolunteer = async (id) => {
     try {
-      await updateDoc(doc(db, "Users", "Info", "Volunteers", id), { approved: false });
+      await updateDoc(doc(db, "Users", "Info", "Volunteers", id), { approved: "declined" });
       setAlertMessage({ message: "מתנדב נדחה בהצלחה.", type: "info" });
       fetchData();
     } catch (error) {
@@ -445,8 +530,7 @@ export default function AdminDashboard() {
     )
     .filter(u => {
       if (roleFilter !== "all" && u.role !== roleFilter) return false;
-      if (statusFilter === "approved" && u.approved === false) return false;
-      if (statusFilter === "pending" && (u.approved === true || u.approved === undefined)) return false;
+      if (statusFilter !== "all" && u.derivedDisplayStatus !== statusFilter) return false;
       if (personalFilter === "true" && !u.personal) return false;
       if (personalFilter === "false" && u.personal) return false;
       if (activeMatchesFilter === "hasMatches" && (!u.activeMatchIds || u.activeMatchIds.length === 0)) return false;
@@ -463,8 +547,10 @@ export default function AdminDashboard() {
         aValue = a[sortColumn]?.length || 0;
         bValue = b[sortColumn]?.length || 0;
       } else if (sortColumn === 'approved') {
-        aValue = a[sortColumn] === undefined ? true : a[sortColumn];
-        bValue = b[sortColumn] === undefined ? true : b[sortColumn];
+        // Sort by derivedDisplayStatus, custom order: pending, declined, inactive, active
+        const statusOrder = { "ממתין לאישור": 1, "נדחה": 2, "לא פעיל": 3, "פעיל": 4 };
+        aValue = statusOrder[a.derivedDisplayStatus] || 99; // Assign a high value for unknown statuses
+        bValue = statusOrder[b.derivedDisplayStatus] || 99;
       } else if (sortColumn === 'personal') {
         aValue = a[sortColumn] === undefined ? false : a[sortColumn];
         bValue = b[sortColumn] === undefined ? false : b[sortColumn];
@@ -506,7 +592,7 @@ export default function AdminDashboard() {
           onClick={() => setActiveTab("volunteers")}
           className="py-3 px-6 text-lg"
         >
-          מתנדבים לאישור ({volunteers.filter(v => !v.approved).length})
+          מתנדבים לאישור ({volunteers.filter(v => v.approved === "pending").length})
         </Button>
         <Button
           variant={activeTab === "approvals" ? "default" : "outline"}
@@ -559,11 +645,11 @@ export default function AdminDashboard() {
             <h3 className="font-semibold mb-4 text-orange-700">
               מתנדבים ממתינים לאישור
             </h3>
-            {volunteers.filter(v => !v.approved).length === 0 ? (
+            {volunteers.filter(v => v.approved === "pending").length === 0 ? (
               <p className="text-orange-600/80">אין מתנדבים בהמתנה.</p>
             ) : (
               <div className="space-y-2">
-                {volunteers.filter(v => !v.approved).map(v => (
+                {volunteers.filter(v => v.approved === "pending").map(v => (
                   <div key={v.id} className="flex justify-between items-start bg-orange-50/50 p-3 rounded border border-orange-100">
                     <div className="flex-grow">
                       <div className="grid grid-cols-2 gap-x-8 w-full">
@@ -1230,6 +1316,8 @@ export default function AdminDashboard() {
                   <option value="all">כל הסטטוסים</option>
                   <option value="approved">פעיל</option>
                   <option value="pending">ממתין לאישור</option>
+                  <option value="declined">נדחה</option>
+                  <option value="לא פעיל">לא פעיל</option>
                 </select>
               </div>
 
@@ -1278,7 +1366,11 @@ export default function AdminDashboard() {
                 <tbody>
                   {currentUsers.map(u => (
                     <tr key={`${u.id}-${u.role}`} className="hover:bg-orange-50/50">
-                      <td className="border border-orange-100 p-2 text-orange-700">{u.fullName}</td>
+                      <td className="border border-orange-100 p-2 text-orange-700">
+                        <HoverCard user={u}>
+                          {u.fullName}
+                        </HoverCard>
+                      </td>
                       <td className="border border-orange-100 p-2 text-orange-700">{u.email}</td>
                       <td className="border border-orange-100 p-2 text-orange-700">
                         {u.role === 'volunteer' && 'מתנדב'}
@@ -1287,10 +1379,17 @@ export default function AdminDashboard() {
                         {u.role === 'admin-second' && 'מנהל רמה 2'}
                       </td>
                       <td className="border border-orange-100 p-2 text-center">
-                        {u.approved === false ? (
+                        {u.derivedDisplayStatus === "ממתין לאישור" && (
                           <span className="text-red-600">ממתין לאישור</span>
-                        ) : (
+                        )}
+                        {u.derivedDisplayStatus === "פעיל" && (
                           <span className="text-green-600">פעיל</span>
+                        )}
+                        {u.derivedDisplayStatus === "נדחה" && (
+                          <span className="text-gray-500">נדחה</span>
+                        )}
+                        {u.derivedDisplayStatus === "לא פעיל" && (
+                          <span className="text-red-600">לא פעיל</span>
                         )}
                       </td>
                       <td className="border border-orange-100 p-2 text-center">
