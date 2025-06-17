@@ -18,7 +18,7 @@ import {
 import { Button } from "../ui/button";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { Card } from "../ui/card";
-import { User, Calendar, Clock, MessageCircle, Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 
 /* ────────────────────────── helpers ────────────────────────── */
 
@@ -130,14 +130,16 @@ export default function RequesterDashboard() {
   const [availableVolunteers, setAvailableVolunteers] = useState([]);
   const [sortedVolunteers, setSortedVolunteers] = useState([]);
   const [adminApprovalRequests, setAdminApprovalRequests] = useState([]);
+  // eslint-disable-next-line no-unused-vars
   const [matches, setMatches] = useState([]);
   const [activeMatch, setActiveMatch] = useState(null);
-  const [activeMatchId, setActiveMatchId] = useState(null);
+  const [setActiveMatchId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState("");
   const [userData, setUserData] = useState(null);  const [requestLoading, setRequestLoading] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [activeTab, setActiveTab] = useState("available");
+
   // Set the appropriate first tab when switching modes
   useEffect(() => {
     if (personal) {
@@ -556,6 +558,7 @@ export default function RequesterDashboard() {
 
 /* ────────────────────────── presentational helpers ───────────────────────── */
 
+// eslint-disable-next-line no-unused-vars
 const Section = ({ title, empty, children }) => (
   <>
     <h2 className="text-xl font-semibold text-orange-800 mb-2">{title}</h2>

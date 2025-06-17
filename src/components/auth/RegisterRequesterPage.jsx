@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { auth, db } from "../../config/firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc, getDoc, increment, writeBatch, collection, serverTimestamp } from "firebase/firestore";
+import { doc, increment, writeBatch, collection, serverTimestamp } from "firebase/firestore";
 import RegisterLayout from "../layout/RegisterLayout";
 
 export default function RegisterRequesterPage() {

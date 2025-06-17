@@ -10,7 +10,6 @@ import {
   writeBatch, 
   query, 
   where, 
-  addDoc,
   getDoc, 
   increment
 } from "firebase/firestore";
@@ -19,43 +18,6 @@ import { Button } from "../ui/button";
 import { HoverCard } from "../ui/HoverCard";
 import AISuggestionModal from '../modals/AISuggestionModal';
 import { generateRandomId } from "../../utils/firebaseHelpers";
-import {
-  timestamp,
-  auth,
-  emailAuthProvider,
-  requestPasswordReset,
-  logInWithEmailAndPassword,
-  registerWithEmailAndPassword,
-  sendEmailVerification,
-  sendPasswordReset,
-  signInWithGoogle,
-  logout,
-  checkAuthStatus,
-  getCurrentUser,
-  uploadFile,
-  getImageURL,
-  addDocument,
-  setDocument,
-  getDocument,
-  updateDocument,
-  deleteDocument,
-  getDocuments,
-  addVolunteer,
-  addRequest,
-  getRequests,
-  getVolunteer,
-  getVolunteers,
-  updateRequest,
-  updateVolunteer,
-  updateUser,
-  sendRequestChat,
-  getVolunteerRequests,
-  getRequesterRequests,
-  fetchChatMessages,
-  addChatMessage,
-  listenForChatMessages,
-  monitorAuthState,
-} from "../../utils/firebaseHelpers";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import EventCreation from "../admin/event-management/AdminAddEvent";
 import { AdminEventList } from '../admin/event-management/AdminEventList'
@@ -66,8 +28,6 @@ export default function AdminDashboard() {
   const [selectedVolunteer, setSelectedVolunteer] = useState(null);
   const [requesterSearch, setRequesterSearch] = useState("");
   const [volunteerSearch, setVolunteerSearch] = useState("");
-  const [requesterFilter, setRequesterFilter] = useState("");
-  const [volunteerFilter, setVolunteerFilter] = useState(""); 
   const [volunteers, setVolunteers] = useState([]);
   const [requesters, setRequesters] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
@@ -87,13 +47,12 @@ export default function AdminDashboard() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all"); // 'all', 'approved', 'pending'
   const [personalFilter, setPersonalFilter] = useState("all"); // 'all', 'true', 'false'
-  const [pendingRequestSearch, setPendingRequestSearch] = useState("");
   const [activeMatchesFilter, setActiveMatchesFilter] = useState("all"); // 'all', 'hasMatches', 'noMatches'
   const [activeMatches, setActiveMatches] = useState([]);
   const [activeMatchSearch, setActiveMatchSearch] = useState("");
   const [activeMatchCurrentPage, setActiveMatchCurrentPage] = useState(1);
-  const [matchRequesterFilter, setMatchRequesterFilter] = useState("all"); // filter by requester ID
-  const [matchVolunteerFilter, setMatchVolunteerFilter] = useState("all"); // filter by volunteer ID
+  const [matchRequesterFilter] = useState("all"); // filter by requester ID
+  const [matchVolunteerFilter] = useState("all"); // filter by volunteer ID
   const [matchSortColumn, setMatchSortColumn] = useState(null);
   const [matchSortOrder, setMatchSortOrder] = useState("asc"); // 'asc' or 'desc'
 

@@ -115,7 +115,7 @@ export default function ProfilePage() {
   if (!userData) {
     return <LoadingSpinner />;
   }
-
+  // eslint-disable-next-line no-unused-vars
   const getIconForField = (fieldName) => {
     switch (fieldName) {
       case 'phone': return <Phone className="w-4 h-4 text-blue-600" />;

@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { auth, db } from "../../config/firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc, getDoc, increment, writeBatch } from "firebase/firestore";
+import { doc, increment, writeBatch } from "firebase/firestore";
 import RegisterLayout from "../layout/RegisterLayout";
 
 export default function RegisterVolunteerPage() {

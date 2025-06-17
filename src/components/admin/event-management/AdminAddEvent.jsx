@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../../config/firebaseConfig';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../../../config/firebaseConfig';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 
@@ -63,6 +61,8 @@ const AdminAddEvent = ({ onEventAdded }) => {
                 } else if (value.trim().length < 5) {
                     errors.description = 'תיאור חייב להכיל לפחות 5 תווים';
                 }
+                break;
+            default:
                 break;
         }
         

@@ -1,5 +1,5 @@
 // VolunteerDashboard.jsx
-import React, { act, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { User, Calendar, Clock, MessageCircle, Plus, X } from "lucide-react";
 import { auth, db } from "../../config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
@@ -52,6 +52,7 @@ export default function VolunteerDashboard() {
 
   /* -------- UI state -------- */
   const [loading, setLoading]         = useState(true);
+  // eslint-disable-next-line no-unused-vars
   const [volProfile, setVolProfile]   = useState({});
   const [personal, setPersonal]       = useState(true);
   const [direct, setDirect]           = useState([]);
@@ -621,7 +622,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
   const { requester } = match;
   const isChatOpen = activeMatchId === match.id;
   const [sessions, setSessions] = useState([]);
-  const [sessionToComplete, setSessionToComplete] = useState(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showUpcomingSessionsModal, setShowUpcomingSessionsModal] = useState(false);
   const [showPastSessionsModal, setShowPastSessionsModal] = useState(false);
@@ -853,7 +853,7 @@ function SessionScheduler({ match, onClose, handleScheduleSession }) {
     setIsSubmitting(true);
     setError(null);
 
-    const success = await handleScheduleSession({
+    await handleScheduleSession({
       match,
       scheduledTime,
       duration,

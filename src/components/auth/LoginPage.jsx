@@ -4,7 +4,6 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../../config/firebaseConfig";
 import { Card, CardContent } from "../ui/card";
-import { Button } from "../ui/button";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");

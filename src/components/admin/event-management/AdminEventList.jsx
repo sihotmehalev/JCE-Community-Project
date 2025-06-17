@@ -137,6 +137,8 @@ export const AdminEventList = () => {
                     errors.description = 'תיאור חייב להכיל לפחות 5 תווים';
                 }
                 break;
+            default:
+                break;
         }
         
         return errors;
