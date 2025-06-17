@@ -325,13 +325,10 @@ export default function AdminDashboard() {
       const volunteerRef = doc(db, "Users", "Info", "Volunteers", requestData.volunteerId);
       batch.update(volunteerRef, {
         activeMatchIds: [...(volunteer?.activeMatchIds || []), matchId]
-      });
-
-      // Update requester's activeMatchIds
-      const requester = requesters.find(r => r.id === requestData.requesterId);
+      });      // Update requester's activeMatchId (single match)
       const requesterRef = doc(db, "Users", "Info", "Requesters", requestData.requesterId);
       batch.update(requesterRef, {
-        activeMatchIds: [...(requester?.activeMatchIds || []), matchId]
+        activeMatchId: matchId
       });
 
       await batch.commit();
@@ -443,7 +440,7 @@ export default function AdminDashboard() {
       const requester = requesters.find(r => r.id === requesterId);
       const requesterRef = doc(db, "Users", "Info", "Requesters", requesterId);
       batch.update(requesterRef, {
-        activeMatchIds: [...(requester?.activeMatchIds || []), matchId]
+        activeMatchId: matchId
       });
 
       await batch.commit();
@@ -507,6 +504,11 @@ export default function AdminDashboard() {
           volunteerId: null
         }),
 
+        // Clear requester's single match
+        updateDoc(doc(db, "Users", "Info", "Requesters", matchData.requesterId), {
+          activeMatchId: null
+        }),
+
         // Update volunteer's active matches
         updateDoc(doc(db, "Users", "Info", "Volunteers", vol_id), {
           activeMatchIds: updatedMatches
@@ -537,8 +539,15 @@ export default function AdminDashboard() {
       if (statusFilter === "pending" && (u.approved === true || u.approved === undefined)) return false;
       if (personalFilter === "true" && !u.personal) return false;
       if (personalFilter === "false" && u.personal) return false;
-      if (activeMatchesFilter === "hasMatches" && (!u.activeMatchIds || u.activeMatchIds.length === 0)) return false;
-      if (activeMatchesFilter === "noMatches" && (u.activeMatchIds && u.activeMatchIds.length > 0)) return false;
+      if (activeMatchesFilter === "hasMatches" && (
+        (u.role === 'requester' && !u.activeMatchId) || 
+        (u.role === 'volunteer' && (!u.activeMatchIds || u.activeMatchIds.length === 0))
+      )) return false;
+      if (activeMatchesFilter === "noMatches" && (
+        (u.role === 'requester' && u.activeMatchId) || 
+        (u.role === 'volunteer' && u.activeMatchIds?.length > 0)
+      )) return false;
+
       return true;
     })
     .sort((a, b) => {
@@ -800,7 +809,7 @@ export default function AdminDashboard() {
                     <p><strong>גיל:</strong> {requesters.find(r => r.id === selectedRequester)?.age}</p>
                     <p><strong>מגדר:</strong> {requesters.find(r => r.id === selectedRequester)?.gender}</p>
                     <p><strong>סיבת פנייה:</strong> {requesters.find(r => r.id === selectedRequester)?.reason}</p>
-                    <p><strong>התאמות פעילות:</strong> {requesters.find(r => r.id === selectedRequester)?.activeMatchIds?.length || 0}</p>
+                    <p><strong>התאמה פעילה:</strong> {requesters.find(r => r.id === selectedRequester)?.activeMatchId ? 'כן' : 'לא'}</p>
                   </div>
                 ) : hoveredRequester ? (
                   <div className="space-y-2 text-base">
@@ -809,7 +818,7 @@ export default function AdminDashboard() {
                     <p><strong>גיל:</strong> {hoveredRequester.age}</p>
                     <p><strong>מגדר:</strong> {hoveredRequester.gender}</p>
                     <p><strong>סיבת פנייה:</strong> {hoveredRequester.reason}</p>
-                    <p><strong>התאמות פעילות:</strong> {hoveredRequester.activeMatchIds?.length || 0}</p>
+                    <p><strong>התאמה פעילה:</strong> {hoveredRequester.activeMatchId ? 'כן' : 'לא'}</p>
                   </div>
                 ) : (
                   <p className="text-gray-500">רחף על פונה או בחר אותו כדי לראות פרטים.</p>
@@ -830,7 +839,7 @@ export default function AdminDashboard() {
                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
                 <ul className="space-y-2 h-[280px] overflow-y-scroll">
                   {requesters
-                    .filter(req => !(req.activeMatchIds && req.activeMatchIds.length > 0))
+                    .filter(req => !(req.activeMatchId))
                     .filter(req =>
                       req.fullName?.toLowerCase().includes(requesterSearch.toLowerCase()) ||
                       req.email?.toLowerCase().includes(requesterSearch.toLowerCase())
@@ -1399,7 +1408,9 @@ export default function AdminDashboard() {
                         {u.personal ? 'כן' : 'לא'}
                       </td>
                       <td className="border border-orange-100 p-2 text-center">
-                        {u.activeMatchIds?.length || 0}
+                        {u.role === 'requester' 
+                          ? (u.activeMatchId ? 1 : 0)
+                          : (u.activeMatchIds?.length || 0)}
                       </td>
                     </tr>
                   ))}
