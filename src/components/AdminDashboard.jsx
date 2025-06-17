@@ -61,6 +61,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import EventCreation from "./EventAdminManger/AdminAddEvent";
 import { AdminEventList } from './EventAdminManger/AdminEventList';
 import { CancelMatchModal } from './ui/CancelMatchModal';
+import { DeleteUserModal } from './ui/DeleteUserModal'
 
 export default function AdminDashboard() {
   // State Management
@@ -117,6 +118,10 @@ export default function AdminDashboard() {
 
   // New state for cancel match modal
   const [showCancelMatchModal, setShowCancelMatchModal] = useState(false);
+
+  // New state for delete user modal
+  const [showDeleteUserModal, setshowDeleteUserModal] = useState(false);
+  const [selectedUserForDelete, setSelectedUserForDelete] = useState(null);
 
   // useEffect for resetting currentPage (moved here to ensure unconditional call)
   useEffect(() => {
@@ -525,6 +530,10 @@ export default function AdminDashboard() {
       alert("שגיאה בביטול ההתאמה");
     }
   
+  }
+
+  const deleteUser = async (user_id) => {
+
   }
 
   // Filter and sort users for the All Users table
@@ -1384,6 +1393,7 @@ export default function AdminDashboard() {
                     <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('approved')}>סטטוס{sortColumn === 'approved' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('personal')}>אישי{sortColumn === 'personal' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('activeMatchIds')}>התאמות פעילות{sortColumn === 'activeMatchIds' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="w-24 border border-orange-100 p-2 text-orange-800 cursor-pointer">מחיקת משתמש</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1411,6 +1421,19 @@ export default function AdminDashboard() {
                         {u.role === 'requester' 
                           ? (u.activeMatchId ? 1 : 0)
                           : (u.activeMatchIds?.length || 0)}
+                      </td>
+                      <td>
+                        <button
+                          className="border border-orange-100 p-2 text-orange-800"
+                          variant="outline"
+                          onClick={() => { 
+                            setshowDeleteUserModal(true);
+                            setShowSessionDetails(false);
+                            setSelectedUserForDelete(u);
+                          }}
+                        >
+                          מחיקה
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -1473,6 +1496,16 @@ export default function AdminDashboard() {
         onClose={() => setShowCancelMatchModal(false)}
         match={activeMatches.find(m => m.id === selectedMatchForDetails)}
         onConfirm={() => cancelMatch(selectedMatchForDetails)}
+      />
+
+      <DeleteUserModal
+        isOpen={showDeleteUserModal}
+        onClose={() => {
+          setshowDeleteUserModal(false);
+          setSelectedUserForDelete(null);
+        }}
+        user={selectedUserForDelete}
+        onConfirm={() => deleteUser(selectedUserForDelete)}
       />
     </div>
   );
