@@ -277,15 +277,14 @@ export default function AdminDashboard() {
       setRequesters(r);
       setAllUsers([
         ...processedVolunteers,
-        ...r,
-        ...a
+        ...r
       ]);
       setPendingRequests(pending);
       setActiveMatches(matches);
 
       console.log("Fetched Volunteers:", processedVolunteers);
       console.log("Fetched Requesters:", r);
-      console.log("Fetched All Users:", [...processedVolunteers, ...r, ...a]);
+      console.log("Fetched All Users:", [...processedVolunteers, ...r]);
       console.log("Fetched Pending Requests:", pending);
       console.log("Fetched Active Matches:", matches);
 
