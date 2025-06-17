@@ -110,7 +110,7 @@ export default function VolunteerDashboard() {
         if (!snap.exists()) {
           // first login → create skeleton profile
           await setDoc(volRef, {
-            approved: false,
+            approved: "pending",
             personal: true,
             isAvailable: true,
             createdAt: serverTimestamp(),

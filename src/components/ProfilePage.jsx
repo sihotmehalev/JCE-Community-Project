@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { auth, db } from "../firebaseConfig";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { Card, CardContent } from "./ui/card";
@@ -12,6 +12,28 @@ const roleTranslations = {
   "admin-first": "מנהל/ת דרג א",
   "admin-second": "מנהל/ת דרג ב"
 };
+
+// Options for dropdown selects
+const genderOptions = ['זכר', 'נקבה', 'אחר'];
+const maritalStatusOptions = ['רווק/ה', 'נשוי/אה', 'גרוש/ה', 'אלמן/ה', 'אחר'];
+const professionOptions = [
+  'עובד/ת סוציאלי/ת',
+  'פסיכולוג/ית',
+  'פסיכותרפיסט/ית',
+  'יועץ/ת חינוכי/ת',
+  'מטפל/ת באומנות',
+  'מטפל/ת CBT',
+  'מטפל/ת משפחתי/ת',
+  'מטפל/ת זוגי/ת',
+  'מאמן/ת אישי/ת',
+  'מחנך/ת',
+  'רב/נית',
+  'יועץ/ת רוחני/ת',
+  'סטודנט/ית למקצועות הטיפול',
+  'מתנדב/ת בעל/ת ניסיון בהקשבה והכלה',
+  'אחר'
+];
+const preferredTimesOptions = ['בוקר', 'צהריים', 'ערב', 'גמיש', 'אחר'];
 
 const collectionForRole = {
   volunteer: "Volunteers",
@@ -27,8 +49,58 @@ export default function ProfilePage() {
   const [editData, setEditData] = useState(null);
   const [message, setMessage] = useState("");
   const user = auth.currentUser;
+  const timeoutRef = useRef(null);
+
+  // Custom inputs for "other" options
+  const [customInputs, setCustomInputs] = useState({
+    gender: '',
+    maritalStatus: '',
+    profession: '',
+    availableHours: '',
+    preferredTimes: ''
+  });
+
+  // Show/hide custom inputs
+  const [showCustomInput, setShowCustomInput] = useState({
+    gender: false,
+    maritalStatus: false,
+    profession: false,
+    availableHours: false,
+    preferredTimes: false
+  });
 
   const startEditing = () => {
+    // Initialize custom inputs based on current data
+    const newCustomInputs = { ...customInputs };
+    const newShowCustomInputs = { ...showCustomInput };
+    
+    // Check if any fields are "אחר" and set up custom inputs
+    if (userData.gender === "אחר") {
+      newShowCustomInputs.gender = true;
+    }
+    
+    if (userData.maritalStatus === "אחר") {
+      newShowCustomInputs.maritalStatus = true;
+    }
+
+    if (userData.profession === "אחר") {
+      newShowCustomInputs.profession = true;
+    }
+
+    // For volunteer specific fields
+    if (role === "volunteer" && userData.availableHours) {
+      if (userData.availableHours.includes("אחר")) {
+        newShowCustomInputs.availableHours = true;
+      }
+    }
+    
+    // For requester specific fields
+    if (role === "requester" && userData.preferredTimes === "אחר") {
+      newShowCustomInputs.preferredTimes = true;
+    }
+    
+    setShowCustomInput(newShowCustomInputs);
+    setCustomInputs(newCustomInputs);
     setEditData({ ...userData });
     setIsEditing(true);
   };
@@ -36,17 +108,67 @@ export default function ProfilePage() {
   const cancelEditing = () => {
     setEditData(null);
     setIsEditing(false);
+    setShowCustomInput({
+      gender: false,
+      maritalStatus: false,
+      profession: false,
+      availableHours: false,
+      preferredTimes: false
+    });
+    setCustomInputs({
+      gender: '',
+      maritalStatus: '',
+      profession: '',
+      availableHours: '',
+      preferredTimes: ''
+    });
     setMessage("");
   };
 
+  // Debounced input change handler
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    const { name, value, type } = e.target;
+    
+    // Handle custom inputs separately
+    if (name.startsWith('custom_')) {
+      const originalField = name.replace('custom_', '');
+      setCustomInputs(prev => ({
+        ...prev,
+        [originalField]: value
+      }));
+      return;
+    }
+    
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    // For select inputs (dropdowns)
+    if (type === "select-one") {
+      // Handle "אחר" selection for dropdown fields
+      if (value === "אחר") {
+        setShowCustomInput(prev => ({ ...prev, [name]: true }));
+      } else {
+        setShowCustomInput(prev => ({ ...prev, [name]: false }));
+        setCustomInputs(prev => ({ ...prev, [name]: '' }));
+      }
+      
+      setEditData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      return;
+    }
+    
+    // For regular text inputs - debounce the update
+    timeoutRef.current = setTimeout(() => {
+      setEditData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }, 300);
   };
-
   const saveChanges = async () => {
     try {
       const docRef = doc(db, "Users", "Info", 
@@ -55,9 +177,52 @@ export default function ProfilePage() {
           : [collectionForRole[role], user.uid].join("/")
       );
       
-      await updateDoc(docRef, editData);
-      setUserData(editData);
+      // Process data to include custom values
+      const finalData = {
+        ...editData,
+        // Replace "אחר" with custom input values
+        gender: editData.gender === "אחר" ? customInputs.gender : editData.gender,
+        maritalStatus: editData.maritalStatus === "אחר" ? customInputs.maritalStatus : editData.maritalStatus,
+      };
+      
+      // Add role-specific fields
+      if (role === "volunteer") {
+        finalData.profession = editData.profession === "אחר" ? customInputs.profession : editData.profession;
+        
+        // Handle availableHours if it exists
+        if (editData.availableHours) {
+          if (Array.isArray(editData.availableHours) && editData.availableHours.includes("אחר") && customInputs.availableHours) {
+            finalData.availableHours = editData.availableHours
+              .filter(h => h !== "אחר")
+              .concat(customInputs.availableHours);
+          }
+        }
+      }
+      
+      if (role === "requester") {
+        // Handle preferredTimes if it exists
+        if (editData.preferredTimes === "אחר") {
+          finalData.preferredTimes = customInputs.preferredTimes;
+        }
+      }
+      
+      await updateDoc(docRef, finalData);
+      setUserData(finalData);
       setIsEditing(false);
+      setCustomInputs({
+        gender: '',
+        maritalStatus: '',
+        profession: '',
+        availableHours: '',
+        preferredTimes: ''
+      });
+      setShowCustomInput({
+        gender: false,
+        maritalStatus: false,
+        profession: false,
+        availableHours: false,
+        preferredTimes: false
+      });
       setMessage("הפרטים עודכנו בהצלחה");
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
@@ -126,26 +291,72 @@ export default function ProfilePage() {
       default: return <User className="w-4 h-4 text-blue-600" />;
     }
   };
-
-  const ProfileField = ({ label, name, value, colored, isEditing, onChange, icon }) => (
-    <div className="group flex justify-between items-center p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-100 hover:bg-white/80 hover:shadow-md transition-all duration-200">
-      <div className="flex items-center gap-3">
-        {icon && <div className="flex-shrink-0">{icon}</div>}
-        <span className="text-gray-700 font-medium">{label}</span>
+  const ProfileField = ({ 
+    label, 
+    name, 
+    value, 
+    colored, 
+    isEditing, 
+    onChange, 
+    icon, 
+    options,
+    showCustomInput = false,
+    customInputName = "",
+    customInputValue = ""
+  }) => (
+    <div className="group flex flex-col p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-100 hover:bg-white/80 hover:shadow-md transition-all duration-200">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          {icon && <div className="flex-shrink-0">{icon}</div>}
+          <span className="text-gray-700 font-medium">{label}</span>
+        </div>
+        {!isEditing && (
+          <span className={`${colored || "text-gray-800 font-medium"} text-right`}>
+            {value || "לא צוין"}
+          </span>
+        )}
       </div>
-      {isEditing ? (
-        <input
-          type="text"
-          name={name}
-          value={value || ""}
-          onChange={onChange}
-          className="bg-white border-2 border-blue-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 text-right min-w-48"
-          dir="rtl"
-        />
-      ) : (
-        <span className={`${colored || "text-gray-800 font-medium"} text-right`}>
-          {value || "לא צוין"}
-        </span>
+      
+      {isEditing && (
+        <div className="w-full mt-2">
+          {options ? (
+            <div className="space-y-2">
+              <select
+                name={name}
+                value={value || ""}
+                onChange={onChange}
+                className="w-full bg-white border-2 border-blue-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 text-right"
+                dir="rtl"
+              >
+                <option value="" disabled>בחר/י {label}</option>
+                {options.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+              
+              {showCustomInput && (
+                <input
+                  type="text"
+                  name={customInputName}
+                  value={customInputValue}
+                  onChange={onChange}
+                  placeholder={`פרט/י ${label}`}
+                  className="w-full bg-white border-2 border-blue-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                  dir="rtl"
+                />
+              )}
+            </div>
+          ) : (
+            <input
+              type="text"
+              name={name}
+              value={value || ""}
+              onChange={onChange}
+              className="w-full bg-white border-2 border-blue-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+              dir="rtl"
+            />
+          )}
+        </div>
       )}
     </div>
   );
@@ -255,13 +466,16 @@ export default function ProfilePage() {
                   onChange={handleInputChange}
                   isEditing={isEditing}
                   icon={<Phone className="w-4 h-4 text-blue-600" />}
-                />
-                <ProfileField 
+                />                <ProfileField 
                   label="מגדר:" 
                   name="gender"
                   value={isEditing ? editData.gender : userData.gender}
                   onChange={handleInputChange}
                   isEditing={isEditing}
+                  options={genderOptions}
+                  showCustomInput={showCustomInput.gender}
+                  customInputName="custom_gender"
+                  customInputValue={customInputs.gender}
                 />
                 <ProfileField 
                   label="גיל:" 
@@ -285,6 +499,7 @@ export default function ProfilePage() {
                   value={isEditing ? editData.maritalStatus : userData.maritalStatus}
                   onChange={handleInputChange}
                   isEditing={isEditing}
+                  options={maritalStatusOptions}
                 />
               </div>
             </CardContent>
@@ -309,6 +524,7 @@ export default function ProfilePage() {
                       onChange={handleInputChange}
                       isEditing={isEditing}
                       icon={<Briefcase className="w-4 h-4 text-green-600" />}
+                      options={professionOptions}
                     />
                     <ProfileField 
                       label="ניסיון קודם:" 
@@ -396,6 +612,7 @@ export default function ProfilePage() {
                       label="זמנים נוחים:" 
                       value={userData.preferredTimes}
                       isEditing={isEditing}
+                      options={preferredTimesOptions}
                     />
                     <ProfileField 
                       label="העדפות למתנדב:" 
