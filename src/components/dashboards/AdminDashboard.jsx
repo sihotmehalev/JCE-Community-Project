@@ -237,12 +237,14 @@ export default function AdminDashboard() {
         let volunteerDerivedStatus;
         if (vol.approved === "true" && isActiveByTime) {
             volunteerDerivedStatus = "פעיל";
+        } else if (vol.approved === "true" && !isActiveByTime) {
+            volunteerDerivedStatus = "לא פעיל";
         } else if (vol.approved === "pending") {
             volunteerDerivedStatus = "ממתין לאישור";
         } else if (vol.approved === "declined") {
             volunteerDerivedStatus = "נדחה";
         } else {
-            volunteerDerivedStatus = "לא פעיל"; // Default for non-approved or inactive
+            volunteerDerivedStatus = "לא פעיל"; // Fallback for any other unexpected state
         }
 
         return {
@@ -253,10 +255,7 @@ export default function AdminDashboard() {
     }));
       setRequesters(r);
       setAllUsers([
-        ...v.map(vol => ({
-            ...vol,
-            derivedDisplayStatus: vol.approved === "true" ? "פעיל" : (vol.approved === "pending" ? "ממתין לאישור" : "נדחה")
-        })),
+        ...volunteers,
         ...r,
         ...a
       ]);
@@ -1185,82 +1184,10 @@ export default function AdminDashboard() {
                     הקודם
                   </Button>
                   <span className="text-orange-700">
-                    עמוד {activeMatchCurrentPage} מתוך {Math.ceil(activeMatches
-                      .filter(match =>
-                        match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
-                        match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
-                        match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
-                      )
-                      .filter(match => {
-                        if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
-                        if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
-                        return true;
-                      })
-                      .sort((a, b) => {
-                        if (!matchSortColumn) return 0;
-
-                        let aValue;
-                        let bValue;
-
-                        if (matchSortColumn === 'requesterInfo.fullName') {
-                          aValue = a.requesterInfo?.fullName || '';
-                          bValue = b.requesterInfo?.fullName || '';
-                        } else if (matchSortColumn === 'volunteerInfo.fullName') {
-                          aValue = a.volunteerInfo?.fullName || '';
-                          bValue = b.volunteerInfo?.fullName || '';
-                        } else if (matchSortColumn === 'meetingFrequency') {
-                          aValue = a[matchSortColumn] || '';
-                          bValue = b[matchSortColumn] || '';
-                        } else {
-                          aValue = a[matchSortColumn];
-                          bValue = b[matchSortColumn];
-                        }
-
-                        if (typeof aValue === 'string' && typeof bValue === 'string') {
-                          return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-                        } else {
-                          return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-                        }
-                      }).length / itemsPerPage)}
+                    עמוד {activeMatchCurrentPage} מתוך {Math.ceil(activeMatches.length / itemsPerPage)}
                   </span>
                   <Button
-                    onClick={() => setActiveMatchCurrentPage(prev => Math.min(Math.ceil(activeMatches
-                      .filter(match =>
-                        match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
-                        match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
-                        match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
-                      )
-                      .filter(match => {
-                        if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
-                        if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
-                        return true;
-                      })
-                      .sort((a, b) => {
-                        if (!matchSortColumn) return 0;
-
-                        let aValue;
-                        let bValue;
-
-                        if (matchSortColumn === 'requesterInfo.fullName') {
-                          aValue = a.requesterInfo?.fullName || '';
-                          bValue = b.requesterInfo?.fullName || '';
-                        } else if (matchSortColumn === 'volunteerInfo.fullName') {
-                          aValue = a.volunteerInfo?.fullName || '';
-                          bValue = b.volunteerInfo?.fullName || '';
-                        } else if (matchSortColumn === 'meetingFrequency') {
-                          aValue = a[matchSortColumn] || '';
-                          bValue = b[matchSortColumn] || '';
-                        } else {
-                          aValue = a[matchSortColumn];
-                          bValue = b[matchSortColumn];
-                        }
-
-                        if (typeof aValue === 'string' && typeof bValue === 'string') {
-                          return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-                        } else {
-                          return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-                        }
-                      }).length / itemsPerPage), prev + 1))}
+                    onClick={() => setActiveMatchCurrentPage(prev => Math.min(Math.ceil(activeMatches.length / itemsPerPage), prev + 1))}
                     variant="outline"
                   >
                     הבא
