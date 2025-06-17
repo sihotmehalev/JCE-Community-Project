@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { auth, db } from "../../config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
+import EmergencyButton from "../EmergencyButton/EmergencyButton";
 import {
   collection,
   doc,
@@ -700,7 +701,12 @@ export default function RequesterDashboard() {
 
       {/* Tab Content */}      <div className="mt-6">
         {renderTabContent()}
-      </div>      {/* Chat Panel - Now shown as a floating window */}
+      </div>
+
+      {/* Emergency Button */}
+      <EmergencyButton />
+
+      {/* Chat Panel - Now shown as a floating window */}
       <ChatPanel
         isOpen={!!unsubChat.current && !!activeMatch}
         onClose={closeChat}
