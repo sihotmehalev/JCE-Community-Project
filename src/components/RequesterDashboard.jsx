@@ -186,16 +186,65 @@ export default function RequesterDashboard() {
 
     return () => unsubReq();
   }, [authChecked, user]);
+  /* -------- fetch declined volunteers list from request -------- */
+  const [declinedVolunteers, setDeclinedVolunteers] = useState([]);
 
+  // Fetch the request document to get the declinedVolunteers list
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchDeclinedVolunteers = async () => {
+      try {
+        // Query for the requester's request
+        const requestsRef = collection(db, "Requests");
+        const q = query(
+          requestsRef,
+          where("requesterId", "==", user.uid),
+          where("status", "==", "waiting_for_first_approval")
+        );
+        
+        const snapshot = await getDocs(q);
+        
+        if (!snapshot.empty) {
+          // Get the first request document (there should only be one per requester)
+          const requestDoc = snapshot.docs[0];
+          const requestData = requestDoc.data();
+          
+          // Extract declinedVolunteers array or use empty array if it doesn't exist
+          const declined = requestData.declinedVolunteers || [];
+          console.log("Declined volunteers list:", declined);
+          setDeclinedVolunteers(declined);
+        } else {
+          setDeclinedVolunteers([]);
+        }
+      } catch (error) {
+        console.error("Error fetching declined volunteers:", error);
+      }
+    };
+    
+    fetchDeclinedVolunteers();
+  }, [user, pendingRequests]); // Re-fetch when pendingRequests changes
+  
   /* -------- sort volunteers when data changes -------- */
   useEffect(() => {
     if (availableVolunteers.length > 0 && requestProfile) {
-      const sorted = sortVolunteersByCompatibility(availableVolunteers, requestProfile);
+      // Filter out any volunteers that are in the declinedVolunteers list
+      const filteredVolunteers = availableVolunteers.filter(
+        volunteer => !declinedVolunteers.includes(volunteer.id)
+      );
+      
+      console.log("Filtering volunteers:", {
+        total: availableVolunteers.length,
+        declined: declinedVolunteers.length,
+        filtered: filteredVolunteers.length,
+      });
+      
+      const sorted = sortVolunteersByCompatibility(filteredVolunteers, requestProfile);
       setSortedVolunteers(sorted);
     } else {
       setSortedVolunteers([]);
     }
-  }, [availableVolunteers, requestProfile]);
+  }, [availableVolunteers, requestProfile, declinedVolunteers]);
 
   /* -------- attach / detach listeners based on mode -------- */
   useEffect(() => {
@@ -287,6 +336,16 @@ export default function RequesterDashboard() {
       ),
       async (snap) => {
         console.log("Pending requests snapshot received:", snap.docs.map(d => ({id: d.id, ...d.data()})));
+        
+        // Look for the waiting_for_first_approval request to get declinedVolunteers
+        const firstApprovalRequest = snap.docs.find(d => d.data().status === "waiting_for_first_approval");
+        if (firstApprovalRequest) {
+          const data = firstApprovalRequest.data();
+          // Update declined volunteers list
+          setDeclinedVolunteers(data.declinedVolunteers || []);
+          console.log("Updated declined volunteers from snapshot:", data.declinedVolunteers || []);
+        }
+        
         const requests = await Promise.all(snap.docs.map(async (d) => {
           const data = d.data();
           if (data.volunteerId) {

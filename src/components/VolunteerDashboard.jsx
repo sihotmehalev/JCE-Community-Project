@@ -15,6 +15,8 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  arrayUnion,
+  deleteField,
 } from "firebase/firestore";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -166,11 +168,17 @@ export default function VolunteerDashboard() {
         async (snap) => {
           console.log("[DEBUG] Direct requests snapshot received, docs count:", snap.docs.length);
           console.log("[DEBUG] Direct requests raw data:", snap.docs.map(d => ({ id: d.id, ...d.data() })));
-          
-          const arr = [];
+            const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
             console.log("[DEBUG] Processing direct request:", { id: d.id, ...rqData });
+            
+            // Check if this volunteer is in the declined list
+            const declinedVolunteers = rqData.declinedVolunteers || [];
+            if (declinedVolunteers.includes(user.uid)) {
+              console.log("[DEBUG] Skipping direct request - volunteer already declined this request");
+              continue;
+            }
             
             const rqUser = await fetchRequester(rqData.requesterId);
             console.log("[DEBUG] Fetched requester for direct request:", rqUser);
@@ -227,11 +235,17 @@ export default function VolunteerDashboard() {
           where("status",      "==", "waiting_for_first_approval")
         ),
         async (snap) => {
-          console.log("[DEBUG] Pool snapshot docs:", snap.docs.map(d => ({ id: d.id, ...d.data() })));
-          const arr = [];
+          console.log("[DEBUG] Pool snapshot docs:", snap.docs.map(d => ({ id: d.id, ...d.data() })));          const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
             console.log("[DEBUG] Processing pool request:", { id: d.id, ...rqData });
+            
+            // Check if this volunteer is in the declined list
+            const declinedVolunteers = rqData.declinedVolunteers || [];
+            if (declinedVolunteers.includes(user.uid)) {
+              console.log("[DEBUG] Skipping pool request - volunteer already declined this request");
+              continue;
+            }
             
             const rqUser = await fetchRequester(rqData.requesterId);
             console.log("[DEBUG] Fetched requester for pool request:", rqUser);
@@ -272,8 +286,7 @@ export default function VolunteerDashboard() {
       { personal: newVal },
       { merge: true }
     );
-  };
-  const handleRequestAction = async (req, action) => {
+  };  const handleRequestAction = async (req, action) => {
     console.log("[DEBUG] handleRequestAction called with:", { requestId: req.id, action });
     
     const ref = doc(db, "Requests", req.id);
@@ -282,10 +295,29 @@ export default function VolunteerDashboard() {
         console.log("[DEBUG] Accepting request, updating to waiting_for_admin_approval");
         await updateDoc(ref, { status: "waiting_for_admin_approval" });
         console.log("[DEBUG] Request accepted successfully");
+        
+        // Update local state to reflect this change immediately
+        const updatedDirect = direct.filter(r => r.id !== req.id);
+        setDirect(updatedDirect);
+        
+        // Add to admin approval requests
+        const updatedAdminApproval = [...adminApprovalRequests, {...req, status: "waiting_for_admin_approval"}];
+        setAdminApprovalRequests(updatedAdminApproval);
+        
       } else if (action === "decline") {
-        console.log("[DEBUG] Declining request");
-        await updateDoc(ref, { status: "declined" });
-        console.log("[DEBUG] Request declined successfully");
+        console.log("[DEBUG] Declining request - adding to declinedVolunteers array");
+        // Add current volunteer to the declinedVolunteers array but keep the status unchanged
+        await updateDoc(ref, { 
+          declinedVolunteers: arrayUnion(user.uid),
+          volunteerId: null, // Remove as assigned volunteer
+          initiatedBy: null, // Clear initiation
+        });
+        console.log("[DEBUG] Request declined successfully - added to declinedVolunteers");
+        
+        // Update local state to remove the request from direct list
+        const updatedDirect = direct.filter(r => r.id !== req.id);
+        setDirect(updatedDirect);
+        
       } else if (action === "take") {
         console.log("[DEBUG] Taking request from pool");
         await updateDoc(ref, {
@@ -294,16 +326,32 @@ export default function VolunteerDashboard() {
           status:      "waiting_for_admin_approval",
         });
         console.log("[DEBUG] Request taken successfully");
+        
+        // Update local state
+        const updatedPool = pool.filter(r => r.id !== req.id);
+        setPool(updatedPool);
+        
+        // Add to admin approval requests
+        const takenRequest = {...req, volunteerId: user.uid, initiatedBy: user.uid, status: "waiting_for_admin_approval"};
+        const updatedAdminApproval = [...adminApprovalRequests, takenRequest];
+        setAdminApprovalRequests(updatedAdminApproval);
+        
       } else if (action === "withdraw") {
         console.log("[DEBUG] Withdrawing from request");
         await updateDoc(ref, {
-          volunteerId: null,
+          volunteerId: deleteField(),
+          initiatedBy: deleteField(),
           status:      "waiting_for_first_approval",
         });
         console.log("[DEBUG] Request withdrawn successfully");
+        
+        // Update local state
+        const updatedAdminApprovalRequests = adminApprovalRequests.filter(r => r.id !== req.id);
+        setAdminApprovalRequests(updatedAdminApprovalRequests);
       }
     } catch (error) {
       console.error("[DEBUG] Error in handleRequestAction:", error);
+      alert("אירעה שגיאה בביצוע הפעולה. אנא נסה שוב");
     }
   };
 
