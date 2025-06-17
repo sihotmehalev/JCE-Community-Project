@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, XCircle, Info } from 'lucide-react'; // Import necessary icons
+import { CheckCircle, XCircle } from 'lucide-react'; // Import necessary icons
 
 const CustomAlert = ({ message, onClose, type = 'info' }) => {
   if (!message) return null;
