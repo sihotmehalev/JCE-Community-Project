@@ -16,7 +16,6 @@ import {
   orderBy,
   serverTimestamp,
   arrayUnion,
-  deleteField,
 } from "firebase/firestore";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -72,6 +71,7 @@ export default function VolunteerDashboard() {
   const [loading, setLoading]         = useState(true);
   const [volProfile, setVolProfile]   = useState({});
   const [personal, setPersonal]       = useState(true);
+  const [isAvailable, setIsAvailable] = useState(true);
   const [direct, setDirect]           = useState([]);
   const [pool, setPool]               = useState([]);
   const [matches, setMatches]         = useState([]);
@@ -111,6 +111,7 @@ export default function VolunteerDashboard() {
           await setDoc(volRef, {
             approved: false,
             personal: true,
+            isAvailable: true,
             createdAt: serverTimestamp(),
           });
           return;                 // wait for next snapshot
@@ -118,6 +119,7 @@ export default function VolunteerDashboard() {
         const data = snap.data();
         setVolProfile(data);
         setPersonal(data.personal ?? true);
+        setIsAvailable(data.isAvailable ?? true);
         setUserData(data);
         setLoading(false);
       },
@@ -286,6 +288,17 @@ export default function VolunteerDashboard() {
       { personal: newVal },
       { merge: true }
     );
+  };
+
+  const toggleAvailability = async () => {
+    if (!user) return;
+    const newVal = !isAvailable;
+    setIsAvailable(newVal);
+    await setDoc(
+      doc(db, "Users", "Info", "Volunteers", user.uid),
+      { isAvailable: newVal },
+      { merge: true }
+    );
   };  const handleRequestAction = async (req, action) => {
     console.log("[DEBUG] handleRequestAction called with:", { requestId: req.id, action });
     
@@ -294,6 +307,7 @@ export default function VolunteerDashboard() {
       if (action === "accept") {
         console.log("[DEBUG] Accepting request, updating to waiting_for_admin_approval");
         await updateDoc(ref, { status: "waiting_for_admin_approval" });
+        alert("הבקשה התקבלה בהצלחה");
         console.log("[DEBUG] Request accepted successfully");
         
         // Update local state to reflect this change immediately
@@ -312,6 +326,7 @@ export default function VolunteerDashboard() {
           volunteerId: null, // Remove as assigned volunteer
           initiatedBy: null, // Clear initiation
         });
+        alert("הבקשה נדחתה בהצלחה");
         console.log("[DEBUG] Request declined successfully - added to declinedVolunteers");
         
         // Update local state to remove the request from direct list
@@ -325,6 +340,7 @@ export default function VolunteerDashboard() {
           initiatedBy: user.uid,
           status:      "waiting_for_admin_approval",
         });
+        alert("הבקשה נלקחה בהצלחה");
         console.log("[DEBUG] Request taken successfully");
         
         // Update local state
@@ -339,10 +355,11 @@ export default function VolunteerDashboard() {
       } else if (action === "withdraw") {
         console.log("[DEBUG] Withdrawing from request");
         await updateDoc(ref, {
-          volunteerId: deleteField(),
-          initiatedBy: deleteField(),
+          volunteerId: null, // Remove as assigned volunteer
+          initiatedBy: null, // Clear initiation
           status:      "waiting_for_first_approval",
         });
+        alert("הבקשה בוטלה בהצלחה");
         console.log("[DEBUG] Request withdrawn successfully");
         
         // Update local state
@@ -503,6 +520,26 @@ export default function VolunteerDashboard() {
                   הפרופיל שלי
                 </Button>
         <div className="flex-1" />
+        
+        {/* Availability Toggle */}
+        <div className="flex items-center gap-2 ml-4">
+          <span className="text-sm text-orange-700">זמין</span>
+          <button
+            onClick={toggleAvailability}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${
+              isAvailable ? 'bg-green-600 border-green-400' : 'bg-gray-200 border-orange-400'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${
+                isAvailable ? '-translate-x-1' : '-translate-x-6'
+              }`}
+            />
+          </button>
+          <span className="text-sm text-orange-700">לא זמין</span>
+        </div>
+        
+        {/* Personal/Admin Toggle */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-orange-700">בחירה עצמית</span>
           <button

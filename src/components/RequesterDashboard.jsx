@@ -1086,11 +1086,6 @@ function SessionModal({ title, sessions, onClose, readOnly = false }) {
                   </div>
                 )}
 
-                {session.status === 'completed' && session.sessionSummary && (
-                  <div className="mt-2 text-gray-600 bg-white/80 p-2 rounded border border-orange-100">
-                    <strong>סיכום המפגש:</strong> {session.sessionSummary}
-                  </div>
-                )}
               </div>
             ))} 
           </div>
