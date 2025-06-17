@@ -619,7 +619,7 @@ export default function AdminDashboard() {
           onClick={() => setActiveTab("users")}
           className="py-3 px-6 text-lg"
         >
-          כל המשתמשים
+          כל המשתמשים ({allUsers.length})
         </Button>
         <Button
             variant={activeTab === "EventCreation" ? "default" : "outline"}
@@ -1203,7 +1203,7 @@ export default function AdminDashboard() {
       {activeTab === "users" && (
         <Card>
           <CardContent>
-            <h3 className="font-semibold mb-4 text-orange-700">כל המשתמשים במערכת</h3>
+            <h3 className="font-semibold mb-4 text-orange-700">כל המשתמשים במערכת </h3>
             <div className="mb-4">
               <input
                 type="text"
