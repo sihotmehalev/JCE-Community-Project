@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { auth, db } from "../firebaseConfig";
+import { auth, db } from "../../config/firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { Card, CardContent } from "./ui/card";
+import { Card, CardContent } from "../ui/card";
 
 export default function RegisterLayout({ title, children, onSubmit, loading, message }) {
   return (

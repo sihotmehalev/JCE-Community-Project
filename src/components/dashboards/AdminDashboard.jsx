@@ -1,6 +1,6 @@
 // AdminDashboard.jsx - Full Implementation
 import React, { useEffect, useState, useRef } from "react";
-import { db } from "../firebaseConfig";
+import { db } from "../../config/firebaseConfig";
 import { 
   collection, 
   getDocs, 
@@ -14,11 +14,11 @@ import {
   getDoc, 
   increment
 } from "firebase/firestore";
-import { Card, CardContent } from "./ui/card";
-import { Button } from "./ui/button";
-import { HoverCard } from "./ui/HoverCard";
-import AISuggestionModal from './AISuggestionModal';
-import { generateRandomId } from "./firebaseHelpers";
+import { Card, CardContent } from "../ui/card";
+import { Button } from "../ui/button";
+import { HoverCard } from "../ui/HoverCard";
+import AISuggestionModal from '../modals/AISuggestionModal';
+import { generateRandomId } from "../../utils/firebaseHelpers";
 import {
   timestamp,
   auth,
@@ -55,10 +55,10 @@ import {
   addChatMessage,
   listenForChatMessages,
   monitorAuthState,
-} from "./firebaseHelpers";
-import LoadingSpinner from "../components/LoadingSpinner";
-import EventCreation from "./EventAdminManger/AdminAddEvent";
-import { AdminEventList } from './EventAdminManger/AdminEventList'
+} from "../../utils/firebaseHelpers";
+import LoadingSpinner from "../ui/LoadingSpinner";
+import EventCreation from "../admin/event-management/AdminAddEvent";
+import { AdminEventList } from '../admin/event-management/AdminEventList'
 
 export default function AdminDashboard() {
   // State Management

@@ -1,19 +1,19 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import Layout from "./components/Layout";
-import HomePage from "./components/HomePage";
-import RegisterVolunteerPage from "./components/RegisterVolunteerPage";
-import RegisterRequesterPage from "./components/RegisterRequesterPage";
-import LoginPage from "./components/LoginPage";
-import RequesterDashboard from "./components/RequesterDashboard";
-import VolunteerDashboard from "./components/VolunteerDashboard";
-import AdminDashboard from "./components/AdminDashboard";
-import AboutPage from "./components/AboutPage";
-import ProfilePage from "./components/ProfilePage";
-import { auth, db } from "./firebaseConfig";
+import Layout from "../components/layout/Layout";
+import HomePage from "./HomePage";
+import RegisterVolunteerPage from "../components/auth/RegisterVolunteerPage";
+import RegisterRequesterPage from "../components/auth/RegisterRequesterPage";
+import LoginPage from "../components/auth/LoginPage";
+import RequesterDashboard from "../components/dashboards/RequesterDashboard";
+import VolunteerDashboard from "../components/dashboards/VolunteerDashboard";
+import AdminDashboard from "../components/dashboards/AdminDashboard";
+import AboutPage from "./AboutPage";
+import ProfilePage from "./ProfilePage";
+import { auth, db } from "../config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import LoadingSpinner from "./components/LoadingSpinner";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 function ProtectedRoute({ children, allowedRoles }) {
   const [user, setUser] = React.useState(null);

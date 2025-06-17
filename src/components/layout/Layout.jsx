@@ -1,5 +1,5 @@
 import Navbar from './Navbar';
-import { EventSlider } from "./EventSlider/EventSlider";
+import { EventSlider } from "../../components/EventSlider/EventSlider";
 import { useLocation } from 'react-router-dom';
 
 export default function Layout({ children },) {

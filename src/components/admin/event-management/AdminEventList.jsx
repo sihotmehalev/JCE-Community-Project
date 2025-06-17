@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, updateDoc, doc, query, orderBy, deleteDoc, onSnapshot, Timestamp } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
-import { Card, CardContent } from '../ui/card';
+import { db } from '../../../config/firebaseConfig';
+import { Card, CardContent } from '../../../components/ui/card';
 
 export const AdminEventList = () => {
     const [events, setEvents] = useState([]);

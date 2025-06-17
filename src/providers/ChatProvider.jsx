@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth, db } from '../../firebaseConfig';
+import { auth, db } from '../../../config/firebaseConfig';
 import { doc, getDoc, collection, addDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
-import ChatWindow from '../ui/ChatWindow';
+import ChatWindow from '../../components/ui/ChatWindow';
 
 const ChatContext = createContext(null);
 

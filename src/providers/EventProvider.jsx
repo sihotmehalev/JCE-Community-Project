@@ -1,5 +1,5 @@
 import { collection, getDocs, query } from "firebase/firestore";
-import { db } from "../../firebaseConfig";
+import { db } from "../config/firebaseConfig";
 
 // This function fetches all events from the Firestore database
 export const fetchEvents = async () => {

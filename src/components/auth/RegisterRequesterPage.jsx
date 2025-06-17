@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { auth, db } from "../firebaseConfig";
+import { auth, db } from "../../config/firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, getDoc, increment, writeBatch, collection, serverTimestamp } from "firebase/firestore";
-import RegisterLayout from "./RegisterLayout";
+import RegisterLayout from "../layout/RegisterLayout";
 
 export default function RegisterRequesterPage() {
   const [formData, setFormData] = useState({

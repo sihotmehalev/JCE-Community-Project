@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { auth, db } from "../firebaseConfig";
+import { auth, db } from "../../config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
@@ -15,9 +15,9 @@ import {
   orderBy,
   serverTimestamp,
 } from "firebase/firestore";
-import { Button } from "./ui/button";
-import LoadingSpinner from "../components/LoadingSpinner";
-import { Card } from "./ui/card";
+import { Button } from "../ui/button";
+import LoadingSpinner from "../ui/LoadingSpinner";
+import { Card } from "../ui/card";
 import { User, Calendar, Clock, MessageCircle, Plus, X } from "lucide-react";
 
 /* ────────────────────────── helpers ────────────────────────── */
@@ -435,7 +435,7 @@ export default function RequesterDashboard() {
                 />
               ))
             ) : (
-              <Empty text="אין בקשות הממתינות לאישור" />
+              <Empty text="אין בקשות הממתינות לאישור מנהל" />
             )}
           </div>
         );

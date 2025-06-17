@@ -1,6 +1,6 @@
 // firebaseHelpers.js
 import { collection, doc } from "firebase/firestore";
-import { db } from "../firebaseConfig";
+import { db } from "../config/firebaseConfig";
 
 // Generate random ID for matches and requests
 export const generateRandomId = () => {

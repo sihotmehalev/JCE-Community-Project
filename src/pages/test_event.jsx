@@ -1,7 +1,7 @@
-import { db } from "./firebaseConfig";
+import { db } from "../config/firebaseConfig";
 import { collection, getDocs, addDoc, Timestamp } from "firebase/firestore";
 import { useState, useEffect } from "react";
-import { EventSlider } from "./components/EventSlider/EventSlider";
+import { EventSlider } from "../components/EventSlider/EventSlider";
 
 
 const handleAddEvent = async () => {

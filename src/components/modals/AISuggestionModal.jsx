@@ -1,13 +1,13 @@
 // AISuggestionsModal.jsx - Fixed import
 import React, { useState, useEffect, useCallback } from 'react';
 import { Modal } from "./Modal";
-import { Button } from './ui/button';
-import { generateAIPrompt } from "./firebaseHelpers";
+import { Button } from '../ui/button';
+import { generateAIPrompt } from "../../utils/firebaseHelpers";
 // Fix: Import as named exports, not default
 import { 
   getAIMatchingSuggestionsWithRetry, 
   testGroqConnection 
-} from "./aiService";
+} from "../../utils/aiService";
 
 export default function AISuggestionsModal({
   isOpen,

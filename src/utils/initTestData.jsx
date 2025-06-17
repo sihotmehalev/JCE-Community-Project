@@ -6,7 +6,7 @@ import {
   addDoc, 
   serverTimestamp 
 } from "firebase/firestore";
-import { auth, db } from "../firebaseConfig";
+import { auth, db } from "../config/firebaseConfig";
 
 export default function InitTestData() {
   const [loading, setLoading] = useState(false);

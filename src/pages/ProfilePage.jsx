@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { auth, db } from "../firebaseConfig";
+import { auth, db } from "../config/firebaseConfig";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { Card, CardContent } from "./ui/card";
-import { Button } from "./ui/button";
+import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
 import { User, Edit3, Save, X, Phone, Mail, MapPin, Calendar, Briefcase, Star, Clock, MessageCircle } from "lucide-react";
-import LoadingSpinner from "../components/LoadingSpinner";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 const roleTranslations = {
   volunteer: "מתנדב/ת",

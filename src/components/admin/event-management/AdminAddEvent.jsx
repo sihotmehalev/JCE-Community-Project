@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
+import { db } from '../../../config/firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../../firebaseConfig';
-import { Card, CardContent } from '../ui/card';
-import { Button } from '../ui/button';
+import { storage } from '../../../config/firebaseConfig';
+import { Card, CardContent } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
 
 const AdminAddEvent = ({ onEventAdded }) => {
     const [formData, setFormData] = useState({

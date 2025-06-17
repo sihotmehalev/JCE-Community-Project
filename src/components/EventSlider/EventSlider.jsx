@@ -1,7 +1,7 @@
 import { EventCard } from "../EventCard/EventCard";
 import { useState } from "react";
 import { useEffect } from "react";
-import { fetchEvents } from "../providers/EventProvider";
+import { fetchEvents } from "../../providers/EventProvider";
 
 export const EventSlider = () => {
     const [currentIndex, setCurrentIndex] = useState(0);

@@ -1,7 +1,7 @@
 // VolunteerDashboard.jsx
 import React, { act, useEffect, useRef, useState } from "react";
 import { User, Calendar, Clock, MessageCircle, Plus, X } from "lucide-react";
-import { auth, db } from "../firebaseConfig";
+import { auth, db } from "../../config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
@@ -16,9 +16,9 @@ import {
   orderBy,
   serverTimestamp,
 } from "firebase/firestore";
-import { Button } from "./ui/button";
-import { Card } from "./ui/card";
-import LoadingSpinner from "../components/LoadingSpinner";
+import { Button } from "../ui/button";
+import { Card } from "../ui/card";
+import LoadingSpinner from "../ui/LoadingSpinner";
 
 /* ────────────────────────── helpers ────────────────────────── */
 

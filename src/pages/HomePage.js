@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { Button } from "./ui/button";
-import { Card, CardContent } from "./ui/card";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
 import { motion } from "framer-motion";
-import { EventSlider } from "./EventSlider/EventSlider";
+import { EventSlider } from "../components/EventSlider/EventSlider";
 
 export default function HomePage() {
   const navigate = useNavigate();
