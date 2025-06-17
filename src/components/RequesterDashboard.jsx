@@ -14,6 +14,7 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  deleteField,
 } from "firebase/firestore";
 import { Button } from "./ui/button";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -278,15 +279,14 @@ export default function RequesterDashboard() {
 
   /* -------- listen for pending requests -------- */
   useEffect(() => {
-    if (!user) return;
-
-    unsubPendingRequests.current = onSnapshot(
+    if (!user) return;    unsubPendingRequests.current = onSnapshot(
       query(
         collection(db, "Requests"),
         where("requesterId", "==", user.uid),
         where("status", "in", ["waiting_for_first_approval", "waiting_for_admin_approval"])
       ),
       async (snap) => {
+        console.log("Pending requests snapshot received:", snap.docs.map(d => ({id: d.id, ...d.data()})));
         const requests = await Promise.all(snap.docs.map(async (d) => {
           const data = d.data();
           if (data.volunteerId) {
@@ -295,7 +295,12 @@ export default function RequesterDashboard() {
           }
           return { id: d.id, ...data };
         }));
-        setPendingRequests(requests);
+        
+        // Filter out requests that don't have a volunteerId
+        const requestsWithVolunteer = requests.filter(req => req.volunteerId);
+        console.log("Pending requests with volunteer:", requestsWithVolunteer);
+        
+        setPendingRequests(requestsWithVolunteer);
       }
     );
 
@@ -312,8 +317,7 @@ export default function RequesterDashboard() {
       { personal: newVal },
       { merge: true }
     );
-  };
-  const requestVolunteer = async (volunteerId) => {
+  };  const requestVolunteer = async (volunteerId) => {
     try {
       setRequestLoading(true);
       
@@ -342,18 +346,42 @@ export default function RequesterDashboard() {
       
       if (!snapshot.empty) {
         const requestDoc = snapshot.docs[0];
+        const requestId = requestDoc.id;
+        
         // Update the existing request with the selected volunteer
-        await updateDoc(doc(db, "Requests", requestDoc.id), {
+        await updateDoc(doc(db, "Requests", requestId), {
           volunteerId: volunteerId,
           initiatedBy: user.uid,
           updatedAt: serverTimestamp(),
         });
+        
+        // Update the local state to reflect this change
+        const updatedPendingRequests = [...pendingRequests];
+        const existingReqIndex = updatedPendingRequests.findIndex(req => req.id === requestId);
+        
+        if (existingReqIndex >= 0) {
+          // Update existing request
+          updatedPendingRequests[existingReqIndex] = {
+            ...updatedPendingRequests[existingReqIndex],
+            volunteerId,
+            initiatedBy: user.uid
+          };
+        } else {
+          // Add as a new request to the pending list
+          updatedPendingRequests.push({
+            id: requestId,
+            requesterId: user.uid,
+            volunteerId,
+            initiatedBy: user.uid,
+            status: "waiting_for_first_approval",
+            volunteer: volunteerData
+          });
+        }
+        
+        setPendingRequests(updatedPendingRequests);
       }
       
       alert("הבקשה נשלחה בהצלחה וממתינה לאישור");
-      
-      // Reload the page to refresh the UI
-      window.location.reload();
     } catch (error) {
       console.error("Error requesting volunteer:", error);
       alert("אירעה שגיאה בשליחת הבקשה. אנא נסה שוב");
@@ -361,22 +389,38 @@ export default function RequesterDashboard() {
       setRequestLoading(false);
     }
   };
-  
   const cancelRequest = async (requestId) => {
     try {
       setRequestLoading(true);
       
+      // Find the request to extract current data before updating
+      const requestDoc = await getDoc(doc(db, "Requests", requestId));
+      if (!requestDoc.exists()) {
+        alert("הבקשה לא נמצאה במערכת");
+        return;
+      }
+      
+      console.log("Canceling request with ID:", requestId);
+      console.log("Current pending requests:", pendingRequests);
+      
       // Update the request to remove the volunteerId and initiatedBy fields
       await updateDoc(doc(db, "Requests", requestId), {
-        volunteerId: null,
-        initiatedBy: null,
+        volunteerId: deleteField(),
+        initiatedBy: deleteField(),
         updatedAt: serverTimestamp(),
       });
       
-      alert("הבקשה בוטלה בהצלחה");
+      // In this specific case, since we're using a live snapshot,
+      // we don't need to update the state manually as the Firestore 
+      // listener in the useEffect above will automatically update the UI
+      // when the document changes. However, we can still update it optimistically
+      // for better UX.
+      const updatedPendingRequests = pendingRequests.filter(req => req.id !== requestId);
+      setPendingRequests(updatedPendingRequests);
       
-      // Reload the page to refresh the UI
-      window.location.reload();
+      console.log("Updated pending requests after cancel:", updatedPendingRequests);
+      
+      alert("הבקשה בוטלה בהצלחה");
     } catch (error) {
       console.error("Error canceling request:", error);
       alert("אירעה שגיאה בביטול הבקשה. אנא נסה שוב");
@@ -607,13 +651,14 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
   const pendingRequest = pendingRequests.find(req => req.volunteerId === volunteer.id);
   const isPending = !!pendingRequest;
   const isWaitingForAdmin = pendingRequest?.status === "waiting_for_admin_approval";
-  
-  // Check if there's any pending request to any volunteer (to hide buttons for other volunteers)
-  const hasAnyPendingRequest = pendingRequests.some(req => req.volunteerId !== null);
+    // Check if there's any pending request to any volunteer (to hide buttons for other volunteers)
+  const hasAnyPendingRequest = pendingRequests.length > 0;
   const showOtherVolunteers = !hasAnyPendingRequest || isPending;
   
   // Don't show the button if this is not the pending volunteer and there's another pending request
   const shouldShowButton = showOtherVolunteers || isPending;
+  
+  console.log(`Volunteer ${volunteer.id}: isPending=${isPending}, hasAnyPending=${hasAnyPendingRequest}, shouldShow=${shouldShowButton}`);
 
   return (    <div className="border border-orange-100 rounded-lg p-4 bg-orange-100">
       {isRecommended && (
