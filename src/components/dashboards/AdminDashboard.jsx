@@ -282,11 +282,11 @@ export default function AdminDashboard() {
       setPendingRequests(pending);
       setActiveMatches(matches);
 
-      console.log("Fetched Volunteers:", processedVolunteers);
-      console.log("Fetched Requesters:", r);
-      console.log("Fetched All Users:", [...processedVolunteers, ...r]);
-      console.log("Fetched Pending Requests:", pending);
-      console.log("Fetched Active Matches:", matches);
+      // console.log("Fetched Volunteers:", processedVolunteers);
+      // console.log("Fetched Requesters:", r);
+      // console.log("Fetched All Users:", [...processedVolunteers, ...r]);
+      // console.log("Fetched Pending Requests:", pending);
+      // console.log("Fetched Active Matches:", matches);
 
     } catch (error) {
       console.error("Error fetching data:", error);
