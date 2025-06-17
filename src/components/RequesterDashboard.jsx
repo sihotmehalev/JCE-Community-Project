@@ -495,8 +495,7 @@ export default function RequesterDashboard() {
       <Card className="mb-6">
         <div className="flex border-b border-gray-200">
           {personal && (
-            <>
-              <button
+            <>              <button
                 onClick={() => setActiveTab("available")}
                 className={`
                   flex-1 p-4 text-center font-medium text-sm focus:outline-none
@@ -506,7 +505,7 @@ export default function RequesterDashboard() {
                   }
                 `}
               >
-                מתנדבים זמינים
+                מתנדבים זמינים ({sortedVolunteers.length})
               </button>
               <button
                 onClick={() => setActiveTab("pending")}
@@ -518,11 +517,10 @@ export default function RequesterDashboard() {
                   }
                 `}
               >
-                בקשות שממתינות לאישור מנהל
+                בקשות שממתינות לאישור מנהל ({adminApprovalRequests.length})
               </button>
             </>
-          )}
-          <button
+          )}          <button
             onClick={() => setActiveTab("current")}
             className={`
               flex-1 p-4 text-center font-medium text-sm focus:outline-none
@@ -532,7 +530,7 @@ export default function RequesterDashboard() {
               }
             `}
           >
-            השיבוץ הנוכחי שלי
+            השיבוץ הנוכחי שלי ({activeMatch ? 1 : 0})
           </button>
         </div>
       </Card>

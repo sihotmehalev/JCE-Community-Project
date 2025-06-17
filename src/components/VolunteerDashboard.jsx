@@ -475,8 +475,7 @@ export default function VolunteerDashboard() {
       <Card className="mb-6">
         <div className="flex border-b border-gray-200">
           {personal && (
-            <>
-              <button
+            <>              <button
                 onClick={() => setActiveTab("directRequests")}
                 className={`
                   flex-1 p-4 text-center font-medium text-sm focus:outline-none
@@ -486,7 +485,7 @@ export default function VolunteerDashboard() {
                   }
                 `}
               >
-                בקשות ישירות
+                בקשות ישירות ({direct.length})
               </button>
               <button
                 onClick={() => setActiveTab("openRequests")}
@@ -498,7 +497,7 @@ export default function VolunteerDashboard() {
                   }
                 `}
               >
-                דפדוף בפונים פתוחים
+                דפדוף בפונים פתוחים ({pool.length})
               </button>
               <button
                 onClick={() => setActiveTab("adminApproval")}
@@ -510,11 +509,10 @@ export default function VolunteerDashboard() {
                   }
                 `}
               >
-                בקשות ממתינות לאישור מנהל
+                בקשות ממתינות לאישור מנהל ({adminApprovalRequests.length})
               </button>
             </>
-          )}
-          <button
+          )}          <button
             onClick={() => setActiveTab("activeMatches")}
             className={`
               flex-1 p-4 text-center font-medium text-sm focus:outline-none
@@ -524,7 +522,7 @@ export default function VolunteerDashboard() {
               }
             `}
           >
-            שיבוצים פעילים
+            שיבוצים פעילים ({matches.length})
           </button>
         </div>
       </Card>
