@@ -24,14 +24,30 @@ import LoadingSpinner from "../components/LoadingSpinner";
 
 // one-shot fetch of a requester's public profile
 const fetchRequester = async (uid) => {
+  console.log("[DEBUG] fetchRequester called with UID:", uid);
   if (!uid) {
     console.warn("fetchRequester called with invalid UID. Returning null.");
     return null;
   }
-  const snap = await getDoc(
-    doc(db, "Users", "Info", "Requesters", uid)
-  );
-  return snap.exists() ? { id: uid, ...snap.data() } : null;
+  
+  const docRef = doc(db, "Users", "Info", "Requesters", uid);
+  console.log("[DEBUG] fetchRequester docRef:", docRef.path);
+  
+  try {
+    const snap = await getDoc(docRef);
+    console.log("[DEBUG] fetchRequester snap exists:", snap.exists());
+    if (snap.exists()) {
+      const data = { id: uid, ...snap.data() };
+      console.log("[DEBUG] fetchRequester returned data:", data);
+      return data;
+    } else {
+      console.log("[DEBUG] fetchRequester: document does not exist");
+      return null;
+    }
+  } catch (error) {
+    console.error("[DEBUG] fetchRequester error:", error);
+    return null;
+  }
 };
 
 /* ────────────────────────── main component ────────────────────────── */
@@ -111,10 +127,13 @@ export default function VolunteerDashboard() {
 
     return () => unsubVol();
   }, [authChecked, user]);
-
   /* -------- attach / detach pool listeners -------- */
   useEffect(() => {
     if (loading || !user) return;
+    
+    console.log("[DEBUG] Setting up listeners, personal mode:", personal);
+    console.log("[DEBUG] User:", user.uid);
+    console.log("[DEBUG] Volunteer profile:", volProfile);
 
     // ---- active matches (always) ----
     unsubMatch.current?.();
@@ -136,8 +155,8 @@ export default function VolunteerDashboard() {
     );
 
     // ---- personal-only sections ----
-    if (personal) {
-      // direct Requests
+    if (personal) {      // direct Requests
+      console.log("[DEBUG] Setting up direct requests listener for user:", user.uid);
       unsubDirect.current = onSnapshot(
         query(
           collection(db, "Requests"),
@@ -145,19 +164,30 @@ export default function VolunteerDashboard() {
           where("status",      "==", "waiting_for_first_approval")
         ),
         async (snap) => {
+          console.log("[DEBUG] Direct requests snapshot received, docs count:", snap.docs.length);
+          console.log("[DEBUG] Direct requests raw data:", snap.docs.map(d => ({ id: d.id, ...d.data() })));
+          
           const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
+            console.log("[DEBUG] Processing direct request:", { id: d.id, ...rqData });
+            
             const rqUser = await fetchRequester(rqData.requesterId);
-            if (rqUser && rqUser.personal === false) {
+            console.log("[DEBUG] Fetched requester for direct request:", rqUser);
+            
+            if (rqUser && rqUser.personal === true) {
+              console.log("[DEBUG] Adding direct request to array - personal check passed");
               arr.push({ id: d.id, ...rqData, requester: rqUser });
+            } else {
+              console.log("[DEBUG] Skipping direct request - reason:", !rqUser ? "no requester found" : "requester.personal is true");
             }
           }
+          
+          console.log("[DEBUG] Final direct requests array:", arr);
           setDirect(arr);
         }
-      );
-
-      // Requests waiting for admin approval (new section)
+      );      // Requests waiting for admin approval (new section)
+      console.log("[DEBUG] Setting up admin approval requests listener for user:", user.uid);
       unsubAdminApproval.current = onSnapshot(
         query(
           collection(db, "Requests"),
@@ -165,41 +195,56 @@ export default function VolunteerDashboard() {
           where("status",      "==", "waiting_for_admin_approval")
         ),
         async (snap) => {
+          console.log("[DEBUG] Admin approval requests snapshot received, docs count:", snap.docs.length);
+          console.log("[DEBUG] Admin approval requests raw data:", snap.docs.map(d => ({ id: d.id, ...d.data() })));
+          
           const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
+            console.log("[DEBUG] Processing admin approval request:", { id: d.id, ...rqData });
+            
             const rqUser = await fetchRequester(rqData.requesterId);
+            console.log("[DEBUG] Fetched requester for admin approval request:", rqUser);
+            
             // Assuming these requests also come from requesters with personal: false, or this filter is not needed here
             if (rqUser) { // No personal filter needed here, as these are assigned requests
+              console.log("[DEBUG] Adding admin approval request to array");
               arr.push({ id: d.id, ...rqData, requester: rqUser });
+            } else {
+              console.log("[DEBUG] Skipping admin approval request - no requester found");
             }
           }
+          
+          console.log("[DEBUG] Final admin approval requests array:", arr);
           setAdminApprovalRequests(arr);
         }
-      );
-
-      // open pool
+      );      // open pool
+      console.log("[DEBUG] Setting up open pool listener");
       unsubPool.current = onSnapshot(
         query(
           collection(db, "Requests"),
           where("volunteerId", "==", null),
           where("status",      "==", "waiting_for_first_approval")
-        ),        async (snap) => {
-          console.log("Pool snapshot docs:", snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        ),
+        async (snap) => {
+          console.log("[DEBUG] Pool snapshot docs:", snap.docs.map(d => ({ id: d.id, ...d.data() })));
           const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
-            console.log("Processing request:", { id: d.id, ...rqData });
+            console.log("[DEBUG] Processing pool request:", { id: d.id, ...rqData });
+            
             const rqUser = await fetchRequester(rqData.requesterId);
-            console.log("Fetched requester:", rqUser);
+            console.log("[DEBUG] Fetched requester for pool request:", rqUser);
+            
             if (rqUser && rqUser.personal === false) {
+              console.log("[DEBUG] Adding request to pool - personal check passed");
               arr.push({ id: d.id, ...rqData, requester: rqUser });
-              console.log("Added to pool:", { id: d.id, ...rqData, requester: rqUser });
             } else {
-              console.log("Skipped request because:", !rqUser ? "no requester found" : "requester.personal is true");
+              console.log("[DEBUG] Skipped request because:", !rqUser ? "no requester found" : "requester.personal is true");
             }
           }
-          console.log("Final pool array:", arr);
+          
+          console.log("[DEBUG] Final pool array:", arr);
           setPool(arr);
         }
       );
@@ -228,24 +273,37 @@ export default function VolunteerDashboard() {
       { merge: true }
     );
   };
-
   const handleRequestAction = async (req, action) => {
+    console.log("[DEBUG] handleRequestAction called with:", { requestId: req.id, action });
+    
     const ref = doc(db, "Requests", req.id);
-    if (action === "accept") {
-      await updateDoc(ref, { status: "waiting_for_admin_approval" });
-    } else if (action === "decline") {
-      await updateDoc(ref, { status: "declined" });
-    } else if (action === "take") {
-      await updateDoc(ref, {
-        volunteerId: user.uid,
-        initiatedBy: user.uid,
-        status:      "waiting_for_admin_approval",
-      });
-    } else if (action === "withdraw") {
-      await updateDoc(ref, {
-        volunteerId: null,
-        status:      "waiting_for_first_approval",
-      });
+    try {
+      if (action === "accept") {
+        console.log("[DEBUG] Accepting request, updating to waiting_for_admin_approval");
+        await updateDoc(ref, { status: "waiting_for_admin_approval" });
+        console.log("[DEBUG] Request accepted successfully");
+      } else if (action === "decline") {
+        console.log("[DEBUG] Declining request");
+        await updateDoc(ref, { status: "declined" });
+        console.log("[DEBUG] Request declined successfully");
+      } else if (action === "take") {
+        console.log("[DEBUG] Taking request from pool");
+        await updateDoc(ref, {
+          volunteerId: user.uid,
+          initiatedBy: user.uid,
+          status:      "waiting_for_admin_approval",
+        });
+        console.log("[DEBUG] Request taken successfully");
+      } else if (action === "withdraw") {
+        console.log("[DEBUG] Withdrawing from request");
+        await updateDoc(ref, {
+          volunteerId: null,
+          status:      "waiting_for_first_approval",
+        });
+        console.log("[DEBUG] Request withdrawn successfully");
+      }
+    } catch (error) {
+      console.error("[DEBUG] Error in handleRequestAction:", error);
     }
   };
 

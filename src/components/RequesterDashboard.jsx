@@ -347,7 +347,6 @@ export default function RequesterDashboard() {
         await updateDoc(doc(db, "Requests", requestDoc.id), {
           volunteerId: volunteerId,
           initiatedBy: user.uid,
-          status: "waiting_for_admin_approval",
           updatedAt: serverTimestamp(),
         });
       }
@@ -356,7 +355,7 @@ export default function RequesterDashboard() {
       const updatedVolunteers = availableVolunteers.filter(v => v.id !== volunteerId);
       setAvailableVolunteers(updatedVolunteers);
       
-      alert("הבקשה נשלחה בהצלחה וממתינה לאישור מנהל");
+      alert("הבקשה נשלחה בהצלחה וממתינה לאישור");
     } catch (error) {
       console.error("Error requesting volunteer:", error);
       alert("אירעה שגיאה בשליחת הבקשה. אנא נסה שוב");
@@ -609,19 +608,19 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
 
       {/* Show availability information */}
       {volunteer.availableHours && (
-        <p className="text-sm mb-2 text-orange-600">
+        <p className="text-sm mb-2 text-orange-700">
           שעות זמינות: {formatList(volunteer.availableHours)}
         </p>
       )}
       
       {volunteer.availableDays && (
-        <p className="text-sm mb-2 text-orange-600">
+        <p className="text-sm mb-2 text-orange-700">
           ימים זמינים: {formatList(volunteer.availableDays)}
         </p>
       )}
 
       {volunteer.frequency && (
-        <p className="text-sm mb-3 text-orange-600">
+        <p className="text-sm mb-3 text-orange-700">
           תדירות: {formatList(volunteer.frequency)}
         </p>
       )}      <Button 
