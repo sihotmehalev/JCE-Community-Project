@@ -9,7 +9,7 @@ export default function Layout({ children },) {
     const shouldShowEvents = showEventsPages.includes(location.pathname);
 
     return (
-        <div className="min-h-screen flex flex-col bg-gradient-to-br from-red-200 via-orange-200 to-red-300">
+        <div className="min-h-screen flex flex-col" style={{ background: 'radial-gradient(circle at 70% 10%, #ffd7bd 0%, #ffb488 50%, #f49b8c 100%)' }}>
             <Navbar />
 
             {/* Main Content */}
@@ -23,7 +23,7 @@ export default function Layout({ children },) {
 
             <footer className="bg-orange-100/30 backdrop-blur-sm py-4 mt-auto">
                 <div className="container mx-auto px-4 text-center text-orange-800">
-                    <p>© 2026 Talks from the Heart. All rights reserved.</p>
+                    <p className="text-sm opacity-60">© 2026 Talks from the Heart. All rights reserved.</p>
                 </div>
             </footer>
         </div>
