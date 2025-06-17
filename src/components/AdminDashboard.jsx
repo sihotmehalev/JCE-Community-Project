@@ -532,9 +532,132 @@ export default function AdminDashboard() {
   
   }
 
-  const deleteUser = async (user_id) => {
+  const deleteUser = async (user) => {
+    try {
+      const batch = writeBatch(db);
+      
+      if (user.role === 'requester') {
+        // delete match if has one
+        const requesterDocRef = doc(db, "Users", "Info", "Requesters", user.id);
+        const requesterDocSnap = await getDoc(requesterDocRef);
 
-  }
+        if (requesterDocSnap.exists()) {
+
+          const data = requesterDocSnap.data();
+          const matchToDelete = data.activeMatchId;
+
+          // if requester has match
+          if (matchToDelete) {
+            // get id's
+            const vol_id = data.volunteerId;
+            const match_id = data.activeMatchId;
+            // prepare vol new list
+            const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", vol_id));
+            const currentMatches = volunteerDoc.data().activeMatchIds || [];
+            const updatedMatches = currentMatches.filter(id => id !== match_id);
+
+            // delete conversations, matches and match for Volunteer matches list
+            batch.delete(doc(db, "conversations", matchToDelete));
+            batch.update(doc(db, "Users", "Info", "Volunteers", vol_id), {
+              activeMatchIds: updatedMatches
+            })
+            batch.delete(doc(db, "Matches", matchToDelete))
+          }
+
+          const requestsSnap = await getDocs(
+            query(collection(db, "Requests"), where("requesterId", "==", user.id))
+          );
+          
+          // delete request
+          requestsSnap.forEach((docSnap) => {
+              const docRef = doc(db, "Requests", docSnap.id);
+              batch.delete(docRef);
+          });
+
+          // delete user
+          batch.delete(requesterDocRef);
+
+          await batch.commit();
+
+        } else {
+          console.log("No such document!");
+        }
+
+      } else if (user.role === 'volunteer') {
+
+          // 1. read volunteer
+          const volunteerRef  = doc(db, "Users", "Info", "Volunteers", user.id);
+          const volunteerSnap = await getDoc(volunteerRef);
+
+          if (volunteerSnap.exists()) {
+            const { activeMatchIds = [] } = volunteerSnap.data();
+
+            // 2. loop over matches **sequentially**
+            for (const matchId of activeMatchIds) {
+              const convoRef = doc(db, "conversations", matchId);
+              const matchRef  = doc(db, "Matches", matchId);
+              const matchSnap = await getDoc(matchRef);
+              if (!matchSnap.exists()) continue;
+
+              const { requesterId } = matchSnap.data();
+
+              console.log("Prepared to delete match:", doc(db, "Matches", matchId).path);
+              console.log("Prepared to delete convo:", doc(db, "conversations", matchId).path);
+
+
+              console.log(matchId);
+              batch.delete(convoRef);
+
+              // queue deletions
+              batch.delete(matchRef);
+
+              // queue requester update
+              batch.update(
+                doc(db, "Users", "Info", "Requesters", requesterId),
+                { activeMatchId: null }
+              );
+
+              // queue request updates
+              const reqQS = await getDocs(
+                query(collection(db, "Requests"), where("requesterId", "==", requesterId))
+              );
+              reqQS.forEach(r => batch.update(r.ref, {
+                status: "waiting_for_first_approval",
+                volunteerId: null,
+                matchedAt: null,
+                matchId: null
+              }));
+            }
+
+            // 3. finally queue volunteer deletion
+            batch.delete(volunteerRef);
+
+            // 4. commit AFTER **all** writes have been queued
+            await batch.commit();
+          }
+      }
+  
+      // Update UI state
+      setAllUsers(prev => prev.filter(u => u.id !== user.id));
+      if (user.role === 'volunteer') {
+        setVolunteers(prev => prev.filter(v => v.id !== user.id));
+      } else if (user.role === 'requester') {
+        setRequesters(prev => prev.filter(r => r.id !== user.id));
+      }
+      
+      // Update matches list if needed
+      setActiveMatches(prev => prev.filter(m => 
+        m.requesterId !== user.id && m.volunteerId !== user.id
+      ));
+  
+      setshowDeleteUserModal(false);
+      alert("המשתמש נמחק בהצלחה");
+  
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      alert("שגיאה במחיקת המשתמש");
+    }
+  };
 
   // Filter and sort users for the All Users table
   const filteredAndSortedUsers = allUsers
@@ -612,7 +735,7 @@ export default function AdminDashboard() {
           onClick={() => setActiveTab("volunteers")}
           className="py-3 px-6 text-lg"
         >
-          מתנדבים לאישור ({volunteers.filter(v => !v.approved).length})
+          מתנדבים לאישור ({volunteers.filter(v => v.approved !== "true").length})
         </Button>
         <Button
           variant={activeTab === "approvals" ? "default" : "outline"}
@@ -665,11 +788,11 @@ export default function AdminDashboard() {
             <h3 className="font-semibold mb-4 text-orange-700">
               מתנדבים ממתינים לאישור
             </h3>
-            {volunteers.filter(v => !v.approved).length === 0 ? (
+            {volunteers.filter(v => v.approved !== "true").length === 0 ? (
               <p className="text-orange-600/80">אין מתנדבים בהמתנה.</p>
             ) : (
               <div className="space-y-2">
-                {volunteers.filter(v => !v.approved).map(v => (
+                {volunteers.filter(v => v.approved !== "true").map(v => (
                   <div key={v.id} className="flex justify-between items-start bg-orange-50/50 p-3 rounded border border-orange-100">
                     <div className="flex-grow">
                       <div className="grid grid-cols-2 gap-x-8 w-full">
