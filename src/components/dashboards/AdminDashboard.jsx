@@ -1,5 +1,5 @@
 // AdminDashboard.jsx - Full Implementation
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { db } from "../../config/firebaseConfig";
 import { 
   collection, 
@@ -84,7 +84,7 @@ export default function AdminDashboard() {
     setActiveMatchCurrentPage(1);
   }, [activeMatchSearch, matchSortColumn, matchSortOrder]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       // Fetch volunteers
@@ -224,7 +224,7 @@ export default function AdminDashboard() {
         })
       );
 
-      setVolunteers(v.map(vol => {
+      const processedVolunteers = v.map(vol => {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const lastActivityTimestamp = vol.lastActivity || vol.lastLogin || vol.createdAt;
@@ -252,10 +252,12 @@ export default function AdminDashboard() {
             derivedDisplayStatus: volunteerDerivedStatus,
             lastActivity: lastActivityTimestamp
         };
-    }));
+    });
+
+      setVolunteers(processedVolunteers);
       setRequesters(r);
       setAllUsers([
-        ...volunteers,
+        ...processedVolunteers,
         ...r,
         ...a
       ]);
@@ -266,9 +268,9 @@ export default function AdminDashboard() {
       console.error("Error fetching data:", error);
     }
     setLoading(false);
-  };
+  }, []);
 
-  const fetchSessions = async (matchId) => {
+  const fetchSessions = useCallback(async (matchId) => {
     setLoadingSessions(true);
     try {
       const sessionsSnap = await getDocs(query(collection(db, "Sessions"), where("matchId", "==", matchId)));
@@ -278,7 +280,7 @@ export default function AdminDashboard() {
       console.error("Error fetching sessions:", error);
     }
     setLoadingSessions(false);
-  };
+  }, [setLoadingSessions, setMatchSessions]);
 
   const handleSort = (columnName) => {
     if (sortColumn === columnName) {
@@ -300,7 +302,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   useEffect(() => {
     if (selectedMatchForDetails && showSessionDetails) {
@@ -308,7 +310,7 @@ export default function AdminDashboard() {
     } else if (!selectedMatchForDetails) {
       setMatchSessions([]);
     }
-  }, [selectedMatchForDetails, showSessionDetails]);
+  }, [selectedMatchForDetails, showSessionDetails, fetchSessions]);
 
   const approveVolunteer = async (id) => {
     try {
