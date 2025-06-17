@@ -129,9 +129,11 @@ export default function AdminDashboard() {
       });
 
       // Fetch admins
-      const adminsFirst = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "FirstLevel"));
-      const adminsSecond = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "SecondLevel"));
+      // const adminsFirst = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "FirstLevel"));
+      // const adminsSecond = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "SecondLevel"));
       
+      /*
+      Admin excluded from counting the users
       const a = [
         ...adminsFirst.docs.map(doc => {
           const data = doc.data();
@@ -174,6 +176,7 @@ export default function AdminDashboard() {
           };
         })
       ];
+      */
 
       // Fetch pending requests (waiting_for_admin_approval)
       const pendingRequestsSnap = await getDocs(
@@ -801,7 +804,7 @@ export default function AdminDashboard() {
             <div className="flex flex-grow gap-8">
               {/* Requester Info Panel */}
               <div
-                className={`w-1/4 border rounded p-4 bg-gray-50/50 h-[280px] overflow-y-scroll`}
+                className={`w-1/4 border rounded p-4 bg-gray-50/50 h-[510px] overflow-y-scroll`}
                 onMouseEnter={() => {
                   if (requesterHoverTimeoutRef.current) {
                     clearTimeout(requesterHoverTimeoutRef.current);
@@ -824,6 +827,11 @@ export default function AdminDashboard() {
                     <p><strong>גיל:</strong> {requesters.find(r => r.id === selectedRequester)?.age}</p>
                     <p><strong>מגדר:</strong> {requesters.find(r => r.id === selectedRequester)?.gender}</p>
                     <p><strong>סיבת פנייה:</strong> {requesters.find(r => r.id === selectedRequester)?.reason}</p>
+                    {requesters.find(r => r.id === selectedRequester)?.needs && <p><strong>צרכים:</strong> {requesters.find(r => r.id === selectedRequester)?.needs}</p>}
+                    {requesters.find(r => r.id === selectedRequester)?.chatPref && <p><strong>העדפת צ׳אט:</strong> {requesters.find(r => r.id === selectedRequester)?.chatPref.join(', ')}</p>}
+                    {requesters.find(r => r.id === selectedRequester)?.frequency && <p><strong>תדירות:</strong> {requesters.find(r => r.id === selectedRequester)?.frequency.join(', ')}</p>}
+                    {requesters.find(r => r.id === selectedRequester)?.preferredTimes && <p><strong>זמנים מועדפים:</strong> {requesters.find(r => r.id === selectedRequester)?.preferredTimes}</p>}
+                    {requesters.find(r => r.id === selectedRequester)?.location && <p><strong>מיקום:</strong> {requesters.find(r => r.id === selectedRequester)?.location}</p>}
                     <p><strong>התאמות פעילות:</strong> {requesters.find(r => r.id === selectedRequester)?.activeMatchIds?.length || 0}</p>
                   </div>
                 ) : hoveredRequester ? (
@@ -833,6 +841,11 @@ export default function AdminDashboard() {
                     <p><strong>גיל:</strong> {hoveredRequester.age}</p>
                     <p><strong>מגדר:</strong> {hoveredRequester.gender}</p>
                     <p><strong>סיבת פנייה:</strong> {hoveredRequester.reason}</p>
+                    {hoveredRequester.needs && <p><strong>צרכים:</strong> {hoveredRequester.needs}</p>}
+                    {hoveredRequester.chatPref && <p><strong>העדפת צ׳אט:</strong> {hoveredRequester.chatPref.join(', ')}</p>}
+                    {hoveredRequester.frequency && <p><strong>תדירות:</strong> {hoveredRequester.frequency.join(', ')}</p>}
+                    {hoveredRequester.preferredTimes && <p><strong>זמנים מועדפים:</strong> {hoveredRequester.preferredTimes}</p>}
+                    {hoveredRequester.location && <p><strong>מיקום:</strong> {hoveredRequester.location}</p>}
                     <p><strong>התאמות פעילות:</strong> {hoveredRequester.activeMatchIds?.length || 0}</p>
                   </div>
                 ) : (
@@ -852,7 +865,7 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
-                <ul className="space-y-2 h-[280px] overflow-y-scroll">
+                <ul className="space-y-2 h-[400px] overflow-y-scroll">
                   {requesters
                     .filter(req => !(req.activeMatchIds && req.activeMatchIds.length > 0))
                     .filter(req =>
@@ -913,7 +926,7 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
-                <ul className="space-y-2 h-[280px] overflow-y-scroll">
+                <ul className="space-y-2 h-[400px] overflow-y-scroll">
                   {volunteers
                     .filter(v => v.approved && (v.isAvailable || v.isAvaliable) && !v.personal)
                     .filter(v =>
@@ -960,7 +973,7 @@ export default function AdminDashboard() {
 
               {/* Volunteer Info Panel */}
               <div
-                className={`w-1/4 border rounded p-4 bg-gray-50/50 h-[280px] overflow-y-scroll`}
+                className={`w-1/4 border rounded p-4 bg-gray-50/50 h-[510px] overflow-y-scroll`}
                 onMouseEnter={() => {
                   if (volunteerHoverTimeoutRef.current) {
                     clearTimeout(volunteerHoverTimeoutRef.current);
@@ -983,6 +996,12 @@ export default function AdminDashboard() {
                     <p><strong>גיל:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.age}</p>
                     <p><strong>מקצוע:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.profession}</p>
                     <p><strong>ניסיון:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.experience}</p>
+                    {volunteers.find(v => v.id === selectedVolunteer)?.gender && <p><strong>מגדר:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.gender}</p>}
+                    {volunteers.find(v => v.id === selectedVolunteer)?.maritalStatus && <p><strong>מצב משפחתי:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.maritalStatus}</p>}
+                    {volunteers.find(v => v.id === selectedVolunteer)?.motivation && <p><strong>מוטיבציה:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.motivation}</p>}
+                    {volunteers.find(v => v.id === selectedVolunteer)?.strengths && <p><strong>חוזקות:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.strengths}</p>}
+                    {volunteers.find(v => v.id === selectedVolunteer)?.availableDays && volunteers.find(v => v.id === selectedVolunteer)?.availableDays.length > 0 && <p><strong>ימים פנויים:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.availableDays.join(', ')}</p>}
+                    {volunteers.find(v => v.id === selectedVolunteer)?.availableHours && volunteers.find(v => v.id === selectedVolunteer)?.availableHours.length > 0 && <p><strong>שעות פנויות:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.availableHours.join(', ')}</p>}
                     <p><strong>התאמות פעילות:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.activeMatchIds?.length || 0}</p>
                   </div>
                 ) : hoveredVolunteer ? (
@@ -992,6 +1011,12 @@ export default function AdminDashboard() {
                     <p><strong>גיל:</strong> {hoveredVolunteer.age}</p>
                     <p><strong>מקצוע:</strong> {hoveredVolunteer.profession}</p>
                     <p><strong>ניסיון:</strong> {hoveredVolunteer.experience}</p>
+                    {hoveredVolunteer.gender && <p><strong>מגדר:</strong> {hoveredVolunteer.gender}</p>}
+                    {hoveredVolunteer.maritalStatus && <p><strong>מצב משפחתי:</strong> {hoveredVolunteer.maritalStatus}</p>}
+                    {hoveredVolunteer.motivation && <p><strong>מוטיבציה:</strong> {hoveredVolunteer.motivation}</p>}
+                    {hoveredVolunteer.strengths && <p><strong>חוזקות:</strong> {hoveredVolunteer.strengths}</p>}
+                    {hoveredVolunteer.availableDays && hoveredVolunteer.availableDays.length > 0 && <p><strong>ימים פנויים:</strong> {hoveredVolunteer.availableDays.join(', ')}</p>}
+                    {hoveredVolunteer.availableHours && hoveredVolunteer.availableHours.length > 0 && <p><strong>שעות פנויות:</strong> {hoveredVolunteer.availableHours.join(', ')}</p>}
                     <p><strong>התאמות פעילות:</strong> {hoveredVolunteer.activeMatchIds?.length || 0}</p>
                   </div>
                 ) : (
