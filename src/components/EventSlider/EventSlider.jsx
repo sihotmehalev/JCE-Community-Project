@@ -54,7 +54,7 @@ export const EventSlider = () => {
             <div className="relative">
                 <button 
                     onClick={() => setCurrentIndex(getPreviousIndex())}
-                    className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 
+                    className="absolute left-0 top-1/2 transform -translate-y-1/2 
                              bg-orange-100 text-orange-800 px-4 py-2 rounded-full
                              hover:bg-orange-200 transition-colors duration-200
                              shadow-md"
@@ -69,7 +69,7 @@ export const EventSlider = () => {
                         <EventCard event={events[getPreviousIndex()]} />
                     </div>
                     
-                    <div className="relative w-[600px] z-10 transform scale-100 transition-all duration-300">
+                    <div className="relative w-[600px] transform scale-100 transition-all duration-300">
                         <EventCard event={events[currentIndex]} />
                     </div>
                     
@@ -82,7 +82,7 @@ export const EventSlider = () => {
                 </div>
                 <button 
                     onClick={() => setCurrentIndex(getNextIndex())}
-                    className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10
+                    className="absolute right-0 top-1/2 transform -translate-y-1/2
                              bg-orange-100 text-orange-800 px-4 py-2 rounded-full
                              hover:bg-orange-200 transition-colors duration-200
                              shadow-md"
