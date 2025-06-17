@@ -89,11 +89,14 @@ export default function AdminDashboard() {
     try {
       // Fetch volunteers
       const volunteersSnap = await getDocs(collection(db, "Users", "Info", "Volunteers"));
-      const v = volunteersSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        role: "volunteer"
-      }));
+      const v = volunteersSnap.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          role: "volunteer"
+        };
+      });
 
       // Fetch requesters
       const requestersSnap = await getDocs(collection(db, "Users", "Info", "Requesters"));
@@ -104,7 +107,7 @@ export default function AdminDashboard() {
 
         const lastActivityTimestamp = data.lastActivity || data.lastLogin || data.createdAt;
         let isActiveByTime = false;
-        if (lastActivityTimestamp) {
+        if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
             const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
             isActiveByTime = lastActivityDate >= thirtyDaysAgo;
         }
@@ -137,7 +140,7 @@ export default function AdminDashboard() {
 
           const lastActivityTimestamp = data.lastActivity || data.lastLogin || data.createdAt;
           let isActiveByTime = false;
-          if (lastActivityTimestamp) {
+          if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
               const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
               isActiveByTime = lastActivityDate >= thirtyDaysAgo;
           }
@@ -157,7 +160,7 @@ export default function AdminDashboard() {
 
           const lastActivityTimestamp = data.lastActivity || data.lastLogin || data.createdAt;
           let isActiveByTime = false;
-          if (lastActivityTimestamp) {
+          if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
               const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
               isActiveByTime = lastActivityDate >= thirtyDaysAgo;
           }
@@ -180,16 +183,23 @@ export default function AdminDashboard() {
       const pending = await Promise.all(
         pendingRequestsSnap.docs.map(async (docSnap) => {
           const data = docSnap.data();
-          
           // Fetch requester info
-          const requesterDoc = await getDoc(doc(db, "Users", "Info", "Requesters", data.requesterId));
-          const requesterInfo = requesterDoc.exists() ? requesterDoc.data() : null;
+          let requesterInfo = null;
+          if (data.requesterId && typeof data.requesterId === 'string' && data.requesterId.trim() !== '') {
+            const requesterDoc = await getDoc(doc(db, "Users", "Info", "Requesters", data.requesterId));
+            requesterInfo = requesterDoc.exists() ? requesterDoc.data() : null;
+          } else {
+            console.warn(`Skipping requester info for pending request ${docSnap.id}: requesterId is invalid or undefined. Value: ${data.requesterId}`);
+          }
           
           // Fetch volunteer info if exists
           let volunteerInfo = null;
-          if (data.volunteerId) {
+          if (data.volunteerId && typeof data.volunteerId === 'string' && data.volunteerId.trim() !== '') {
             const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", data.volunteerId));
             volunteerInfo = volunteerDoc.exists() ? volunteerDoc.data() : null;
+          } else if (data.volunteerId === undefined || (typeof data.volunteerId === 'string' && data.volunteerId.trim() === '')) { 
+            // Log only if it's truly undefined or an empty string, not null (which is valid for non-personal requests)
+            console.warn(`Skipping volunteer info for pending request ${docSnap.id}: volunteerId is invalid or undefined. Value: ${data.volunteerId}`);
           }
           
           return {
@@ -206,14 +216,23 @@ export default function AdminDashboard() {
       const matches = await Promise.all(
         matchesSnap.docs.map(async (docSnap) => {
           const data = docSnap.data();
-          
           // Fetch requester info
-          const requesterDoc = await getDoc(doc(db, "Users", "Info", "Requesters", data.requesterId));
-          const requesterInfo = requesterDoc.exists() ? requesterDoc.data() : null;
+          let requesterInfo = null;
+          if (data.requesterId && typeof data.requesterId === 'string' && data.requesterId.trim() !== '') {
+            const requesterDoc = await getDoc(doc(db, "Users", "Info", "Requesters", data.requesterId));
+            requesterInfo = requesterDoc.exists() ? requesterDoc.data() : null;
+          } else {
+            console.warn(`Skipping requester info for match ${docSnap.id}: requesterId is invalid or undefined. Value: ${data.requesterId}`);
+          }
           
           // Fetch volunteer info
-          const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", data.volunteerId));
-          const volunteerInfo = volunteerDoc.exists() ? volunteerDoc.data() : null;
+          let volunteerInfo = null;
+          if (data.volunteerId && typeof data.volunteerId === 'string' && data.volunteerId.trim() !== '') {
+            const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", data.volunteerId));
+            volunteerInfo = volunteerDoc.exists() ? volunteerDoc.data() : null;
+          } else {
+            console.warn(`Skipping volunteer info for match ${docSnap.id}: volunteerId is invalid or undefined. Value: ${data.volunteerId}`);
+          }
           
           return {
             id: docSnap.id,
@@ -229,7 +248,7 @@ export default function AdminDashboard() {
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const lastActivityTimestamp = vol.lastActivity || vol.lastLogin || vol.createdAt;
         let isActiveByTime = false;
-        if (lastActivityTimestamp) {
+        if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
             const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
             isActiveByTime = lastActivityDate >= thirtyDaysAgo;
         }
@@ -263,9 +282,16 @@ export default function AdminDashboard() {
       ]);
       setPendingRequests(pending);
       setActiveMatches(matches);
-      
+
+      console.log("Fetched Volunteers:", processedVolunteers);
+      console.log("Fetched Requesters:", r);
+      console.log("Fetched All Users:", [...processedVolunteers, ...r, ...a]);
+      console.log("Fetched Pending Requests:", pending);
+      console.log("Fetched Active Matches:", matches);
+
     } catch (error) {
       console.error("Error fetching data:", error);
+      console.error("Full error object:", error);
     }
     setLoading(false);
   }, []);
