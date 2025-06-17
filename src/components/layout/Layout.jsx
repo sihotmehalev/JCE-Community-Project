@@ -23,7 +23,7 @@ export default function Layout({ children },) {
 
             <footer className="bg-orange-100/30 backdrop-blur-sm py-4 mt-auto">
                 <div className="container mx-auto px-4 text-center text-orange-800">
-                    <p>© 2026 Talks from the Heart. All rights reserved.</p>
+                    <p className="text-sm opacity-60">© 2026 Talks from the Heart. All rights reserved.</p>
                 </div>
             </footer>
         </div>
