@@ -521,7 +521,7 @@ export default function AdminDashboard() {
         activeMatchIds: [...(volunteer?.activeMatchIds || []), matchId]
       });
 
-      const requester = requesters.find(r => r.id === requesterId);
+      requesters.find(r => r.id === requesterId);
       const requesterRef = doc(db, "Users", "Info", "Requesters", requesterId);
       batch.update(requesterRef, {
         activeMatchId: matchId
@@ -602,11 +602,11 @@ export default function AdminDashboard() {
       // Update UI
       setActiveMatches(prev => prev.filter(match => match.id !== match_id));
       setShowCancelMatchModal(false);
-      alert("ההתאמה בוטלה בהצלחה");
+      setAlertMessage({ message: "ההתאמה בוטלה בהצלחה", type: "success" });
 
     } catch (error) {
       console.error("Error cancelling match:", error);
-      alert("שגיאה בביטול ההתאמה");
+      setAlertMessage({ message: "שגיאה בביטול ההתאמה", type: "error" });
     }
   
   }
@@ -726,11 +726,11 @@ export default function AdminDashboard() {
       ));
   
       setshowDeleteUserModal(false);
-      alert("המשתמש נמחק בהצלחה");
+      setAlertMessage({ message: "המשתמש נמחק בהצלחה", type: "success" });
   
     } catch (error) {
       console.error("Error deleting user:", error);
-      alert("שגיאה במחיקת המשתמש");
+      setAlertMessage({ message: "שגיאה במחיקת המשתמש", type: "error" });
     }
   };
 
@@ -1421,15 +1421,16 @@ export default function AdminDashboard() {
                               </td>
                               <td className="border border-orange-100 p-2 text-center">
                                 <Button
-                                  className="text-red-600 hover:text-red-800"
-                                  variant="outline"
                                   onClick={() => {
                                     setSelectedMatchForDetails(match.id);
                                     setShowSessionDetails(false);
                                     setShowCancelMatchModal(true);
                                   }}
+                                  className="p-2 rounded-full text-red-600 hover:text-white hover:bg-red-600 focus:outline-none transition-colors duration-200 flex items-center justify-center mx-auto"
                                 >
-                                  ביטול התאמה
+                                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
                                 </Button>
                               </td>
                             </tr>
@@ -1593,15 +1594,18 @@ export default function AdminDashboard() {
                       </td>
                       <td>                       
                          <button
-                          className="px-4 py-2 text-orange-800 hover:bg-orange-50 border border-orange-200 rounded-md transition-colors duration-200 hover:border-orange-300 w-full"
+                          className="p-2 rounded-full text-red-600 hover:text-white hover:bg-red-600 focus:outline-none transition-colors duration-200 flex items-center justify-center mx-auto"
                           onClick={() => { 
                             setshowDeleteUserModal(true);
                             setShowSessionDetails(false);
                             setSelectedUserForDelete(u);
                           }}
-                        >
-                          מחיקה
-                        </button>
+                          title="מחק משתמש"
+                         >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                         </button>
                       </td>
                     </tr>
                   ))}
@@ -1665,7 +1669,7 @@ export default function AdminDashboard() {
         onClose={() => setAlertMessage(null)}
         type={alertMessage?.type}
       />
-      
+
       <CancelMatchModal
         isOpen={showCancelMatchModal}
         onClose={() => setShowCancelMatchModal(false)}
