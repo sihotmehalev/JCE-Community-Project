@@ -1,6 +1,6 @@
 // VolunteerDashboard.jsx
 import React, { useEffect, useRef, useState } from "react";
-import { User, Calendar, Clock, MessageCircle, Plus, X, Phone } from "lucide-react";
+import { User, Calendar, Clock, MessageCircle, Plus, X, Phone, Heart } from "lucide-react";
 import { auth, db } from "../../config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -707,7 +707,7 @@ function RequestCard({ req, variant, onAction }) {
 
         <div className="bg-white/60 rounded-lg p-3 border border-orange-100">
           <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-4 h-4 text-orange-600" />
+            <Heart className="w-4 h-4 text-orange-600" />
             <h4 className="font-semibold text-orange-800 text-sm">העדפה למתנדב</h4>
           </div>
           <p className="text-orange-700 text-sm">
