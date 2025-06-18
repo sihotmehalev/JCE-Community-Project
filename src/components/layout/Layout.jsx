@@ -20,7 +20,9 @@ export default function Layout({ children },) {
             </main>
 
             { shouldShowEvents && (
-                <EventSlider />
+                <div className='mb-6'>
+                    <EventSlider />
+                </div>
             )}
 
             <footer className="bg-orange-100/30 backdrop-blur-sm py-4 mt-auto">

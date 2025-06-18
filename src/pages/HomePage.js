@@ -69,9 +69,9 @@ export default function HomePage() {
           </CardContent>
         </Card>
       </motion.div>
-
-      <EventSlider/>
-
+      <div className="mt-20">
+        <EventSlider/>
+      </div>
     </div>
   );
 }

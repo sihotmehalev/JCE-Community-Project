@@ -14,8 +14,7 @@ import {
   query,
   where,
   orderBy,
-  serverTimestamp,
-  deleteField,
+  serverTimestamp
 } from "firebase/firestore";
 import { Button } from "../ui/button";
 import LoadingSpinner from "../ui/LoadingSpinner";
@@ -23,6 +22,7 @@ import { Card } from "../ui/card";
 import { X } from "lucide-react";
 import ChatPanel from "../ui/ChatPanel";
 import CustomAlert from "../ui/CustomAlert";
+import { User } from "lucide-react";
 
 /* ────────────────────────── helpers ────────────────────────── */
 
@@ -179,15 +179,6 @@ export default function RequesterDashboard() {
     const unsubReq = onSnapshot(
       reqRef,
       async (snap) => {
-        if (!snap.exists()) {
-          console.log("[DEBUG] First login - creating skeleton profile");
-          // first login → create skeleton profile
-          await setDoc(reqRef, {
-            personal: true, // default to פנייה ישירה למתנדב
-            createdAt: serverTimestamp(),
-          });
-          return; // wait for next snapshot
-        }
         const data = snap.data();
         console.log("[DEBUG] Loaded requester profile:", data);
         setRequestProfile(data);
@@ -263,7 +254,8 @@ export default function RequesterDashboard() {
     }
   }, [availableVolunteers, requestProfile, declinedVolunteers]);
 
-  /* -------- attach / detach listeners based on mode -------- */  useEffect(() => {
+  /* -------- attach / detach listeners based on mode -------- */  
+  useEffect(() => {
     if (loading || !user) return;
 
     console.log("[DEBUG] Setting up listeners for user:", user.uid);
@@ -294,15 +286,19 @@ export default function RequesterDashboard() {
       }
     );
 
-    // ---- personal mode sections ----
+    // Clear any existing listeners
+    unsubVolunteers.current?.();
+    unsubAdminApproval.current?.();
+
     if (personal) {
-      console.log("[DEBUG] Setting up listeners for personal mode (direct volunteer selection)");
+      console.log("[DEBUG] Setting up listeners for direct volunteer selection");
       // available volunteers
       unsubVolunteers.current = onSnapshot(
         query(
           collection(db, "Users", "Info", "Volunteers"),
           where("approved", "==", "true"),
-          where("isAvailable", "==", true)
+          where("isAvailable", "==", true),
+          where("personal", "==", true)
         ),
         (snap) => {
           console.log("[DEBUG] Available volunteers snapshot received:", snap.docs.length, "volunteers");
@@ -311,9 +307,9 @@ export default function RequesterDashboard() {
           );
         }
       );
-    } else {
-      console.log("[DEBUG] Setting up listeners for non-personal mode (admin approval)");
-      // ללא העדפה mode - show requests waiting for admin approval
+
+      console.log("[DEBUG] Setting up listeners for admin approval");
+      // show requests waiting for admin approval
       unsubAdminApproval.current = onSnapshot(
         query(
           collection(db, "Requests"),
@@ -333,15 +329,10 @@ export default function RequesterDashboard() {
           setAdminApprovalRequests(arr);
         }
       );
-
-      // clear personal mode data
-      unsubVolunteers.current?.();
-      setAvailableVolunteers([]);
     }
-
-    // cleanup on mode change
-    if (personal) {
-      unsubAdminApproval.current?.();
+    else {
+      // When not in personal mode, clear the states
+      setAvailableVolunteers([]);
       setAdminApprovalRequests([]);
     }
 
@@ -402,7 +393,8 @@ export default function RequesterDashboard() {
       { personal: newVal },
       { merge: true }
     );
-  };  const requestVolunteer = async (volunteerId) => {
+  };  
+  const requestVolunteer = async (volunteerId) => {
     try {
       console.log("[DEBUG] Requesting volunteer:", volunteerId);
       setRequestLoading(true);
@@ -411,7 +403,7 @@ export default function RequesterDashboard() {
       const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", volunteerId));
       if (!volunteerDoc.exists()) {
         console.warn("[DEBUG] Volunteer not found:", volunteerId);
-        alert("המתנדב/ת לא נמצא/ה במערכת");
+        setAlertMessage({message: "המתנדב/ת לא נמצא/ה במערכת", type: "error"});
         return;
       }
       
@@ -424,7 +416,7 @@ export default function RequesterDashboard() {
       
       if (!volunteerData.isAvailable || !volunteerData.approved) {
         console.warn("[DEBUG] Volunteer is unavailable or not approved");
-        alert("המתנדב/ת אינו/ה זמין/ה כעת");
+        setAlertMessage({message: "המתנדב/ת אינו/ה זמין/ה כעת", type: "error"});
         return;
       }
 
@@ -479,10 +471,10 @@ export default function RequesterDashboard() {
         setPendingRequests(updatedPendingRequests);
       }
       
-      alert("הבקשה נשלחה בהצלחה וממתינה לאישור");
+      setAlertMessage({message: "הבקשה נשלחה בהצלחה וממתינה לאישור", type: "success"});
     } catch (error) {
       console.error("Error requesting volunteer:", error);
-      alert("אירעה שגיאה בשליחת הבקשה. אנא נסה שוב");
+      setAlertMessage({message: "אירעה שגיאה בשליחת הבקשה. אנא נסה שוב", type: "error"});
     } finally {
       setRequestLoading(false);
     }
@@ -494,17 +486,19 @@ export default function RequesterDashboard() {
       // Find the request to extract current data before updating
       const requestDoc = await getDoc(doc(db, "Requests", requestId));
       if (!requestDoc.exists()) {
-        alert("הבקשה לא נמצאה במערכת");
+        setAlertMessage({message: "הבקשה לא נמצאה במערכת", type: "error"});
         return;
       }
       
       console.log("Canceling request with ID:", requestId);
       console.log("Current pending requests:", pendingRequests);
       
+      // const volunteerId = requestDoc.data().volunteerId;
+
       // Update the request to remove the volunteerId and initiatedBy fields
       await updateDoc(doc(db, "Requests", requestId), {
-        volunteerId: deleteField(),
-        initiatedBy: deleteField(),
+        volunteerId: null,
+        initiatedBy: null,
         updatedAt: serverTimestamp(),
       });
       
@@ -513,15 +507,15 @@ export default function RequesterDashboard() {
       // listener in the useEffect above will automatically update the UI
       // when the document changes. However, we can still update it optimistically
       // for better UX.
-      const updatedPendingRequests = pendingRequests.filter(req => req.id !== requestId);
-      setPendingRequests(updatedPendingRequests);
+      // const updatedPendingRequests = pendingRequests.filter(req => req.id !== requestId);
+      // setPendingRequests(updatedPendingRequests);
       
-      console.log("Updated pending requests after cancel:", updatedPendingRequests);
-      
-      alert("הבקשה בוטלה בהצלחה");
+      // console.log("Updated pending requests after cancel:", updatedPendingRequests);
+
+      setAlertMessage({message: "הבקשה בוטלה בהצלחה", type: "success"});
     } catch (error) {
       console.error("Error canceling request:", error);
-      alert("אירעה שגיאה בביטול הבקשה. אנא נסה שוב");
+      setAlertMessage({message: "אירעה שגיאה בביטול הבקשה. אנא נסה שוב", type: "error"});
     } finally {
       setRequestLoading(false);
     }
@@ -882,12 +876,31 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
 
   return (
     <div className="border border-orange-100 bg-orange-100 rounded-lg p-4">
-      <div className="flex justify-between items-start mb-3">
-        <div>
-          <p className="font-semibold text-orange-800 text-lg mb-1">
-            {volunteer?.fullName || "מתנדב/ת ללא שם"}
-          </p>
-
+    {/* Header Section */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
+            <User className="w-6 h-6 text-orange-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-orange-900 text-xl mb-1">
+              {volunteer?.fullName || "פונה ללא שם"}
+            </h3>
+            <div className="flex items-center gap-4 text-sm text-orange-700">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                גיל: {volunteer?.age ?? "—"}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                מגדר: {volunteer?.gender ?? "—"}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                טלפון: {volunteer?.phone ?? "—"}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -896,14 +909,15 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
         <Button onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}>
           {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
         </Button>
-        <Button 
-          variant="outline" 
-          onClick={() => setShowUpcomingSessionsModal(true)}
-          className="flex items-center gap-2"
-          disabled={upcomingSessions.length === 0}
-        >
-          מפגשים מתוכננים ({upcomingSessions.length})
+        {upcomingSessions.length > 0 && (
+          <Button
+            variant="outline"
+            onClick={() => setShowUpcomingSessionsModal(true)}
+            className="flex items-center gap-2"
+          >
+            מפגשים מתוכננים ({upcomingSessions.length})
         </Button>
+        )}
         {pastSessionsCount > 0 && (
           <Button 
             variant="outline"

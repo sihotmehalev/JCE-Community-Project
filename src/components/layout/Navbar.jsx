@@ -62,10 +62,10 @@ export default function Navbar() {
   else if (role === "requester") dashboardLink = "/requester-dashboard";
 
   return (
-    <nav className="bg-white/20 backdrop-blur-sm shadow-lg p-4 flex flex-row-reverse justify-between items-center sticky top-0 z-50">
+    <nav className="bg-white/20 backdrop-blur-sm shadow-lg px-4 py-0 flex flex-row-reverse justify-between items-center sticky top-0 z-50">
       {/* "שיחות מהלב" on the left */}
-      <Link to="/" className="text-xl font-bold text-orange-800 hover:text-orange-600">
-        שיחות מהלב
+      <Link to="/" className="">
+        <img src="/images/logo.png" alt="שיחות מהלב Logo" className="h-16" />
       </Link>
       {/* All other links on the right */}
       <div className="space-x-4 rtl:space-x-reverse flex items-center">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, updateDoc, doc, query, orderBy, deleteDoc, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, updateDoc, doc, query, orderBy, deleteDoc, onSnapshot, Timestamp, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../../../config/firebaseConfig';
 import { Card, CardContent } from '../../../components/ui/card';
 import CustomAlert from "../../ui/CustomAlert";
@@ -30,8 +30,40 @@ export const AdminEventList = () => {
 
             setEvents(eventsData);
         });
+        
+        // Cleanup old events when component mounts
+        cleanupOldEvents();
+
         return () => unsubscribe();
     }, []);
+
+    const cleanupOldEvents = async () => {
+        const now = new Date();
+        const q = query(
+            collection(db, "Events"),
+            where("scheduled_time", "<", Timestamp.fromDate(now))
+        );
+        
+        try {
+            const querySnapshot = await getDocs(q);
+            const batch = writeBatch(db);
+            let deletedCount = 0;
+
+            querySnapshot.forEach((docSnap) => {
+                batch.delete(doc(db, "Events", docSnap.id));
+                deletedCount++;
+            });
+
+            if (deletedCount > 0) {
+                await batch.commit();
+                setAlertMessage({ message: `נמחקו ${deletedCount} אירועים ישנים.`, type: "success" });
+                // No need to fetchData here, onSnapshot will update the state
+            }
+        } catch (error) {
+            console.error("Error cleaning up old events:", error);
+            setAlertMessage({ message: "שגיאה בניקוי אירועים ישנים.", type: "error" });
+        }
+    };
 
     const handleSort = (columnName) => {
         if (sortColumn === columnName) {

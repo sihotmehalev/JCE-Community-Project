@@ -11,7 +11,9 @@ import {
   query, 
   where, 
   getDoc, 
-  increment
+  arrayUnion,
+  increment,
+  deleteDoc
 } from "firebase/firestore";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
@@ -22,6 +24,8 @@ import LoadingSpinner from "../ui/LoadingSpinner";
 import EventCreation from "../admin/event-management/AdminAddEvent";
 import { AdminEventList } from '../admin/event-management/AdminEventList'
 import CustomAlert from "../ui/CustomAlert";
+import { CancelMatchModal } from '.././ui/CancelMatchModal';
+import { DeleteUserModal } from '.././ui/DeleteUserModal'
 
 export default function AdminDashboard() {
   // State Management
@@ -74,6 +78,13 @@ export default function AdminDashboard() {
   const [selectedSessionForView, setSelectedSessionForView] = useState(null);
   const [alertMessage, setAlertMessage] = useState(null);
 
+  // New state for cancel match modal
+  const [showCancelMatchModal, setShowCancelMatchModal] = useState(false);
+
+  // New state for delete user modal
+  const [showDeleteUserModal, setshowDeleteUserModal] = useState(false);
+  const [selectedUserForDelete, setSelectedUserForDelete] = useState(null);
+
   // useEffect for resetting currentPage (moved here to ensure unconditional call)
   useEffect(() => {
     setCurrentPage(1);
@@ -89,11 +100,14 @@ export default function AdminDashboard() {
     try {
       // Fetch volunteers
       const volunteersSnap = await getDocs(collection(db, "Users", "Info", "Volunteers"));
-      const v = volunteersSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        role: "volunteer"
-      }));
+      const v = volunteersSnap.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          role: "volunteer"
+        };
+      });
 
       // Fetch requesters
       const requestersSnap = await getDocs(collection(db, "Users", "Info", "Requesters"));
@@ -104,7 +118,7 @@ export default function AdminDashboard() {
 
         const lastActivityTimestamp = data.lastActivity || data.lastLogin || data.createdAt;
         let isActiveByTime = false;
-        if (lastActivityTimestamp) {
+        if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
             const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
             isActiveByTime = lastActivityDate >= thirtyDaysAgo;
         }
@@ -126,9 +140,11 @@ export default function AdminDashboard() {
       });
 
       // Fetch admins
-      const adminsFirst = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "FirstLevel"));
-      const adminsSecond = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "SecondLevel"));
+      // const adminsFirst = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "FirstLevel"));
+      // const adminsSecond = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "SecondLevel"));
       
+      /*
+      Admin excluded from counting the users
       const a = [
         ...adminsFirst.docs.map(doc => {
           const data = doc.data();
@@ -137,7 +153,7 @@ export default function AdminDashboard() {
 
           const lastActivityTimestamp = data.lastActivity || data.lastLogin || data.createdAt;
           let isActiveByTime = false;
-          if (lastActivityTimestamp) {
+          if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
               const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
               isActiveByTime = lastActivityDate >= thirtyDaysAgo;
           }
@@ -157,7 +173,7 @@ export default function AdminDashboard() {
 
           const lastActivityTimestamp = data.lastActivity || data.lastLogin || data.createdAt;
           let isActiveByTime = false;
-          if (lastActivityTimestamp) {
+          if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
               const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
               isActiveByTime = lastActivityDate >= thirtyDaysAgo;
           }
@@ -171,6 +187,7 @@ export default function AdminDashboard() {
           };
         })
       ];
+      */
 
       // Fetch pending requests (waiting_for_admin_approval)
       const pendingRequestsSnap = await getDocs(
@@ -180,16 +197,23 @@ export default function AdminDashboard() {
       const pending = await Promise.all(
         pendingRequestsSnap.docs.map(async (docSnap) => {
           const data = docSnap.data();
-          
           // Fetch requester info
-          const requesterDoc = await getDoc(doc(db, "Users", "Info", "Requesters", data.requesterId));
-          const requesterInfo = requesterDoc.exists() ? requesterDoc.data() : null;
+          let requesterInfo = null;
+          if (data.requesterId && typeof data.requesterId === 'string' && data.requesterId.trim() !== '') {
+            const requesterDoc = await getDoc(doc(db, "Users", "Info", "Requesters", data.requesterId));
+            requesterInfo = requesterDoc.exists() ? requesterDoc.data() : null;
+          } else {
+            console.warn(`Skipping requester info for pending request ${docSnap.id}: requesterId is invalid or undefined. Value: ${data.requesterId}`);
+          }
           
           // Fetch volunteer info if exists
           let volunteerInfo = null;
-          if (data.volunteerId) {
+          if (data.volunteerId && typeof data.volunteerId === 'string' && data.volunteerId.trim() !== '') {
             const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", data.volunteerId));
             volunteerInfo = volunteerDoc.exists() ? volunteerDoc.data() : null;
+          } else if (data.volunteerId === undefined || (typeof data.volunteerId === 'string' && data.volunteerId.trim() === '')) { 
+            // Log only if it's truly undefined or an empty string, not null (which is valid for non-personal requests)
+            console.warn(`Skipping volunteer info for pending request ${docSnap.id}: volunteerId is invalid or undefined. Value: ${data.volunteerId}`);
           }
           
           return {
@@ -206,14 +230,23 @@ export default function AdminDashboard() {
       const matches = await Promise.all(
         matchesSnap.docs.map(async (docSnap) => {
           const data = docSnap.data();
-          
           // Fetch requester info
-          const requesterDoc = await getDoc(doc(db, "Users", "Info", "Requesters", data.requesterId));
-          const requesterInfo = requesterDoc.exists() ? requesterDoc.data() : null;
+          let requesterInfo = null;
+          if (data.requesterId && typeof data.requesterId === 'string' && data.requesterId.trim() !== '') {
+            const requesterDoc = await getDoc(doc(db, "Users", "Info", "Requesters", data.requesterId));
+            requesterInfo = requesterDoc.exists() ? requesterDoc.data() : null;
+          } else {
+            console.warn(`Skipping requester info for match ${docSnap.id}: requesterId is invalid or undefined. Value: ${data.requesterId}`);
+          }
           
           // Fetch volunteer info
-          const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", data.volunteerId));
-          const volunteerInfo = volunteerDoc.exists() ? volunteerDoc.data() : null;
+          let volunteerInfo = null;
+          if (data.volunteerId && typeof data.volunteerId === 'string' && data.volunteerId.trim() !== '') {
+            const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", data.volunteerId));
+            volunteerInfo = volunteerDoc.exists() ? volunteerDoc.data() : null;
+          } else {
+            console.warn(`Skipping volunteer info for match ${docSnap.id}: volunteerId is invalid or undefined. Value: ${data.volunteerId}`);
+          }
           
           return {
             id: docSnap.id,
@@ -229,7 +262,7 @@ export default function AdminDashboard() {
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const lastActivityTimestamp = vol.lastActivity || vol.lastLogin || vol.createdAt;
         let isActiveByTime = false;
-        if (lastActivityTimestamp) {
+        if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
             const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
             isActiveByTime = lastActivityDate >= thirtyDaysAgo;
         }
@@ -258,14 +291,20 @@ export default function AdminDashboard() {
       setRequesters(r);
       setAllUsers([
         ...processedVolunteers,
-        ...r,
-        ...a
+        ...r
       ]);
       setPendingRequests(pending);
       setActiveMatches(matches);
-      
+
+      // console.log("Fetched Volunteers:", processedVolunteers);
+      // console.log("Fetched Requesters:", r);
+      // console.log("Fetched All Users:", [...processedVolunteers, ...r]);
+      // console.log("Fetched Pending Requests:", pending);
+      // console.log("Fetched Active Matches:", matches);
+
     } catch (error) {
       console.error("Error fetching data:", error);
+      console.error("Full error object:", error);
     }
     setLoading(false);
   }, []);
@@ -351,7 +390,6 @@ export default function AdminDashboard() {
         startDate: new Date(),
         endDate: null,
         meetingFrequency: "weekly",
-        lastSessionId: null,
         totalSessions: 0,
         notes: ""
       });
@@ -368,13 +406,10 @@ export default function AdminDashboard() {
       const volunteerRef = doc(db, "Users", "Info", "Volunteers", requestData.volunteerId);
       batch.update(volunteerRef, {
         activeMatchIds: [...(volunteer?.activeMatchIds || []), matchId]
-      });
-
-      // Update requester's activeMatchIds
-      const requester = requesters.find(r => r.id === requestData.requesterId);
+      });      // Update requester's activeMatchId (single match)
       const requesterRef = doc(db, "Users", "Info", "Requesters", requestData.requesterId);
       batch.update(requesterRef, {
-        activeMatchIds: [...(requester?.activeMatchIds || []), matchId]
+        activeMatchId: matchId
       });
 
       await batch.commit();
@@ -387,9 +422,12 @@ export default function AdminDashboard() {
   };
 
   const declineRequest = async (requestId, suggestAnother = false) => {
+    const docRef = doc(db, "Requests", requestId);
+    const docSnap = await getDoc(docRef);
     try {
       const updateData = {
-        status: "declined",
+        status: "waiting_for_first_approval",
+        declinedVolunteers: arrayUnion(docSnap.data().volunteerId), // Add to declined list
         declinedAt: new Date()
       };
 
@@ -472,7 +510,6 @@ export default function AdminDashboard() {
         startDate: new Date(),
         endDate: null,
         meetingFrequency: "weekly",
-        lastSessionId: null,
         totalSessions: 0,
         notes: "Manual match by admin"
       });
@@ -484,10 +521,10 @@ export default function AdminDashboard() {
         activeMatchIds: [...(volunteer?.activeMatchIds || []), matchId]
       });
 
-      const requester = requesters.find(r => r.id === requesterId);
+      requesters.find(r => r.id === requesterId);
       const requesterRef = doc(db, "Users", "Info", "Requesters", requesterId);
       batch.update(requesterRef, {
-        activeMatchIds: [...(requester?.activeMatchIds || []), matchId]
+        activeMatchId: matchId
       });
 
       await batch.commit();
@@ -523,6 +560,180 @@ export default function AdminDashboard() {
     return <LoadingSpinner />;
   }
 
+  const cancelMatch = async (match_id) => {
+    try {
+      // Get match document first
+      const matchDoc = await getDoc(doc(db, "Matches", match_id));
+      if (!matchDoc.exists()) {
+        throw new Error("Match not found");
+      }
+      
+      const matchData = matchDoc.data();
+      const vol_id = matchData.volunteerId;
+      const request_id = matchData.requestId;
+
+      // Get volunteer document to update their activeMatchIds
+      const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", vol_id));
+      const currentMatches = volunteerDoc.data().activeMatchIds || [];
+      const updatedMatches = currentMatches.filter(id => id !== match_id);
+
+      // Run all updates in parallel for better performance
+      await Promise.all([
+        // Delete match
+        deleteDoc(doc(db, "Matches", match_id)),
+
+        // Update request status
+        updateDoc(doc(db, "Requests", request_id), {
+          status: "waiting_for_first_approval",
+          volunteerId: null
+        }),
+
+        // Clear requester's single match
+        updateDoc(doc(db, "Users", "Info", "Requesters", matchData.requesterId), {
+          activeMatchId: null
+        }),
+
+        // Update volunteer's active matches
+        updateDoc(doc(db, "Users", "Info", "Volunteers", vol_id), {
+          activeMatchIds: updatedMatches
+        })
+      ]);
+
+      // Update UI
+      setActiveMatches(prev => prev.filter(match => match.id !== match_id));
+      setShowCancelMatchModal(false);
+      setAlertMessage({ message: "ההתאמה בוטלה בהצלחה", type: "success" });
+
+    } catch (error) {
+      console.error("Error cancelling match:", error);
+      setAlertMessage({ message: "שגיאה בביטול ההתאמה", type: "error" });
+    }
+  
+  }
+
+  const deleteUser = async (user) => {
+    try {
+      const batch = writeBatch(db);
+      
+      if (user.role === 'requester') {
+        // delete match if has one
+        const requesterDocRef = doc(db, "Users", "Info", "Requesters", user.id);
+        const requesterDocSnap = await getDoc(requesterDocRef);
+
+        if (requesterDocSnap.exists()) {
+
+          const req_data = requesterDocSnap.data();
+          const match_id = req_data.activeMatchId;
+
+          // if requester has match
+          if (match_id) { 
+            const matchesDocRef = doc(db, "Matches", match_id);
+            const matchSnap = await getDoc(matchesDocRef);
+            const matchData = matchSnap.data()
+            // get Volunteer id
+            const vol_id = matchData.volunteerId;
+
+            // prepare Volunteer new list
+            const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", vol_id));
+            const currentMatches = volunteerDoc.data().activeMatchIds || [];
+            const updatedMatches = currentMatches.filter(id => id !== match_id);
+
+            // delete conversations, matches and match for Volunteer matches list
+            batch.delete(doc(db, "conversations", match_id));
+            batch.update(doc(db, "Users", "Info", "Volunteers", vol_id), {
+              activeMatchIds: updatedMatches
+            });
+            batch.delete(matchesDocRef);
+          }
+
+          const requestsSnap = await getDocs(
+            query(collection(db, "Requests"), where("requesterId", "==", user.id))
+          );
+          
+          // delete request
+          requestsSnap.forEach((docSnap) => {
+              const docRef = doc(db, "Requests", docSnap.id);
+              batch.delete(docRef);
+          });
+
+          // delete user
+          batch.delete(requesterDocRef);
+
+          await batch.commit();
+
+        } 
+
+      } else if (user.role === 'volunteer') {
+
+          // 1. read volunteer
+          const volunteerRef  = doc(db, "Users", "Info", "Volunteers", user.id);
+          const volunteerSnap = await getDoc(volunteerRef);
+
+          if (volunteerSnap.exists()) {
+            const { activeMatchIds = [] } = volunteerSnap.data();
+
+            // 2. loop over matches **sequentially**
+            for (const matchId of activeMatchIds) {
+              const convoRef = doc(db, "conversations", matchId);
+              const matchRef  = doc(db, "Matches", matchId);
+              const matchSnap = await getDoc(matchRef);
+              if (!matchSnap.exists()) continue;
+
+              const { requesterId } = matchSnap.data();
+
+              batch.delete(convoRef);
+
+              // queue deletions
+              batch.delete(matchRef);
+
+              // queue requester update
+              batch.update(
+                doc(db, "Users", "Info", "Requesters", requesterId),
+                { activeMatchId: null }
+              );
+
+              // queue request updates
+              const reqQS = await getDocs(
+                query(collection(db, "Requests"), where("requesterId", "==", requesterId))
+              );
+              reqQS.forEach(r => batch.update(r.ref, {
+                status: "waiting_for_first_approval",
+                volunteerId: null,
+                matchedAt: null,
+                matchId: null
+              }));
+            }
+
+            // 3. finally queue volunteer deletion
+            batch.delete(volunteerRef);
+
+            // 4. commit AFTER **all** writes have been queued
+            await batch.commit();
+          }
+      }
+  
+      // Update UI state
+      setAllUsers(prev => prev.filter(u => u.id !== user.id));
+      if (user.role === 'volunteer') {
+        setVolunteers(prev => prev.filter(v => v.id !== user.id));
+      } else if (user.role === 'requester') {
+        setRequesters(prev => prev.filter(r => r.id !== user.id));
+      }
+      
+      // Update matches list if needed
+      setActiveMatches(prev => prev.filter(m => 
+        m.requesterId !== user.id && m.volunteerId !== user.id
+      ));
+  
+      setshowDeleteUserModal(false);
+      setAlertMessage({ message: "המשתמש נמחק בהצלחה", type: "success" });
+  
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      setAlertMessage({ message: "שגיאה במחיקת המשתמש", type: "error" });
+    }
+  };
+
   // Filter and sort users for the All Users table
   const filteredAndSortedUsers = allUsers
     .filter(u =>
@@ -534,8 +745,15 @@ export default function AdminDashboard() {
       if (statusFilter !== "all" && u.derivedDisplayStatus !== statusFilter) return false;
       if (personalFilter === "true" && !u.personal) return false;
       if (personalFilter === "false" && u.personal) return false;
-      if (activeMatchesFilter === "hasMatches" && (!u.activeMatchIds || u.activeMatchIds.length === 0)) return false;
-      if (activeMatchesFilter === "noMatches" && (u.activeMatchIds && u.activeMatchIds.length > 0)) return false;
+      if (activeMatchesFilter === "hasMatches" && (
+        (u.role === 'requester' && !u.activeMatchId) || 
+        (u.role === 'volunteer' && (!u.activeMatchIds || u.activeMatchIds.length === 0))
+      )) return false;
+      if (activeMatchesFilter === "noMatches" && (
+        (u.role === 'requester' && u.activeMatchId) || 
+        (u.role === 'volunteer' && u.activeMatchIds?.length > 0)
+      )) return false;
+
       return true;
     })
     .sort((a, b) => {
@@ -723,6 +941,12 @@ export default function AdminDashboard() {
                         <p className="text-sm text-orange-600"><strong>גיל:</strong> {request.requesterInfo?.age}</p>
                         {request.requesterInfo?.gender && <p className="text-sm text-orange-600"><strong>מגדר:</strong> {request.requesterInfo?.gender}</p>}
                         <p className="text-sm text-orange-600"><strong>סיבת פנייה:</strong> {request.requesterInfo?.reason}</p>
+                        {request.requesterInfo?.needs && <p className="text-sm text-orange-600"><strong>צרכים:</strong> {request.requesterInfo?.needs}</p>}
+                        {request.requesterInfo?.chatPref && <p className="text-sm text-orange-600"><strong>העדפת צ׳אט:</strong> {request.requesterInfo?.chatPref.join(', ')}</p>}
+                        {request.requesterInfo?.frequency && <p className="text-sm text-orange-600"><strong>תדירות:</strong> {request.requesterInfo?.frequency.join(', ')}</p>}
+                        {request.requesterInfo?.preferredTimes && <p className="text-sm text-orange-600"><strong>זמנים מועדפים:</strong> {request.requesterInfo?.preferredTimes}</p>}
+                        {request.requesterInfo?.location && <p className="text-sm text-orange-600"><strong>מיקום:</strong> {request.requesterInfo?.location}</p>}
+                        <p className="text-sm text-orange-600"><strong>התאמות פעילות:</strong> {request.requesterInfo?.activeMatchIds?.length || 0}</p>
                       </div>
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-2">פרטי המתנדב</h4>
@@ -742,6 +966,7 @@ export default function AdminDashboard() {
                         {request.volunteerInfo?.availableHours && request.volunteerInfo.availableHours.length > 0 && (
                           <p className="text-sm text-orange-600"><strong>שעות פנויות:</strong> {request.volunteerInfo.availableHours.join(", ")}</p>
                         )}
+                        <p className="text-sm text-orange-600"><strong>התאמות פעילות:</strong> {request.volunteerInfo?.activeMatchIds?.length || 0}</p>
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
@@ -776,7 +1001,7 @@ export default function AdminDashboard() {
             <div className="flex flex-grow gap-8">
               {/* Requester Info Panel */}
               <div
-                className={`w-1/4 border rounded p-4 bg-gray-50/50 h-[280px] overflow-y-scroll`}
+                className={`w-1/4 border rounded p-4 bg-gray-50/50 h-[510px] overflow-y-scroll`}
                 onMouseEnter={() => {
                   if (requesterHoverTimeoutRef.current) {
                     clearTimeout(requesterHoverTimeoutRef.current);
@@ -799,6 +1024,11 @@ export default function AdminDashboard() {
                     <p><strong>גיל:</strong> {requesters.find(r => r.id === selectedRequester)?.age}</p>
                     <p><strong>מגדר:</strong> {requesters.find(r => r.id === selectedRequester)?.gender}</p>
                     <p><strong>סיבת פנייה:</strong> {requesters.find(r => r.id === selectedRequester)?.reason}</p>
+                    {requesters.find(r => r.id === selectedRequester)?.needs && <p><strong>צרכים:</strong> {requesters.find(r => r.id === selectedRequester)?.needs}</p>}
+                    {requesters.find(r => r.id === selectedRequester)?.chatPref && <p><strong>העדפת צ׳אט:</strong> {requesters.find(r => r.id === selectedRequester)?.chatPref.join(', ')}</p>}
+                    {requesters.find(r => r.id === selectedRequester)?.frequency && <p><strong>תדירות:</strong> {requesters.find(r => r.id === selectedRequester)?.frequency.join(', ')}</p>}
+                    {requesters.find(r => r.id === selectedRequester)?.preferredTimes && <p><strong>זמנים מועדפים:</strong> {requesters.find(r => r.id === selectedRequester)?.preferredTimes}</p>}
+                    {requesters.find(r => r.id === selectedRequester)?.location && <p><strong>מיקום:</strong> {requesters.find(r => r.id === selectedRequester)?.location}</p>}
                     <p><strong>התאמות פעילות:</strong> {requesters.find(r => r.id === selectedRequester)?.activeMatchIds?.length || 0}</p>
                   </div>
                 ) : hoveredRequester ? (
@@ -808,6 +1038,11 @@ export default function AdminDashboard() {
                     <p><strong>גיל:</strong> {hoveredRequester.age}</p>
                     <p><strong>מגדר:</strong> {hoveredRequester.gender}</p>
                     <p><strong>סיבת פנייה:</strong> {hoveredRequester.reason}</p>
+                    {hoveredRequester.needs && <p><strong>צרכים:</strong> {hoveredRequester.needs}</p>}
+                    {hoveredRequester.chatPref && <p><strong>העדפת צ׳אט:</strong> {hoveredRequester.chatPref.join(', ')}</p>}
+                    {hoveredRequester.frequency && <p><strong>תדירות:</strong> {hoveredRequester.frequency.join(', ')}</p>}
+                    {hoveredRequester.preferredTimes && <p><strong>זמנים מועדפים:</strong> {hoveredRequester.preferredTimes}</p>}
+                    {hoveredRequester.location && <p><strong>מיקום:</strong> {hoveredRequester.location}</p>}
                     <p><strong>התאמות פעילות:</strong> {hoveredRequester.activeMatchIds?.length || 0}</p>
                   </div>
                 ) : (
@@ -827,9 +1062,9 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
-                <ul className="space-y-2 h-[280px] overflow-y-scroll">
+                <ul className="space-y-2 h-[400px] overflow-y-scroll">
                   {requesters
-                    .filter(req => !(req.activeMatchIds && req.activeMatchIds.length > 0))
+                    .filter(req => !(req.activeMatchId))
                     .filter(req =>
                       req.fullName?.toLowerCase().includes(requesterSearch.toLowerCase()) ||
                       req.email?.toLowerCase().includes(requesterSearch.toLowerCase())
@@ -888,9 +1123,9 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
-                <ul className="space-y-2 h-[280px] overflow-y-scroll">
+                <ul className="space-y-2 h-[400px] overflow-y-scroll">
                   {volunteers
-                    .filter(v => v.approved && (v.isAvailable || v.isAvaliable) && !v.personal)
+                    .filter(v => v.approved === "true" && (v.isAvailable || v.isAvaliable) && !v.personal)
                     .filter(v =>
                       ((v.fullName || '').toLowerCase().includes(volunteerSearch.toLowerCase())) ||
                       ((v.email || '').toLowerCase().includes(volunteerSearch.toLowerCase()))
@@ -935,7 +1170,7 @@ export default function AdminDashboard() {
 
               {/* Volunteer Info Panel */}
               <div
-                className={`w-1/4 border rounded p-4 bg-gray-50/50 h-[280px] overflow-y-scroll`}
+                className={`w-1/4 border rounded p-4 bg-gray-50/50 h-[510px] overflow-y-scroll`}
                 onMouseEnter={() => {
                   if (volunteerHoverTimeoutRef.current) {
                     clearTimeout(volunteerHoverTimeoutRef.current);
@@ -958,6 +1193,12 @@ export default function AdminDashboard() {
                     <p><strong>גיל:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.age}</p>
                     <p><strong>מקצוע:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.profession}</p>
                     <p><strong>ניסיון:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.experience}</p>
+                    {volunteers.find(v => v.id === selectedVolunteer)?.gender && <p><strong>מגדר:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.gender}</p>}
+                    {volunteers.find(v => v.id === selectedVolunteer)?.maritalStatus && <p><strong>מצב משפחתי:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.maritalStatus}</p>}
+                    {volunteers.find(v => v.id === selectedVolunteer)?.motivation && <p><strong>מוטיבציה:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.motivation}</p>}
+                    {volunteers.find(v => v.id === selectedVolunteer)?.strengths && <p><strong>חוזקות:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.strengths}</p>}
+                    {volunteers.find(v => v.id === selectedVolunteer)?.availableDays && volunteers.find(v => v.id === selectedVolunteer)?.availableDays.length > 0 && <p><strong>ימים פנויים:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.availableDays.join(', ')}</p>}
+                    {volunteers.find(v => v.id === selectedVolunteer)?.availableHours && volunteers.find(v => v.id === selectedVolunteer)?.availableHours.length > 0 && <p><strong>שעות פנויות:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.availableHours.join(', ')}</p>}
                     <p><strong>התאמות פעילות:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.activeMatchIds?.length || 0}</p>
                   </div>
                 ) : hoveredVolunteer ? (
@@ -967,6 +1208,12 @@ export default function AdminDashboard() {
                     <p><strong>גיל:</strong> {hoveredVolunteer.age}</p>
                     <p><strong>מקצוע:</strong> {hoveredVolunteer.profession}</p>
                     <p><strong>ניסיון:</strong> {hoveredVolunteer.experience}</p>
+                    {hoveredVolunteer.gender && <p><strong>מגדר:</strong> {hoveredVolunteer.gender}</p>}
+                    {hoveredVolunteer.maritalStatus && <p><strong>מצב משפחתי:</strong> {hoveredVolunteer.maritalStatus}</p>}
+                    {hoveredVolunteer.motivation && <p><strong>מוטיבציה:</strong> {hoveredVolunteer.motivation}</p>}
+                    {hoveredVolunteer.strengths && <p><strong>חוזקות:</strong> {hoveredVolunteer.strengths}</p>}
+                    {hoveredVolunteer.availableDays && hoveredVolunteer.availableDays.length > 0 && <p><strong>ימים פנויים:</strong> {hoveredVolunteer.availableDays.join(', ')}</p>}
+                    {hoveredVolunteer.availableHours && hoveredVolunteer.availableHours.length > 0 && <p><strong>שעות פנויות:</strong> {hoveredVolunteer.availableHours.join(', ')}</p>}
                     <p><strong>התאמות פעילות:</strong> {hoveredVolunteer.activeMatchIds?.length || 0}</p>
                   </div>
                 ) : (
@@ -1101,6 +1348,7 @@ export default function AdminDashboard() {
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב{matchSortColumn === 'volunteerInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('meetingFrequency')}>תדירות פגישות{matchSortColumn === 'meetingFrequency' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                           <th className="border border-orange-100 p-2 text-orange-800">סיכום</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">ביטול התאמה</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1170,6 +1418,20 @@ export default function AdminDashboard() {
                                 >
                                   פירוט
                                 </span>
+                              </td>
+                              <td className="border border-orange-100 p-2 text-center">
+                                <Button
+                                  onClick={() => {
+                                    setSelectedMatchForDetails(match.id);
+                                    setShowSessionDetails(false);
+                                    setShowCancelMatchModal(true);
+                                  }}
+                                  className="p-2 rounded-full text-red-600 hover:text-white hover:bg-red-600 focus:outline-none transition-colors duration-200 flex items-center justify-center mx-auto"
+                                >
+                                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </Button>
                               </td>
                             </tr>
                           ))}
@@ -1290,6 +1552,7 @@ export default function AdminDashboard() {
                     <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('approved')}>סטטוס{sortColumn === 'approved' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('personal')}>אישי{sortColumn === 'personal' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('activeMatchIds')}>התאמות פעילות{sortColumn === 'activeMatchIds' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="w-24 border border-orange-100 p-2 text-orange-800 cursor-pointer">מחיקת משתמש</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1325,7 +1588,24 @@ export default function AdminDashboard() {
                         {u.personal ? 'כן' : 'לא'}
                       </td>
                       <td className="border border-orange-100 p-2 text-center">
-                        {u.activeMatchIds?.length || 0}
+                        {u.role === 'requester' 
+                          ? (u.activeMatchId ? 1 : 0)
+                          : (u.activeMatchIds?.length || 0)}
+                      </td>
+                      <td>                       
+                         <button
+                          className="p-2 rounded-full text-red-600 hover:text-white hover:bg-red-600 focus:outline-none transition-colors duration-200 flex items-center justify-center mx-auto"
+                          onClick={() => { 
+                            setshowDeleteUserModal(true);
+                            setShowSessionDetails(false);
+                            setSelectedUserForDelete(u);
+                          }}
+                          title="מחק משתמש"
+                         >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                         </button>
                       </td>
                     </tr>
                   ))}
@@ -1388,6 +1668,23 @@ export default function AdminDashboard() {
         message={alertMessage?.message}
         onClose={() => setAlertMessage(null)}
         type={alertMessage?.type}
+      />
+
+      <CancelMatchModal
+        isOpen={showCancelMatchModal}
+        onClose={() => setShowCancelMatchModal(false)}
+        match={activeMatches.find(m => m.id === selectedMatchForDetails)}
+        onConfirm={() => cancelMatch(selectedMatchForDetails)}
+      />
+
+      <DeleteUserModal
+        isOpen={showDeleteUserModal}
+        onClose={() => {
+          setshowDeleteUserModal(false);
+          setSelectedUserForDelete(null);
+        }}
+        user={selectedUserForDelete}
+        onConfirm={() => deleteUser(selectedUserForDelete)}
       />
     </div>
   );
