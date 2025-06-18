@@ -13,7 +13,8 @@ import {
   query,
   where,
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  deleteField
 } from "firebase/firestore";
 import { Button } from "../ui/button";
 import LoadingSpinner from "../ui/LoadingSpinner";
