@@ -84,7 +84,7 @@ export default function LoginPage() {
           navigate("/requester-dashboard");
           break;
         case "volunteer":
-          if (!data.approved) {
+          if (data.approved !== "true") {
             setMessage("הבקשה שלך עדיין ממתינה לאישור מנהל.");
           } else {
             navigate("/volunteer-dashboard");

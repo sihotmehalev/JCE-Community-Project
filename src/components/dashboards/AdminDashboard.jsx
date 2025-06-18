@@ -11,6 +11,7 @@ import {
   query, 
   where, 
   getDoc, 
+  arrayUnion,
   increment
 } from "firebase/firestore";
 import { Card, CardContent } from "../ui/card";
@@ -415,9 +416,12 @@ export default function AdminDashboard() {
   };
 
   const declineRequest = async (requestId, suggestAnother = false) => {
+    const docRef = doc(db, "Requests", requestId);
+    const docSnap = await getDoc(docRef);
     try {
       const updateData = {
-        status: "declined",
+        status: "waiting_for_first_approval",
+        declinedVolunteers: arrayUnion(docSnap.data().volunteerId), // Add to declined list
         declinedAt: new Date()
       };
 
