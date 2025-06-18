@@ -1514,9 +1514,9 @@ export default function AdminDashboard() {
                   className="border rounded px-3 py-2"
                 >
                   <option value="all">כל הסטטוסים</option>
-                  <option value="approved">פעיל</option>
-                  <option value="pending">ממתין לאישור</option>
-                  <option value="declined">נדחה</option>
+                  <option value="פעיל">פעיל</option>
+                  <option value="ממתין לאישור">ממתין לאישור</option>
+                  <option value="נדחה">נדחה</option>
                   <option value="לא פעיל">לא פעיל</option>
                 </select>
               </div>
@@ -1598,8 +1598,11 @@ export default function AdminDashboard() {
                       </td>
                       <td className="border border-orange-100 p-2 text-center">
                         {u.role === 'requester' 
-                          ? (u.activeMatchId ? 1 : 0)
-                          : (u.activeMatchIds?.length || 0)}
+                          ? (u.activeMatchId ? <span className="text-green-600">כן</span> : <span className="text-red-600">לא</span>)
+                          : (u.activeMatchIds?.length || 0) === 0 
+                            ? <span className="text-red-600">0</span> 
+                            : <span className="text-green-600">{u.activeMatchIds?.length || 0}</span>
+                        }
                       </td>
                       <td>                       
                          <button
