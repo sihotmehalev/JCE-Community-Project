@@ -1028,7 +1028,7 @@ export default function AdminDashboard() {
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
                 <ul className="space-y-2 h-[280px] overflow-y-scroll">
                   {volunteers
-                    .filter(v => v.approved && (v.isAvailable || v.isAvaliable) && !v.personal)
+                    .filter(v => v.approved === "true" && (v.isAvailable || v.isAvaliable) && !v.personal)
                     .filter(v =>
                       ((v.fullName || '').toLowerCase().includes(volunteerSearch.toLowerCase())) ||
                       ((v.email || '').toLowerCase().includes(volunteerSearch.toLowerCase()))
@@ -1540,9 +1540,10 @@ export default function AdminDashboard() {
                         {u.role === 'requester' 
                           ? (u.activeMatchId ? 1 : 0)
                           : (u.activeMatchIds?.length || 0)}
-                      </td>                      <td className="border border-orange-100 p-2 text-center">
-                        <button
-                          className="px-4 py-2 text-orange-800 hover:bg-orange-50 border border-orange-200 rounded-md transition-colors duration-200 hover:border-orange-300"
+                      </td>
+                      <td>                       
+                         <button
+                          className="px-4 py-2 text-orange-800 hover:bg-orange-50 border border-orange-200 rounded-md transition-colors duration-200 hover:border-orange-300 w-full"
                           onClick={() => { 
                             setshowDeleteUserModal(true);
                             setShowSessionDetails(false);
