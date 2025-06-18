@@ -16,12 +16,12 @@ export function SafeSpace() {
 
       {/* Positive Messages */}
       <div className="bg-white p-4 rounded-lg shadow">
-        <h3 className="text-lg font-bold text-blue-800 mb-3">משפטי חיזוק</h3>
+        <h3 className="text-lg font-bold text-orange-800 mb-3">משפטי חיזוק</h3>
         <ul className="space-y-2">
           {positiveMessages.map((msg, i) => (
             <li 
               key={i}
-              className="text-blue-700 p-2 border border-blue-100 rounded"
+              className="text-orange-700 p-2 border border-orange-100 rounded"
             >
               {msg}
             </li>

@@ -11,18 +11,24 @@ export default function EmergencyButton() {
 
   return (
     <>
-      {/* Emergency Button */}
-      <button
+      {/* Emergency Button */}      <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 bg-red-500 hover:bg-red-600 text-white rounded-full p-4 shadow-lg transition-all"
+        className="fixed bottom-4 right-4 text-white rounded-full p-4 shadow-lg transition-all z-[999999]"
         aria-label="כפתור מצוקה"
+        style={{ 
+          position: 'fixed', 
+          isolation: 'isolate',
+          background: 'radial-gradient(circle at 70% 10%,rgb(255, 136, 136) 0%, #f49b8c 50%,rgb(243, 20, 20) 100%)',
+        }}
       >
         <span className="text-2xl">🆘</span>
       </button>
 
       {/* Emergency Dialog */}
       <Dialog isOpen={isOpen} onClose={() => setIsOpen(false)}>
-        <div className="bg-blue-50 p-6 rounded-lg max-w-2xl w-full">
+        <div className="p-6 rounded-lg max-w-2xl w-full" style={{ 
+          background: 'radial-gradient(circle at 70% 10%, #ffd7bd 0%, #ffb488 50%, #f49b8c 100%)',
+        }}>
           {/* Tabs */}
           <div className="flex gap-2 mb-4">
             <TabButton
@@ -63,8 +69,8 @@ function TabButton({ children, active, onClick }) {
       onClick={onClick}
       className={`px-4 py-2 rounded-lg transition-colors ${
         active 
-          ? 'bg-blue-600 text-white' 
-          : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+          ? 'bg-orange-500 text-white shadow-md' 
+          : 'bg-orange-100/50 backdrop-blur-sm text-orange-800 hover:bg-orange-200/50'
       }`}
     >
       {children}

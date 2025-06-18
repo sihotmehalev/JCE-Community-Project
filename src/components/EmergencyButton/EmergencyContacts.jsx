@@ -18,22 +18,22 @@ const EMERGENCY_CONTACTS = [
 export function EmergencyContacts() {
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold text-blue-800">אנשי קשר לשעת חירום</h3>
+      <h3 className="text font-bold text-orange-800">אנשי קשר לשעת חירום</h3>
       
       {/* Professional Help */}
       <div className="bg-white p-4 rounded-lg shadow">
-        <h4 className="font-semibold text-blue-700 mb-3">עזרה מקצועית</h4>
+        <h4 className="font-semibold text-orange-700 mb-3">עזרה מקצועית</h4>
         <ul className="space-y-3">
           {EMERGENCY_CONTACTS.map((contact, index) => (
             <li 
               key={index}
-              className="p-3 border border-blue-100 rounded-lg hover:bg-blue-50"
+              className="p-3 border border-orange-100 rounded-lg hover:bg-orange-50"
             >
               <div className="font-medium">{contact.name}</div>
               {contact.phone && (
                 <a 
                   href={`tel:${contact.phone}`}
-                  className="text-blue-600 hover:underline block"
+                  className="text-orange-600 hover:underline block"
                 >
                   📞 {contact.phone}
                 </a>
@@ -43,7 +43,7 @@ export function EmergencyContacts() {
                   href={contact.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline block"
+                  className="text-orange-600 hover:underline block"
                 >
                   🌐 לאתר
                 </a>

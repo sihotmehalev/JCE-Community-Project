@@ -13,7 +13,7 @@ export function JournalEntry() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold text-blue-800">יומן אישי</h3>
+      <h3 className="text-lg font-bold text-orange-800">יומן אישי</h3>
       
       <div className="bg-white p-4 rounded-lg shadow">
         <p className="text-gray-600 mb-3">
@@ -27,21 +27,9 @@ export function JournalEntry() {
           placeholder="כתוב כאן..."
         />
         
-        <div className="mt-4 flex justify-end gap-3">
-          <button
-            onClick={handleSave}
-            disabled={!entry.trim()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300"
-          >
-            שמור
-          </button>
-        </div>
+        
 
-        {isSaved && (
-          <div className="mt-2 text-green-600 text-sm">
-            ✓ נשמר בהצלחה
-          </div>
-        )}
+        
       </div>
     </div>
   );

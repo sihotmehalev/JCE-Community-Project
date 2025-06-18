@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { auth, db } from "../../config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import EmergencyButton from "../EmergencyButton/EmergencyButton";
 import {
   collection,
   doc,
@@ -14,9 +13,11 @@ import {
   query,
   where,
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  deleteField,
 } from "firebase/firestore";
 import { Button } from "../ui/button";
+import EmergencyButton from "../EmergencyButton/EmergencyButton";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { Card } from "../ui/card";
 import { X } from "lucide-react";
