@@ -829,7 +829,12 @@ export default function AdminDashboard() {
           onClick={() => setActiveTab("matching")}
           className="py-3 px-6 text-lg"
         >
-          התאמה כללית
+          התאמה כללית ({requesters
+            .filter(req => !(req.activeMatchId))
+            .filter(req =>
+              req.fullName?.toLowerCase().includes(requesterSearch.toLowerCase()) ||
+              req.email?.toLowerCase().includes(requesterSearch.toLowerCase())
+            ).length})
         </Button>
         <Button
           variant={activeTab === "matches" ? "default" : "outline"}
