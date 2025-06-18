@@ -1,6 +1,6 @@
 // AdminDashboard.jsx - Full Implementation
-import React, { useEffect, useState, useRef } from "react";
-import { db } from "../firebaseConfig";
+import { useEffect, useState, useRef } from "react";
+import { db } from "../../firebaseConfig";
 import { 
   collection, 
   getDocs, 
@@ -10,58 +10,20 @@ import {
   writeBatch, 
   query, 
   where, 
-  addDoc,
   getDoc, 
   increment,
   deleteDoc
 } from "firebase/firestore";
-import { Card, CardContent } from "./ui/card";
-import { Button } from "./ui/button";
-import { HoverCard } from "./ui/HoverCard";
-import AISuggestionModal from './AISuggestionModal';
-import { generateRandomId } from "./firebaseHelpers";
-import {
-  timestamp,
-  auth,
-  emailAuthProvider,
-  requestPasswordReset,
-  logInWithEmailAndPassword,
-  registerWithEmailAndPassword,
-  sendEmailVerification,
-  sendPasswordReset,
-  signInWithGoogle,
-  logout,
-  checkAuthStatus,
-  getCurrentUser,
-  uploadFile,
-  getImageURL,
-  addDocument,
-  setDocument,
-  getDocument,
-  updateDocument,
-  deleteDocument,
-  getDocuments,
-  addVolunteer,
-  addRequest,
-  getRequests,
-  getVolunteer,
-  getVolunteers,
-  updateRequest,
-  updateVolunteer,
-  updateUser,
-  sendRequestChat,
-  getVolunteerRequests,
-  getRequesterRequests,
-  fetchChatMessages,
-  addChatMessage,
-  listenForChatMessages,
-  monitorAuthState,
-} from "./firebaseHelpers";
-import LoadingSpinner from "../components/LoadingSpinner";
-import EventCreation from "./EventAdminManger/AdminAddEvent";
-import { AdminEventList } from './EventAdminManger/AdminEventList';
-import { CancelMatchModal } from './ui/CancelMatchModal';
-import { DeleteUserModal } from './ui/DeleteUserModal'
+import { Card, CardContent } from "../ui/card";
+import { Button } from "../ui/button";
+import { HoverCard } from "../ui/HoverCard";
+import AISuggestionModal from '../AISuggestionModal';
+import { generateRandomId } from "../firebaseHelpers";
+import LoadingSpinner from "../LoadingSpinner";
+import EventCreation from "../EventAdminManger/AdminAddEvent";
+import { AdminEventList } from '../EventAdminManger/AdminEventList';
+import { CancelMatchModal } from '.././ui/CancelMatchModal';
+import { DeleteUserModal } from '.././ui/DeleteUserModal'
 
 export default function AdminDashboard() {
   // State Management
