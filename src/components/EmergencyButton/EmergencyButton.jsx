@@ -13,7 +13,7 @@ export default function EmergencyButton() {
     <>
       {/* Emergency Button */}      <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 text-white rounded-full p-4 shadow-lg transition-all z-[999999]"
+        className="fixed bottom-4 left-4 text-white rounded-full p-4 shadow-lg transition-all z-[999999]"
         aria-label="כפתור מצוקה"
         style={{ 
           position: 'fixed', 

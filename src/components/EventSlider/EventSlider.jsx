@@ -67,19 +67,17 @@ export const EventSlider = () => {
         if (isCurrent) {
             transformValue = 'translate-x-[-200px] rotate-y-0';
             opacityValue = 'opacity-100';
-            zIndexValue = 'z-20';
+            zIndexValue = 'z-10';
             scaleValue = 'scale-100';
         } else if (isPrev) {
-            // Position to the left of the current card, rotated left (turning away from center)
             transformValue = '-translate-x-[600px] rotate-y-[-55deg]'; 
             opacityValue = 'opacity-50';
-            zIndexValue = 'z-10';
+            zIndexValue = 'z-0';
             scaleValue = 'scale-90';
         } else if (isNext) {
-            // Position to the right of the current card, rotated right (turning away from center)
             transformValue = 'translate-x-[200px] rotate-y-[55deg]'; 
             opacityValue = 'opacity-50';
-            zIndexValue = 'z-10';
+            zIndexValue = 'z-0';
             scaleValue = 'scale-90';
         }
 
@@ -90,7 +88,7 @@ export const EventSlider = () => {
     return (
         <div className="p-4 max-w-7xl mx-auto overflow-hidden">
             <h2 className="text-3xl font-bold text-orange-800 mb-6 text-center">אירועים קרובים</h2>
-            <div className="relative flex items-center justify-center h-[500px] perspective-1000">
+            <div className="relative flex items-center justify-center h-[500px] perspective-1000 z-0">
                 <div className="relative w-full h-full">
                     {events.map((event, index) => (
                         <div
