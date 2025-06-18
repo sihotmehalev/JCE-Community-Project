@@ -27,24 +27,19 @@ import CustomAlert from "../ui/CustomAlert";
 
 // one-shot fetch of a requester's public profile
 const fetchRequester = async (uid) => {
-  console.log("[DEBUG] fetchRequester called with UID:", uid);
   if (!uid) {
     console.warn("fetchRequester called with invalid UID. Returning null.");
     return null;
   }
   
   const docRef = doc(db, "Users", "Info", "Requesters", uid);
-  console.log("[DEBUG] fetchRequester docRef:", docRef.path);
   
   try {
     const snap = await getDoc(docRef);
-    console.log("[DEBUG] fetchRequester snap exists:", snap.exists());
     if (snap.exists()) {
       const data = { id: uid, ...snap.data() };
-      console.log("[DEBUG] fetchRequester returned data:", data);
       return data;
     } else {
-      console.log("[DEBUG] fetchRequester: document does not exist");
       return null;
     }
   } catch (error) {
@@ -130,9 +125,6 @@ export default function VolunteerDashboard() {
   useEffect(() => {
     if (loading || !user) return;
     
-    console.log("[DEBUG] Setting up listeners, personal mode:", personal);
-    console.log("[DEBUG] User:", user.uid);
-    console.log("[DEBUG] Volunteer profile:", volProfile);
 
     // ---- active matches (always) ----
     unsubMatch.current?.();
@@ -155,7 +147,6 @@ export default function VolunteerDashboard() {
 
     // ---- personal-only sections ----
     if (personal) {      // direct Requests
-      console.log("[DEBUG] Setting up direct requests listener for user:", user.uid);
       unsubDirect.current = onSnapshot(
         query(
           collection(db, "Requests"),
@@ -163,36 +154,27 @@ export default function VolunteerDashboard() {
           where("status",      "==", "waiting_for_first_approval")
         ),
         async (snap) => {
-          console.log("[DEBUG] Direct requests snapshot received, docs count:", snap.docs.length);
-          console.log("[DEBUG] Direct requests raw data:", snap.docs.map(d => ({ id: d.id, ...d.data() })));
             const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
-            console.log("[DEBUG] Processing direct request:", { id: d.id, ...rqData });
             
             // Check if this volunteer is in the declined list
             const declinedVolunteers = rqData.declinedVolunteers || [];
             if (declinedVolunteers.includes(user.uid)) {
-              console.log("[DEBUG] Skipping direct request - volunteer already declined this request");
               continue;
             }
             
             const rqUser = await fetchRequester(rqData.requesterId);
-            console.log("[DEBUG] Fetched requester for direct request:", rqUser);
             
             if (rqUser && rqUser.personal === true) {
-              console.log("[DEBUG] Adding direct request to array - personal check passed");
               arr.push({ id: d.id, ...rqData, requester: rqUser });
             } else {
-              console.log("[DEBUG] Skipping direct request - reason:", !rqUser ? "no requester found" : "requester.personal is true");
             }
           }
           
-          console.log("[DEBUG] Final direct requests array:", arr);
           setDirect(arr);
         }
       );      // Requests waiting for admin approval (new section)
-      console.log("[DEBUG] Setting up admin approval requests listener for user:", user.uid);
       unsubAdminApproval.current = onSnapshot(
         query(
           collection(db, "Requests"),
@@ -200,31 +182,23 @@ export default function VolunteerDashboard() {
           where("status",      "==", "waiting_for_admin_approval")
         ),
         async (snap) => {
-          console.log("[DEBUG] Admin approval requests snapshot received, docs count:", snap.docs.length);
-          console.log("[DEBUG] Admin approval requests raw data:", snap.docs.map(d => ({ id: d.id, ...d.data() })));
           
           const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
-            console.log("[DEBUG] Processing admin approval request:", { id: d.id, ...rqData });
             
             const rqUser = await fetchRequester(rqData.requesterId);
-            console.log("[DEBUG] Fetched requester for admin approval request:", rqUser);
             
             // Assuming these requests also come from requesters with personal: false, or this filter is not needed here
             if (rqUser) { // No personal filter needed here, as these are assigned requests
-              console.log("[DEBUG] Adding admin approval request to array");
               arr.push({ id: d.id, ...rqData, requester: rqUser });
             } else {
-              console.log("[DEBUG] Skipping admin approval request - no requester found");
             }
           }
           
-          console.log("[DEBUG] Final admin approval requests array:", arr);
           setAdminApprovalRequests(arr);
         }
       );      // open pool
-      console.log("[DEBUG] Setting up open pool listener");
       unsubPool.current = onSnapshot(
         query(
           collection(db, "Requests"),
@@ -232,30 +206,23 @@ export default function VolunteerDashboard() {
           where("status",      "==", "waiting_for_first_approval")
         ),
         async (snap) => {
-          console.log("[DEBUG] Pool snapshot docs:", snap.docs.map(d => ({ id: d.id, ...d.data() })));          const arr = [];
+          const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
-            console.log("[DEBUG] Processing pool request:", { id: d.id, ...rqData });
             
             // Check if this volunteer is in the declined list
             const declinedVolunteers = rqData.declinedVolunteers || [];
             if (declinedVolunteers.includes(user.uid)) {
-              console.log("[DEBUG] Skipping pool request - volunteer already declined this request");
               continue;
             }
             
             const rqUser = await fetchRequester(rqData.requesterId);
-            console.log("[DEBUG] Fetched requester for pool request:", rqUser);
             
             if (rqUser && rqUser.personal === false) {
-              console.log("[DEBUG] Adding request to pool - personal check passed");
               arr.push({ id: d.id, ...rqData, requester: rqUser });
-            } else {
-              console.log("[DEBUG] Skipped request because:", !rqUser ? "no requester found" : "requester.personal is true");
-            }
+            } 
           }
           
-          console.log("[DEBUG] Final pool array:", arr);
           setPool(arr);
         }
       );
@@ -294,14 +261,12 @@ export default function VolunteerDashboard() {
       { merge: true }
     );
   };  const handleRequestAction = async (req, action) => {
-    console.log("[DEBUG] handleRequestAction called with:", { requestId: req.id, action });
     
     const ref = doc(db, "Requests", req.id);
     try {
-      if (action === "accept") {        console.log("[DEBUG] Accepting request, updating to waiting_for_admin_approval");
+      if (action === "accept") {        
         await updateDoc(ref, { status: "waiting_for_admin_approval" });
         setAlertMessage({message: "הבקשה התקבלה בהצלחה", type: "success"});
-        console.log("[DEBUG] Request accepted successfully");
         
         // Update local state to reflect this change immediately
         const updatedDirect = direct.filter(r => r.id !== req.id);
@@ -312,27 +277,24 @@ export default function VolunteerDashboard() {
         setAdminApprovalRequests(updatedAdminApproval);
         
       } else if (action === "decline") {
-        console.log("[DEBUG] Declining request - adding to declinedVolunteers array");
         // Add current volunteer to the declinedVolunteers array but keep the status unchanged
         await updateDoc(ref, { 
           declinedVolunteers: arrayUnion(user.uid),          volunteerId: null, // Remove as assigned volunteer
           initiatedBy: null, // Clear initiation
         });
         setAlertMessage({message: "הבקשה נדחתה בהצלחה", type: "success"});
-        console.log("[DEBUG] Request declined successfully - added to declinedVolunteers");
         
         // Update local state to remove the request from direct list
         const updatedDirect = direct.filter(r => r.id !== req.id);
         setDirect(updatedDirect);
         
       } else if (action === "take") {
-        console.log("[DEBUG] Taking request from pool");
+        
         await updateDoc(ref, {
           volunteerId: user.uid,
           initiatedBy: user.uid,          status:      "waiting_for_admin_approval",
         });
         setAlertMessage({message: "הבקשה נלקחה בהצלחה", type: "success"});
-        console.log("[DEBUG] Request taken successfully");
         
         // Update local state
         const updatedPool = pool.filter(r => r.id !== req.id);
@@ -344,14 +306,14 @@ export default function VolunteerDashboard() {
         setAdminApprovalRequests(updatedAdminApproval);
         
       } else if (action === "withdraw") {
-        console.log("[DEBUG] Withdrawing from request");
+        
         await updateDoc(ref, {
           declinedVolunteers: arrayUnion(user.uid), // Add current volunteer to declinedVolunteers
           volunteerId: null, // Remove as assigned volunteer
           initiatedBy: null, // Clear initiation
           status:      "waiting_for_first_approval",        });
         setAlertMessage({message: "הבקשה בוטלה בהצלחה", type: "success"});
-        console.log("[DEBUG] Request withdrawn successfully");
+        
         
         // Update local state
         const updatedAdminApprovalRequests = adminApprovalRequests.filter(r => r.id !== req.id);
@@ -420,7 +382,6 @@ export default function VolunteerDashboard() {
       };
 
       await addDoc(collection(db, "Sessions"), sessionData);
-      console.log("Session scheduled successfully");
       onSuccess?.();
       return true;
     } catch (error) {
@@ -916,7 +877,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
             />
           </div>
         )}
-      {console.log("Rendering modal section, showUpcomingModal:", showUpcomingSessionsModal)}
       {showUpcomingSessionsModal && (
         <SessionModal
           title="מפגשים מתוכננים"
@@ -1109,7 +1069,6 @@ function SessionCompletionModal({ session, onClose, onSubmit }) {
         completedAt: serverTimestamp()
       });
       
-      console.log("Session marked as completed:", session.id);
       onSubmit?.();
       onClose();
     } catch (error) {

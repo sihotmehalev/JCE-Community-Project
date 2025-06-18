@@ -43,10 +43,8 @@ export default function AISuggestionsModal({
 
       // Fix: Call directly, not through aiService object
       const aiResponse = await getAIMatchingSuggestionsWithRetry(prompt);
-      // console.log("Raw AI Response:", aiResponse);
       setSuggestions(aiResponse);
 
-      // console.log("Available Volunteers for parsing:", availableVolunteers);
       const parsed = parseAIResponse(aiResponse, availableVolunteers);
 
       setParsedSuggestions(parsed);
@@ -153,7 +151,6 @@ export default function AISuggestionsModal({
     rawSuggestions.forEach(raw => {
       const volunteerIndex = raw.volunteerNumber - 1;
       const volunteer = volunteers[volunteerIndex];
-      // console.log(`AI suggested volunteer #${raw.volunteerNumber}, found volunteer:`, volunteer);
 
       if (volunteer) {
         // Replace volunteer number with name in reasoning here
