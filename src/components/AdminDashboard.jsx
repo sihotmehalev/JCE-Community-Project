@@ -543,25 +543,30 @@ export default function AdminDashboard() {
 
         if (requesterDocSnap.exists()) {
 
-          const data = requesterDocSnap.data();
-          const matchToDelete = data.activeMatchId;
+          const req_data = requesterDocSnap.data();
+          const match_id = req_data.activeMatchId;
+          console.log(match_id);
 
           // if requester has match
-          if (matchToDelete) {
-            // get id's
-            const vol_id = data.volunteerId;
-            const match_id = data.activeMatchId;
-            // prepare vol new list
+          if (match_id) { 
+            const matchesDocRef = doc(db, "Matches", match_id);
+            const matchSnap = await getDoc(matchesDocRef);
+            const matchData = matchSnap.data()
+            // get Volunteer id
+            const vol_id = matchData.volunteerId;
+
+            // prepare Volunteer new list
             const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", vol_id));
             const currentMatches = volunteerDoc.data().activeMatchIds || [];
             const updatedMatches = currentMatches.filter(id => id !== match_id);
+            console.log(updatedMatches, vol_id, match_id);
 
             // delete conversations, matches and match for Volunteer matches list
-            batch.delete(doc(db, "conversations", matchToDelete));
+            batch.delete(doc(db, "conversations", match_id));
             batch.update(doc(db, "Users", "Info", "Volunteers", vol_id), {
               activeMatchIds: updatedMatches
-            })
-            batch.delete(doc(db, "Matches", matchToDelete))
+            });
+            batch.delete(matchesDocRef);
           }
 
           const requestsSnap = await getDocs(
@@ -579,9 +584,7 @@ export default function AdminDashboard() {
 
           await batch.commit();
 
-        } else {
-          console.log("No such document!");
-        }
+        } 
 
       } else if (user.role === 'volunteer') {
 
@@ -601,11 +604,6 @@ export default function AdminDashboard() {
 
               const { requesterId } = matchSnap.data();
 
-              console.log("Prepared to delete match:", doc(db, "Matches", matchId).path);
-              console.log("Prepared to delete convo:", doc(db, "conversations", matchId).path);
-
-
-              console.log(matchId);
               batch.delete(convoRef);
 
               // queue deletions
@@ -1630,6 +1628,15 @@ export default function AdminDashboard() {
         user={selectedUserForDelete}
         onConfirm={() => deleteUser(selectedUserForDelete)}
       />
+
+      <Button
+        className="border border-orange-100 p-2 text-orange-800"
+        variant="outline"
+        onClick={() => { 
+          deleteDoc(doc(db, "conversations", "hEbvInFmHcuy5QMC1pqv"));
+        }}
+      >
+      </Button>
     </div>
   );
 }
