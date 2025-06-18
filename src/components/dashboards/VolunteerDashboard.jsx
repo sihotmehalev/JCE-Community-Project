@@ -1,6 +1,6 @@
 // VolunteerDashboard.jsx
 import React, { useEffect, useRef, useState } from "react";
-import { User, Calendar, Clock, MessageCircle, Plus, X } from "lucide-react";
+import { User, Calendar, Clock, MessageCircle, Plus, X, Phone } from "lucide-react";
 import { auth, db } from "../../config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -734,18 +734,42 @@ function RequestCard({ req, variant, onAction }) {
           </p>
         </div>
 
-        {requester?.chatPref && (
-          <div className="bg-white/60 rounded-lg p-3 border border-orange-100 md:col-span-2">
-            <div className="flex items-center gap-2 mb-2">
-              <MessageCircle className="w-4 h-4 text-orange-600" />
-              <h4 className="font-semibold text-orange-800 text-sm">העדפת שיחה</h4>
-            </div>
-            <p className="text-orange-700 text-sm">
-              {formatList(requester?.chatPref)}
-            </p>
+        <div className="bg-white/60 rounded-lg p-3 border border-orange-100">
+          <div className="flex items-center gap-2 mb-2">
+            <Phone className="w-4 h-4 text-orange-600" />
+            <h4 className="font-semibold text-orange-800 text-sm">העדפת שיחה</h4>
           </div>
-        )}
-      </div>      {variant === "direct" ? (
+          <p className="text-orange-700 text-sm">
+            {formatList(requester?.chatPref)}
+          </p>
+        </div>
+
+        <div className="bg-white/60 rounded-lg p-3 border border-orange-100">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="w-4 h-4 text-orange-600" />
+            <h4 className="font-semibold text-orange-800 text-sm">העדפה למתנדב</h4>
+          </div>
+          <p className="text-orange-700 text-sm">
+            {formatList(requester?.volunteerPrefs)}
+          </p>
+        </div>
+          
+          {/* Volunteer Preferences
+          {requester?.volunteerPrefs && (
+            <div className="bg-white/60 rounded-lg p-3 border border-orange-100">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageCircle className="w-4 h-4 text-orange-600" />
+                <h4 className="font-semibold text-orange-800 text-sm">העדפת מתנדבים</h4>
+              </div>
+              <p className="text-orange-700 text-sm">
+                {formatList(requester?.volunteerPrefs)}
+              </p>
+            </div>
+          )}
+        </div> */}
+
+      </div>      
+      {variant === "direct" ? (
         <div className="flex gap-2 mt-4 pt-4 border-t border-orange-200">
           <Button onClick={() => onAction(req, "accept")}>אשר</Button>
           <Button variant="outline" onClick={() => onAction(req, "decline")}>
