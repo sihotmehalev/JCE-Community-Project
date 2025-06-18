@@ -266,6 +266,7 @@ async function generate() {
       motivation: rand(motivationPool),
       agree: true,
       approved: "pending",
+      personal: true,
       isAvailable: true,
       activeMatchIds: [],
       requestIds: [],
