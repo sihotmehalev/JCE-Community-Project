@@ -224,7 +224,6 @@ export default function RegisterRequesterPage() {
             type="email"
             name="email"
             id="email"
-            placeholder="אימייל"
             value={formData.email}
             onChange={handleChange}
             required
@@ -236,7 +235,6 @@ export default function RegisterRequesterPage() {
               type={showPassword ? "text" : "password"}
               name="password"
               id="password"
-              placeholder="סיסמה"
               value={formData.password}
               onChange={handleChange}
               required
@@ -253,19 +251,21 @@ export default function RegisterRequesterPage() {
         </div>
 
         {/* Personal Information */}
-        <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
-          <h3 className="font-semibold text-orange-800 mb-2">פרטים אישיים</h3>
+        <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">          <h3 className="font-semibold text-orange-800 mb-2">פרטים אישיים</h3>
+          <label htmlFor="fullName" className="block text-sm font-medium text-orange-700">שם מלא</label>
           <input
             type="text"
             name="fullName"
-            placeholder="שם מלא"
+            id="fullName"
             value={formData.fullName}
             onChange={handleChange}
             required
             className={inputClassName}
           />
+          <label htmlFor="onBehalfOf" className="block text-sm font-medium text-orange-700">פונה עבור</label>
           <select
             name="onBehalfOf"
+            id="onBehalfOf"
             value={formData.onBehalfOf}
             onChange={handleChange}
             className={`${inputClassName} bg-white`}
@@ -279,6 +279,7 @@ export default function RegisterRequesterPage() {
             <div className="space-y-4">
               <input
                 name="behalfName"
+                id="behalfName"
                 placeholder="שם האדם שעבורו הפנייה"
                 value={formData.behalfName}
                 onChange={handleChange}
@@ -293,14 +294,14 @@ export default function RegisterRequesterPage() {
                 className={inputClassName}
               />
             </div>
-          )}
-
-          {/* Fixed layout - each field in separate row to prevent shifts */}
+          )}          {/* Fixed layout - each field in separate row to prevent shifts */}
           <div className="space-y-4">
             {/* Gender field */}
             <div>
+              <label htmlFor="gender" className="block text-sm font-medium text-orange-700">מגדר</label>
               <select
                 name="gender"
+                id="gender"
                 value={formData.gender || ""}
                 onChange={handleChange}
                 required
@@ -315,6 +316,7 @@ export default function RegisterRequesterPage() {
                 <div className="mt-2">
                   <input
                     name="custom_gender"
+                    id="custom_gender"
                     placeholder="פרט/י מגדר"
                     value={customInputs.gender}
                     onChange={handleChange}
@@ -322,12 +324,12 @@ export default function RegisterRequesterPage() {
                   />
                 </div>
               )}
-            </div>
-
-            {/* Age field */}
+            </div>            {/* Age field */}
+            <label htmlFor="age" className="block text-sm font-medium text-orange-700">גיל</label>
             <input
+              type="number"
               name="age"
-              placeholder="גיל"
+              id="age"
               value={formData.age}
               onChange={handleChange}
               className={inputClassName}
@@ -335,8 +337,10 @@ export default function RegisterRequesterPage() {
 
             {/* Marital Status field */}
             <div>
+              <label htmlFor="maritalStatus" className="block text-sm font-medium text-orange-700">מצב משפחתי</label>
               <select
                 name="maritalStatus"
+                id="maritalStatus"
                 value={formData.maritalStatus || ""}
                 onChange={handleChange}
                 required
@@ -351,6 +355,7 @@ export default function RegisterRequesterPage() {
                 <div className="mt-2">
                   <input
                     name="custom_maritalStatus"
+                    id="custom_maritalStatus"
                     placeholder="פרט/י מצב משפחתי"
                     value={customInputs.maritalStatus}
                     onChange={handleChange}
@@ -358,42 +363,43 @@ export default function RegisterRequesterPage() {
                   />
                 </div>
               )}
-            </div>
-
-            {/* Location field */}
+            </div>            {/* Location field */}
+            <label htmlFor="location" className="block text-sm font-medium text-orange-700">מקום מגורים</label>
             <input
               name="location"
-              placeholder="מקום מגורים"
+              id="location"
               value={formData.location}
               onChange={handleChange}
               className={inputClassName}
             />
 
             {/* Phone field */}
+            <label htmlFor="phone" className="block text-sm font-medium text-orange-700">טלפון</label>
             <input
               name="phone"
-              placeholder="טלפון"
+              id="phone"
+              required
               value={formData.phone}
               onChange={handleChange}
               className={inputClassName}
             />
           </div>
-        </div>
-
-        {/* Support Needs */}
+        </div>        {/* Support Needs */}
         <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
           <h3 className="font-semibold text-orange-800 mb-2">פרטי הפנייה</h3>
+          <label htmlFor="reason" className="block text-sm font-medium text-orange-700">סיבת הפנייה</label>
           <textarea
             name="reason"
-            placeholder="סיבת הפנייה"
+            id="reason"
             value={formData.reason}
             onChange={handleChange}
             rows="3"
             className={inputClassName}
           />
+          <label htmlFor="needs" className="block text-sm font-medium text-orange-700">מה הצורך שלך בתמיכה?</label>
           <textarea
             name="needs"
-            placeholder="מה הצורך שלך בתמיכה?"
+            id="needs"
             value={formData.needs}
             onChange={handleChange}
             rows="3"
@@ -420,15 +426,17 @@ export default function RegisterRequesterPage() {
                     {opt}
                   </label>
                 ))}
-              </div>
-              {showCustomInput.chatPref && (
-                <input
-                  name="custom_chatPref"
-                  placeholder="פרט/י אפשרות נוספת"
-                  value={customInputs.chatPref}
-                  onChange={handleChange}
-                  className={inputClassName}
-                />
+              </div>              {showCustomInput.chatPref && (
+                <div className="mt-2">
+                  <input
+                    name="custom_chatPref"
+                    id="custom_chatPref"
+                    placeholder="פרט/י אפשרות נוספת"
+                    value={customInputs.chatPref}
+                    onChange={handleChange}
+                    className={inputClassName}
+                  />
+                </div>
               )}
             </div>
           </fieldset>
@@ -448,21 +456,24 @@ export default function RegisterRequesterPage() {
                     {opt}
                   </label>
                 ))}
-              </div>
-              {showCustomInput.frequency && (
-                <input
-                  name="custom_frequency"
-                  placeholder="פרט/י תדירות אחרת"
-                  value={customInputs.frequency}
-                  onChange={handleChange}
-                  className={inputClassName}
-                />
+              </div>              {showCustomInput.frequency && (
+                <div className="mt-2">
+                  <input
+                    name="custom_frequency"
+                    id="custom_frequency"
+                    placeholder="פרט/י תדירות אחרת"
+                    value={customInputs.frequency}
+                    onChange={handleChange}
+                    className={inputClassName}
+                  />
+                </div>
               )}
             </div>
-          </fieldset>
-          <div className="space-y-2">
+          </fieldset>          <div className="space-y-2">
+            <label htmlFor="preferredTimes" className="block text-sm font-medium text-orange-700">זמנים מועדפים</label>
             <select
               name="preferredTimes"
+              id="preferredTimes"
               value={formData.preferredTimes || ""}
               onChange={handleChange}
               required
@@ -474,17 +485,22 @@ export default function RegisterRequesterPage() {
               ))}
             </select>
             {showCustomInput.preferredTimes && (
-              <input
-                name="custom_preferredTimes"
-                placeholder="פרט/י זמנים מועדפים"
-                value={customInputs.preferredTimes}
-                onChange={handleChange}
-                className={inputClassName}
-              />
+              <div className="mt-2">
+                <input
+                  name="custom_preferredTimes"
+                  id="custom_preferredTimes"
+                  placeholder="פרט/י זמנים מועדפים"
+                  value={customInputs.preferredTimes}
+                  onChange={handleChange}
+                  className={inputClassName}
+                />
+              </div>
             )}
           </div>
+          <label htmlFor="volunteerPrefs" className="block text-sm font-medium text-orange-700">העדפות במתנדב/ת</label>
           <textarea
             name="volunteerPrefs"
+            id="volunteerPrefs"
             placeholder="העדפות במתנדב/ת (מגדר, גיל, רקע וכו')"
             value={formData.volunteerPrefs}
             onChange={handleChange}
@@ -525,10 +541,10 @@ export default function RegisterRequesterPage() {
             />
             <span className="text-sm">ידוע לי שפנייה לפרויקט הינה מתוך בחירה, לפי שיקול דעת ובאחריות הפונים בלבד</span>
           </label>
-        </div>
-
+        </div>        
         <textarea
           name="note"
+          id="note"
           placeholder="משהו מהלב..."
           value={formData.note}
           onChange={handleChange}

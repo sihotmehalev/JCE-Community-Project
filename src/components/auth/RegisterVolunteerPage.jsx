@@ -238,7 +238,6 @@ export default function RegisterVolunteerPage() {
             type="email"
             name="email"
             id="email"
-            placeholder="אימייל"
             value={formData.email}
             onChange={handleChange}
             required
@@ -250,7 +249,6 @@ export default function RegisterVolunteerPage() {
               type={showPassword ? "text" : "password"}
               name="password"
               id="password"
-              placeholder="סיסמה"
               value={formData.password}
               onChange={handleChange}
               required
@@ -274,7 +272,6 @@ export default function RegisterVolunteerPage() {
             type="text"
             name="fullName"
             id="fullName"
-            placeholder="שם מלא"
             value={formData.fullName}
             onChange={handleChange}
             required
@@ -301,7 +298,7 @@ export default function RegisterVolunteerPage() {
               </select>
               {showCustomInput.gender && (
                 <div className="mt-2">
-                  <label htmlFor="custom_gender">פרט/י מגדר</label>
+                  {/* <label htmlFor="custom_gender" className="block text-sm font-medium text-orange-700">פרט/י מגדר</label> */}
                   <input
                     name="custom_gender"
                     id="custom_gender"
@@ -317,9 +314,9 @@ export default function RegisterVolunteerPage() {
             {/* Age Field */}
             <label htmlFor="age" className="block text-sm font-medium text-orange-700">גיל</label>
             <input
+              type="number"
               name="age"
               id="age"
-              placeholder="גיל"
               value={formData.age}
               onChange={handleChange}
               className={inputClassName}
@@ -343,11 +340,10 @@ export default function RegisterVolunteerPage() {
               </select>
               {showCustomInput.maritalStatus && (
                 <div className="mt-2">
-                  <label htmlFor="custom_maritalStatus">פרט/י מצב משפחתי</label>
                   <input
                     name="custom_maritalStatus"
                     id="custom_maritalStatus"
-                    placeholder="פרט/י מצב משפפחתי"
+                    placeholder="פרט/י מצב משפחתי"
                     value={customInputs.maritalStatus}
                     onChange={handleChange}
                     className={inputClassName}
@@ -374,7 +370,6 @@ export default function RegisterVolunteerPage() {
               </select>
               {showCustomInput.profession && (
                 <div className="mt-2">
-                  <label htmlFor="custom_profession">פרט/י מקצוע</label>
                   <input
                     name="custom_profession"
                     id="custom_profession"
@@ -392,7 +387,7 @@ export default function RegisterVolunteerPage() {
             <input
               name="phone"
               id="phone"
-              placeholder="טלפון"
+              required
               value={formData.phone}
               onChange={handleChange}
               className={inputClassName}
@@ -403,7 +398,6 @@ export default function RegisterVolunteerPage() {
             <input
               name="location"
               id="location"
-              placeholder="מקום מגורים"
               value={formData.location}
               onChange={handleChange}
               className={inputClassName}
@@ -433,11 +427,10 @@ export default function RegisterVolunteerPage() {
             </select>
             {showCustomInput.experience && (
               <div className="mt-2">
-                <label htmlFor="custom_experience">פרט/י את הניסיון שלך</label>
+                <label htmlFor="custom_experience" className="block text-sm font-medium text-orange-700">פרט/י את הניסיון שלך</label>
                 <textarea
                   name="custom_experience"
                   id="custom_experience"
-                  placeholder="פרט/י את הניסיון שלך"
                   value={customInputs.experience}
                   onChange={handleChange}
                   rows="3"
@@ -449,7 +442,7 @@ export default function RegisterVolunteerPage() {
           
           {/* Available Days */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-orange-700 mb-2">
               ימים זמינים בשבוע
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -471,7 +464,7 @@ export default function RegisterVolunteerPage() {
 
           {/* Available Hours */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-orange-700 mb-2">
               שעות זמינות
             </label>
             <div className="space-y-2">
@@ -491,7 +484,6 @@ export default function RegisterVolunteerPage() {
             </div>
             {formData.availableHours.includes('אחר') && (
               <div className="mt-2">
-                <label htmlFor="custom_availableHours">פרט/י שעות זמינות</label>
                 <input
                   name="custom_availableHours"
                   id="custom_availableHours"
@@ -512,7 +504,6 @@ export default function RegisterVolunteerPage() {
           <textarea
             name="strengths"
             id="strengths"
-            placeholder="מהם החוזקות שלך כאדם / כמתנדב?"
             value={formData.strengths}
             onChange={handleChange}
             rows="3"
@@ -522,7 +513,6 @@ export default function RegisterVolunteerPage() {
           <textarea
             name="motivation"
             id="motivation"
-            placeholder="מה מביא אותך להתנדב במסגרת כזו?"
             value={formData.motivation}
             onChange={handleChange}
             rows="3"
