@@ -21,7 +21,6 @@ import { Card } from "../ui/card";
 import { X } from "lucide-react";
 import ChatPanel from "../ui/ChatPanel";
 import CustomAlert from "../ui/CustomAlert";
-import { User } from "lucide-react";
 
 /* ────────────────────────── helpers ────────────────────────── */
 
@@ -178,6 +177,15 @@ export default function RequesterDashboard() {
     const unsubReq = onSnapshot(
       reqRef,
       async (snap) => {
+        if (!snap.exists()) {
+          console.log("[DEBUG] First login - creating skeleton profile");
+          // first login → create skeleton profile
+          await setDoc(reqRef, {
+            personal: true, // default to פנייה ישירה למתנדב
+            createdAt: serverTimestamp(),
+          });
+          return; // wait for next snapshot
+        }
         const data = snap.data();
         console.log("[DEBUG] Loaded requester profile:", data);
         setRequestProfile(data);
@@ -392,8 +400,7 @@ export default function RequesterDashboard() {
       { personal: newVal },
       { merge: true }
     );
-  };  
-  const requestVolunteer = async (volunteerId) => {
+  };  const requestVolunteer = async (volunteerId) => {
     try {
       console.log("[DEBUG] Requesting volunteer:", volunteerId);
       setRequestLoading(true);
@@ -402,7 +409,7 @@ export default function RequesterDashboard() {
       const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", volunteerId));
       if (!volunteerDoc.exists()) {
         console.warn("[DEBUG] Volunteer not found:", volunteerId);
-        setAlertMessage({message: "המתנדב/ת לא נמצא/ה במערכת", type: "error"});
+        alert("המתנדב/ת לא נמצא/ה במערכת");
         return;
       }
       
@@ -415,7 +422,7 @@ export default function RequesterDashboard() {
       
       if (!volunteerData.isAvailable || !volunteerData.approved) {
         console.warn("[DEBUG] Volunteer is unavailable or not approved");
-        setAlertMessage({message: "המתנדב/ת אינו/ה זמין/ה כעת", type: "error"});
+        alert("המתנדב/ת אינו/ה זמין/ה כעת");
         return;
       }
 
@@ -470,10 +477,10 @@ export default function RequesterDashboard() {
         setPendingRequests(updatedPendingRequests);
       }
       
-      setAlertMessage({message: "הבקשה נשלחה בהצלחה וממתינה לאישור", type: "success"});
+      alert("הבקשה נשלחה בהצלחה וממתינה לאישור");
     } catch (error) {
       console.error("Error requesting volunteer:", error);
-      setAlertMessage({message: "אירעה שגיאה בשליחת הבקשה. אנא נסה שוב", type: "error"});
+      alert("אירעה שגיאה בשליחת הבקשה. אנא נסה שוב");
     } finally {
       setRequestLoading(false);
     }
@@ -485,7 +492,7 @@ export default function RequesterDashboard() {
       // Find the request to extract current data before updating
       const requestDoc = await getDoc(doc(db, "Requests", requestId));
       if (!requestDoc.exists()) {
-        setAlertMessage({message: "הבקשה לא נמצאה במערכת", type: "error"});
+        alert("הבקשה לא נמצאה במערכת");
         return;
       }
       
@@ -496,8 +503,8 @@ export default function RequesterDashboard() {
 
       // Update the request to remove the volunteerId and initiatedBy fields
       await updateDoc(doc(db, "Requests", requestId), {
-        volunteerId: null,
-        initiatedBy: null,
+        volunteerId: deleteField(),
+        initiatedBy: deleteField(),
         updatedAt: serverTimestamp(),
       });
       
@@ -514,7 +521,7 @@ export default function RequesterDashboard() {
       setAlertMessage({message: "הבקשה בוטלה בהצלחה", type: "success"});
     } catch (error) {
       console.error("Error canceling request:", error);
-      setAlertMessage({message: "אירעה שגיאה בביטול הבקשה. אנא נסה שוב", type: "error"});
+      alert("אירעה שגיאה בביטול הבקשה. אנא נסה שוב");
     } finally {
       setRequestLoading(false);
     }
@@ -870,31 +877,12 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
 
   return (
     <div className="border border-orange-100 bg-orange-100 rounded-lg p-4">
-    {/* Header Section */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
-            <User className="w-6 h-6 text-orange-600" />
-          </div>
-          <div>
-            <h3 className="font-bold text-orange-900 text-xl mb-1">
-              {volunteer?.fullName || "פונה ללא שם"}
-            </h3>
-            <div className="flex items-center gap-4 text-sm text-orange-700">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
-                גיל: {volunteer?.age ?? "—"}
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
-                מגדר: {volunteer?.gender ?? "—"}
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
-                טלפון: {volunteer?.phone ?? "—"}
-              </span>
-            </div>
-          </div>
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <p className="font-semibold text-orange-800 text-lg mb-1">
+            {volunteer?.fullName || "מתנדב/ת ללא שם"}
+          </p>
+
         </div>
       </div>
 
