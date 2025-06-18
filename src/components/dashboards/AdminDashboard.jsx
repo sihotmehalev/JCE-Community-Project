@@ -456,6 +456,8 @@ export default function AdminDashboard() {
   const createManualMatch = async (requesterId, volunteerId, requestId = null) => {
     try {
       const batch = writeBatch(db);
+
+      const matchId = generateRandomId();
       
       // Create request if it doesn't exist, or update an existing one
       let finalRequestId = requestId;
@@ -474,7 +476,8 @@ export default function AdminDashboard() {
           batch.update(doc(db, "Requests", finalRequestId), {
             status: "matched",
             matchedAt: new Date(),
-            volunteerId: volunteerId // Ensure volunteerId is set in case it was a reassignment
+            volunteerId: volunteerId,
+            matchId: matchId // Ensure volunteerId is set in case it was a reassignment
           });
         } else {
           // No existing suitable request, create a new one
@@ -486,7 +489,8 @@ export default function AdminDashboard() {
             status: "matched",
             createdAt: new Date(),
             messageRequest: "Manual match by admin",
-            personal: false
+            personal: false,
+            matchId: matchId
           });
         }
       } else {
@@ -494,12 +498,12 @@ export default function AdminDashboard() {
         batch.update(doc(db, "Requests", requestId), {
           volunteerId: volunteerId,
           status: "matched",
-          matchedAt: new Date()
+          matchedAt: new Date(),
+          matchId: matchId
         });
       }
       
       // Create match with random ID
-      const matchId = generateRandomId();
       const matchRef = doc(db, "Matches", matchId);
       
       batch.set(matchRef, {
