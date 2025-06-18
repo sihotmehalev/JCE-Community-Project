@@ -545,7 +545,6 @@ export default function AdminDashboard() {
 
           const req_data = requesterDocSnap.data();
           const match_id = req_data.activeMatchId;
-          console.log(match_id);
 
           // if requester has match
           if (match_id) { 
@@ -559,7 +558,6 @@ export default function AdminDashboard() {
             const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", vol_id));
             const currentMatches = volunteerDoc.data().activeMatchIds || [];
             const updatedMatches = currentMatches.filter(id => id !== match_id);
-            console.log(updatedMatches, vol_id, match_id);
 
             // delete conversations, matches and match for Volunteer matches list
             batch.delete(doc(db, "conversations", match_id));
@@ -1542,11 +1540,9 @@ export default function AdminDashboard() {
                         {u.role === 'requester' 
                           ? (u.activeMatchId ? 1 : 0)
                           : (u.activeMatchIds?.length || 0)}
-                      </td>
-                      <td>
+                      </td>                      <td className="border border-orange-100 p-2 text-center">
                         <button
-                          className="border border-orange-100 p-2 text-orange-800"
-                          variant="outline"
+                          className="px-4 py-2 text-orange-800 hover:bg-orange-50 border border-orange-200 rounded-md transition-colors duration-200 hover:border-orange-300"
                           onClick={() => { 
                             setshowDeleteUserModal(true);
                             setShowSessionDetails(false);
@@ -1628,15 +1624,6 @@ export default function AdminDashboard() {
         user={selectedUserForDelete}
         onConfirm={() => deleteUser(selectedUserForDelete)}
       />
-
-      <Button
-        className="border border-orange-100 p-2 text-orange-800"
-        variant="outline"
-        onClick={() => { 
-          deleteDoc(doc(db, "conversations", "hEbvInFmHcuy5QMC1pqv"));
-        }}
-      >
-      </Button>
     </div>
   );
 }
