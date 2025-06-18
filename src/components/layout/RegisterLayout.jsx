@@ -1,7 +1,7 @@
 import React, { } from "react";
 import { Card, CardContent } from "../ui/card";
 
-export default function RegisterLayout({ title, children, onSubmit, loading, message }) {
+export default function RegisterLayout({ title, children, onSubmit, loading }) {
   return (
     <div className="flex items-center justify-center p-6">
       <Card className="w-[500px] bg-gradient-to-br from-white to-orange-50/80">
@@ -24,11 +24,6 @@ export default function RegisterLayout({ title, children, onSubmit, loading, mes
               </button>
             </div>
           </form>
-          {message && (
-            <p className={`mt-4 text-center text-sm ${message.includes("בהצלחה") ? "text-orange-600" : "text-red-600"}`}>
-              {message}
-            </p>
-          )}
         </CardContent>
       </Card>
     </div>

@@ -5,6 +5,8 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, increment, writeBatch, serverTimestamp } from "firebase/firestore";
 import RegisterLayout from "../layout/RegisterLayout";
 import { Eye, EyeOff } from 'lucide-react';
+import CustomAlert from "../ui/CustomAlert";
+import { useNavigate } from "react-router-dom";
 
 export default function RegisterVolunteerPage() {
   const genderOptions = ['זכר', 'נקבה', 'אחר'];
@@ -88,8 +90,13 @@ export default function RegisterVolunteerPage() {
   });
 
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  // Alert state
+  const [alertMessage, setAlertMessage] = useState(null);
+
+  // Navigation
+  const navigate = useNavigate();
 
   const togglePasswordVisibility = () => {
     setShowPassword(prev => !prev);
@@ -169,7 +176,7 @@ export default function RegisterVolunteerPage() {
     setLoading(true);
 
     if (!formData.agree) {
-      setMessage("יש לאשר את ההצהרה כדי להמשיך");
+      setAlertMessage({ message: "יש לאשר את ההצהרה כדי להמשיך", type: "error" });
       setLoading(false);
       return;
     }
@@ -213,10 +220,10 @@ export default function RegisterVolunteerPage() {
 
       await batch.commit();
       
-      setMessage("נרשמת בהצלחה! בקשתך תיבדק על ידי מנהל המערכת.");
+      setAlertMessage({ message: "נרשמת בהצלחה! בקשתך תיבדק על ידי מנהל המערכת.", type: "success", onClose: () => navigate("/") });
     } catch (error) {
       console.error(error);
-      setMessage("שגיאה: " + error.message);
+      setAlertMessage({ message: "שגיאה: " + error.message, type: "error" });
     }
     setLoading(false);
   };
@@ -228,7 +235,6 @@ export default function RegisterVolunteerPage() {
       title="הרשמה כמתנדב"
       onSubmit={handleSubmit}
       loading={loading}
-      message={message}
     >
       <div className="max-w-[400px] mx-auto space-y-4">
         {/* Basic Information */}
@@ -343,7 +349,7 @@ export default function RegisterVolunteerPage() {
               </select>
               {showCustomInput.maritalStatus && (
                 <div className="mt-2">
-                  <label htmlFor="custom_maritalStatus">פרט/י מצב משפחתי</label>
+                  <label htmlFor="custom_maritalStatus">פרט/י מצב משפפחתי</label>
                   <input
                     name="custom_maritalStatus"
                     id="custom_maritalStatus"
@@ -543,6 +549,14 @@ export default function RegisterVolunteerPage() {
           </span>
         </label>
       </div>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        message={alertMessage?.message}
+        onClose={alertMessage?.onClose || (() => setAlertMessage(null))}
+        type={alertMessage?.type}
+        position="bottom"
+      />
     </RegisterLayout>
   );
 }
