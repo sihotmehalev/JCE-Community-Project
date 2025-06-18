@@ -420,7 +420,7 @@ export default function AdminDashboard() {
     const docSnap = await getDoc(docRef);
     try {
       const updateData = {
-        status: "declined",
+        status: "waiting_for_first_approval",
         declinedVolunteers: arrayUnion(docSnap.data().volunteerId), // Add to declined list
         declinedAt: new Date()
       };

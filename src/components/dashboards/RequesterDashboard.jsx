@@ -13,8 +13,7 @@ import {
   query,
   where,
   orderBy,
-  serverTimestamp,
-  arrayUnion
+  serverTimestamp
 } from "firebase/firestore";
 import { Button } from "../ui/button";
 import LoadingSpinner from "../ui/LoadingSpinner";
@@ -493,11 +492,10 @@ export default function RequesterDashboard() {
       console.log("Canceling request with ID:", requestId);
       console.log("Current pending requests:", pendingRequests);
       
-      const volunteerId = requestDoc.data().volunteerId;
+      // const volunteerId = requestDoc.data().volunteerId;
 
       // Update the request to remove the volunteerId and initiatedBy fields
       await updateDoc(doc(db, "Requests", requestId), {
-        declinedVolunteers: arrayUnion(volunteerId), // Add to declined list
         volunteerId: null,
         initiatedBy: null,
         updatedAt: serverTimestamp(),
@@ -508,10 +506,10 @@ export default function RequesterDashboard() {
       // listener in the useEffect above will automatically update the UI
       // when the document changes. However, we can still update it optimistically
       // for better UX.
-      const updatedPendingRequests = pendingRequests.filter(req => req.id !== requestId);
-      setPendingRequests(updatedPendingRequests);
+      // const updatedPendingRequests = pendingRequests.filter(req => req.id !== requestId);
+      // setPendingRequests(updatedPendingRequests);
       
-      console.log("Updated pending requests after cancel:", updatedPendingRequests);
+      // console.log("Updated pending requests after cancel:", updatedPendingRequests);
 
       setAlertMessage({message: "הבקשה בוטלה בהצלחה", type: "success"});
     } catch (error) {
@@ -905,14 +903,15 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
         <Button onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}>
           {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
         </Button>
-        <Button 
-          variant="outline" 
-          onClick={() => setShowUpcomingSessionsModal(true)}
-          className="flex items-center gap-2"
-          disabled={upcomingSessions.length === 0}
-        >
-          מפגשים מתוכננים ({upcomingSessions.length})
+        {upcomingSessions.length > 0 && (
+          <Button
+            variant="outline"
+            onClick={() => setShowUpcomingSessionsModal(true)}
+            className="flex items-center gap-2"
+          >
+            מפגשים מתוכננים ({upcomingSessions.length})
         </Button>
+        )}
         {pastSessionsCount > 0 && (
           <Button 
             variant="outline"
