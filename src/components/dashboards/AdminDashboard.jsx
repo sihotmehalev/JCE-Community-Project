@@ -12,7 +12,8 @@ import {
   where, 
   getDoc, 
   arrayUnion,
-  increment
+  increment,
+  deleteDoc
 } from "firebase/firestore";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
@@ -23,6 +24,8 @@ import LoadingSpinner from "../ui/LoadingSpinner";
 import EventCreation from "../admin/event-management/AdminAddEvent";
 import { AdminEventList } from '../admin/event-management/AdminEventList'
 import CustomAlert from "../ui/CustomAlert";
+import { CancelMatchModal } from '.././ui/CancelMatchModal';
+import { DeleteUserModal } from '.././ui/DeleteUserModal'
 
 export default function AdminDashboard() {
   // State Management
@@ -74,6 +77,13 @@ export default function AdminDashboard() {
   // New states for session summary
   const [selectedSessionForView, setSelectedSessionForView] = useState(null);
   const [alertMessage, setAlertMessage] = useState(null);
+
+  // New state for cancel match modal
+  const [showCancelMatchModal, setShowCancelMatchModal] = useState(false);
+
+  // New state for delete user modal
+  const [showDeleteUserModal, setshowDeleteUserModal] = useState(false);
+  const [selectedUserForDelete, setSelectedUserForDelete] = useState(null);
 
   // useEffect for resetting currentPage (moved here to ensure unconditional call)
   useEffect(() => {
@@ -380,7 +390,6 @@ export default function AdminDashboard() {
         startDate: new Date(),
         endDate: null,
         meetingFrequency: "weekly",
-        lastSessionId: null,
         totalSessions: 0,
         notes: ""
       });
@@ -397,13 +406,10 @@ export default function AdminDashboard() {
       const volunteerRef = doc(db, "Users", "Info", "Volunteers", requestData.volunteerId);
       batch.update(volunteerRef, {
         activeMatchIds: [...(volunteer?.activeMatchIds || []), matchId]
-      });
-
-      // Update requester's activeMatchIds
-      const requester = requesters.find(r => r.id === requestData.requesterId);
+      });      // Update requester's activeMatchId (single match)
       const requesterRef = doc(db, "Users", "Info", "Requesters", requestData.requesterId);
       batch.update(requesterRef, {
-        activeMatchIds: [...(requester?.activeMatchIds || []), matchId]
+        activeMatchId: matchId
       });
 
       await batch.commit();
@@ -504,7 +510,6 @@ export default function AdminDashboard() {
         startDate: new Date(),
         endDate: null,
         meetingFrequency: "weekly",
-        lastSessionId: null,
         totalSessions: 0,
         notes: "Manual match by admin"
       });
@@ -519,7 +524,7 @@ export default function AdminDashboard() {
       const requester = requesters.find(r => r.id === requesterId);
       const requesterRef = doc(db, "Users", "Info", "Requesters", requesterId);
       batch.update(requesterRef, {
-        activeMatchIds: [...(requester?.activeMatchIds || []), matchId]
+        activeMatchId: matchId
       });
 
       await batch.commit();
@@ -555,6 +560,180 @@ export default function AdminDashboard() {
     return <LoadingSpinner />;
   }
 
+  const cancelMatch = async (match_id) => {
+    try {
+      // Get match document first
+      const matchDoc = await getDoc(doc(db, "Matches", match_id));
+      if (!matchDoc.exists()) {
+        throw new Error("Match not found");
+      }
+      
+      const matchData = matchDoc.data();
+      const vol_id = matchData.volunteerId;
+      const request_id = matchData.requestId;
+
+      // Get volunteer document to update their activeMatchIds
+      const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", vol_id));
+      const currentMatches = volunteerDoc.data().activeMatchIds || [];
+      const updatedMatches = currentMatches.filter(id => id !== match_id);
+
+      // Run all updates in parallel for better performance
+      await Promise.all([
+        // Delete match
+        deleteDoc(doc(db, "Matches", match_id)),
+
+        // Update request status
+        updateDoc(doc(db, "Requests", request_id), {
+          status: "waiting_for_first_approval",
+          volunteerId: null
+        }),
+
+        // Clear requester's single match
+        updateDoc(doc(db, "Users", "Info", "Requesters", matchData.requesterId), {
+          activeMatchId: null
+        }),
+
+        // Update volunteer's active matches
+        updateDoc(doc(db, "Users", "Info", "Volunteers", vol_id), {
+          activeMatchIds: updatedMatches
+        })
+      ]);
+
+      // Update UI
+      setActiveMatches(prev => prev.filter(match => match.id !== match_id));
+      setShowCancelMatchModal(false);
+      alert("ההתאמה בוטלה בהצלחה");
+
+    } catch (error) {
+      console.error("Error cancelling match:", error);
+      alert("שגיאה בביטול ההתאמה");
+    }
+  
+  }
+
+  const deleteUser = async (user) => {
+    try {
+      const batch = writeBatch(db);
+      
+      if (user.role === 'requester') {
+        // delete match if has one
+        const requesterDocRef = doc(db, "Users", "Info", "Requesters", user.id);
+        const requesterDocSnap = await getDoc(requesterDocRef);
+
+        if (requesterDocSnap.exists()) {
+
+          const req_data = requesterDocSnap.data();
+          const match_id = req_data.activeMatchId;
+
+          // if requester has match
+          if (match_id) { 
+            const matchesDocRef = doc(db, "Matches", match_id);
+            const matchSnap = await getDoc(matchesDocRef);
+            const matchData = matchSnap.data()
+            // get Volunteer id
+            const vol_id = matchData.volunteerId;
+
+            // prepare Volunteer new list
+            const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", vol_id));
+            const currentMatches = volunteerDoc.data().activeMatchIds || [];
+            const updatedMatches = currentMatches.filter(id => id !== match_id);
+
+            // delete conversations, matches and match for Volunteer matches list
+            batch.delete(doc(db, "conversations", match_id));
+            batch.update(doc(db, "Users", "Info", "Volunteers", vol_id), {
+              activeMatchIds: updatedMatches
+            });
+            batch.delete(matchesDocRef);
+          }
+
+          const requestsSnap = await getDocs(
+            query(collection(db, "Requests"), where("requesterId", "==", user.id))
+          );
+          
+          // delete request
+          requestsSnap.forEach((docSnap) => {
+              const docRef = doc(db, "Requests", docSnap.id);
+              batch.delete(docRef);
+          });
+
+          // delete user
+          batch.delete(requesterDocRef);
+
+          await batch.commit();
+
+        } 
+
+      } else if (user.role === 'volunteer') {
+
+          // 1. read volunteer
+          const volunteerRef  = doc(db, "Users", "Info", "Volunteers", user.id);
+          const volunteerSnap = await getDoc(volunteerRef);
+
+          if (volunteerSnap.exists()) {
+            const { activeMatchIds = [] } = volunteerSnap.data();
+
+            // 2. loop over matches **sequentially**
+            for (const matchId of activeMatchIds) {
+              const convoRef = doc(db, "conversations", matchId);
+              const matchRef  = doc(db, "Matches", matchId);
+              const matchSnap = await getDoc(matchRef);
+              if (!matchSnap.exists()) continue;
+
+              const { requesterId } = matchSnap.data();
+
+              batch.delete(convoRef);
+
+              // queue deletions
+              batch.delete(matchRef);
+
+              // queue requester update
+              batch.update(
+                doc(db, "Users", "Info", "Requesters", requesterId),
+                { activeMatchId: null }
+              );
+
+              // queue request updates
+              const reqQS = await getDocs(
+                query(collection(db, "Requests"), where("requesterId", "==", requesterId))
+              );
+              reqQS.forEach(r => batch.update(r.ref, {
+                status: "waiting_for_first_approval",
+                volunteerId: null,
+                matchedAt: null,
+                matchId: null
+              }));
+            }
+
+            // 3. finally queue volunteer deletion
+            batch.delete(volunteerRef);
+
+            // 4. commit AFTER **all** writes have been queued
+            await batch.commit();
+          }
+      }
+  
+      // Update UI state
+      setAllUsers(prev => prev.filter(u => u.id !== user.id));
+      if (user.role === 'volunteer') {
+        setVolunteers(prev => prev.filter(v => v.id !== user.id));
+      } else if (user.role === 'requester') {
+        setRequesters(prev => prev.filter(r => r.id !== user.id));
+      }
+      
+      // Update matches list if needed
+      setActiveMatches(prev => prev.filter(m => 
+        m.requesterId !== user.id && m.volunteerId !== user.id
+      ));
+  
+      setshowDeleteUserModal(false);
+      alert("המשתמש נמחק בהצלחה");
+  
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      alert("שגיאה במחיקת המשתמש");
+    }
+  };
+
   // Filter and sort users for the All Users table
   const filteredAndSortedUsers = allUsers
     .filter(u =>
@@ -566,8 +745,15 @@ export default function AdminDashboard() {
       if (statusFilter !== "all" && u.derivedDisplayStatus !== statusFilter) return false;
       if (personalFilter === "true" && !u.personal) return false;
       if (personalFilter === "false" && u.personal) return false;
-      if (activeMatchesFilter === "hasMatches" && (!u.activeMatchIds || u.activeMatchIds.length === 0)) return false;
-      if (activeMatchesFilter === "noMatches" && (u.activeMatchIds && u.activeMatchIds.length > 0)) return false;
+      if (activeMatchesFilter === "hasMatches" && (
+        (u.role === 'requester' && !u.activeMatchId) || 
+        (u.role === 'volunteer' && (!u.activeMatchIds || u.activeMatchIds.length === 0))
+      )) return false;
+      if (activeMatchesFilter === "noMatches" && (
+        (u.role === 'requester' && u.activeMatchId) || 
+        (u.role === 'volunteer' && u.activeMatchIds?.length > 0)
+      )) return false;
+
       return true;
     })
     .sort((a, b) => {
@@ -878,7 +1064,7 @@ export default function AdminDashboard() {
                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
                 <ul className="space-y-2 h-[400px] overflow-y-scroll">
                   {requesters
-                    .filter(req => !(req.activeMatchIds && req.activeMatchIds.length > 0))
+                    .filter(req => !(req.activeMatchId))
                     .filter(req =>
                       req.fullName?.toLowerCase().includes(requesterSearch.toLowerCase()) ||
                       req.email?.toLowerCase().includes(requesterSearch.toLowerCase())
@@ -939,7 +1125,7 @@ export default function AdminDashboard() {
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
                 <ul className="space-y-2 h-[400px] overflow-y-scroll">
                   {volunteers
-                    .filter(v => v.approved && (v.isAvailable || v.isAvaliable) && !v.personal)
+                    .filter(v => v.approved === "true" && (v.isAvailable || v.isAvaliable) && !v.personal)
                     .filter(v =>
                       ((v.fullName || '').toLowerCase().includes(volunteerSearch.toLowerCase())) ||
                       ((v.email || '').toLowerCase().includes(volunteerSearch.toLowerCase()))
@@ -1162,6 +1348,7 @@ export default function AdminDashboard() {
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב{matchSortColumn === 'volunteerInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('meetingFrequency')}>תדירות פגישות{matchSortColumn === 'meetingFrequency' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                           <th className="border border-orange-100 p-2 text-orange-800">סיכום</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">ביטול התאמה</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1231,6 +1418,19 @@ export default function AdminDashboard() {
                                 >
                                   פירוט
                                 </span>
+                              </td>
+                              <td className="border border-orange-100 p-2 text-center">
+                                <Button
+                                  className="text-red-600 hover:text-red-800"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedMatchForDetails(match.id);
+                                    setShowSessionDetails(false);
+                                    setShowCancelMatchModal(true);
+                                  }}
+                                >
+                                  ביטול התאמה
+                                </Button>
                               </td>
                             </tr>
                           ))}
@@ -1351,6 +1551,7 @@ export default function AdminDashboard() {
                     <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('approved')}>סטטוס{sortColumn === 'approved' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('personal')}>אישי{sortColumn === 'personal' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('activeMatchIds')}>התאמות פעילות{sortColumn === 'activeMatchIds' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="w-24 border border-orange-100 p-2 text-orange-800 cursor-pointer">מחיקת משתמש</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1386,7 +1587,21 @@ export default function AdminDashboard() {
                         {u.personal ? 'כן' : 'לא'}
                       </td>
                       <td className="border border-orange-100 p-2 text-center">
-                        {u.activeMatchIds?.length || 0}
+                        {u.role === 'requester' 
+                          ? (u.activeMatchId ? 1 : 0)
+                          : (u.activeMatchIds?.length || 0)}
+                      </td>
+                      <td>                       
+                         <button
+                          className="px-4 py-2 text-orange-800 hover:bg-orange-50 border border-orange-200 rounded-md transition-colors duration-200 hover:border-orange-300 w-full"
+                          onClick={() => { 
+                            setshowDeleteUserModal(true);
+                            setShowSessionDetails(false);
+                            setSelectedUserForDelete(u);
+                          }}
+                        >
+                          מחיקה
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -1449,6 +1664,23 @@ export default function AdminDashboard() {
         message={alertMessage?.message}
         onClose={() => setAlertMessage(null)}
         type={alertMessage?.type}
+      />
+      
+      <CancelMatchModal
+        isOpen={showCancelMatchModal}
+        onClose={() => setShowCancelMatchModal(false)}
+        match={activeMatches.find(m => m.id === selectedMatchForDetails)}
+        onConfirm={() => cancelMatch(selectedMatchForDetails)}
+      />
+
+      <DeleteUserModal
+        isOpen={showDeleteUserModal}
+        onClose={() => {
+          setshowDeleteUserModal(false);
+          setSelectedUserForDelete(null);
+        }}
+        user={selectedUserForDelete}
+        onConfirm={() => deleteUser(selectedUserForDelete)}
       />
     </div>
   );
