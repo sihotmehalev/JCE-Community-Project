@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Dialog } from './Dialog';
-import { BreathingTimer } from './BreathingTimer';
 import { SafeSpace } from './SafeSpace';
 import { EmergencyContacts } from './EmergencyContacts';
 import { JournalEntry } from './JournalEntry';

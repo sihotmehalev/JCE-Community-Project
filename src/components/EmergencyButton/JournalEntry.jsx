@@ -2,14 +2,6 @@ import React, { useState } from 'react';
 
 export function JournalEntry() {
   const [entry, setEntry] = useState('');
-  const [isSaved, setIsSaved] = useState(false);
-
-  const handleSave = () => {
-    // Here you would typically save to your database
-    // For now, we'll just show a success message
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
-  };
 
   return (
     <div className="space-y-4">
