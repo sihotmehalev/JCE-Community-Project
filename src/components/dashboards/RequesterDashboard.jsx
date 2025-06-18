@@ -14,7 +14,6 @@ import {
   where,
   orderBy,
   serverTimestamp,
-  deleteField,
 } from "firebase/firestore";
 import { Button } from "../ui/button";
 import EmergencyButton from "../EmergencyButton/EmergencyButton";
@@ -298,8 +297,7 @@ export default function RequesterDashboard() {
         query(
           collection(db, "Users", "Info", "Volunteers"),
           where("approved", "==", "true"),
-          where("isAvailable", "==", true),
-          where("personal", "==", true)
+          where("isAvailable", "==", true)
         ),
         (snap) => {
           console.log("[DEBUG] Available volunteers snapshot received:", snap.docs.length, "volunteers");
@@ -438,10 +436,16 @@ export default function RequesterDashboard() {
         const requestId = requestDoc.id;
         console.log("[DEBUG] Updating existing request:", requestId);
         
+        // Determine the appropriate status based on volunteer's personal mode setting
+        const newStatus = volunteerData.personal === false ? 
+        "waiting_for_admin_approval" : 
+        "waiting_for_first_approval";
+
         // Update the existing request with the selected volunteer
         await updateDoc(doc(db, "Requests", requestId), {
           volunteerId: volunteerId,
           initiatedBy: user.uid,
+          status: newStatus,
           updatedAt: serverTimestamp(),
         });
         
@@ -455,7 +459,8 @@ export default function RequesterDashboard() {
           updatedPendingRequests[existingReqIndex] = {
             ...updatedPendingRequests[existingReqIndex],
             volunteerId,
-            initiatedBy: user.uid
+            initiatedBy: user.uid,
+            status: newStatus
           };
         } else {
           // Add as a new request to the pending list
@@ -464,7 +469,7 @@ export default function RequesterDashboard() {
             requesterId: user.uid,
             volunteerId,
             initiatedBy: user.uid,
-            status: "waiting_for_first_approval",
+            status: newStatus,
             volunteer: volunteerData
           });
         }
