@@ -2,7 +2,6 @@ import axios from 'axios';
 
 // Groq AI Configuration
 const GROQ_API_KEY = process.env.REACT_APP_GROQ_API_KEY;
-// console.log("GROQ_API_KEY from .env (aiService.js):", GROQ_API_KEY);
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 /**
@@ -22,7 +21,6 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 export const getAIMatchingSuggestions = async (prompt) => {
   try {
-    // console.log("AI Matching Suggestions Prompt:", prompt);
     const response = await axios.post(
       GROQ_API_URL,
       {
@@ -71,7 +69,6 @@ export const getAIMatchingSuggestions = async (prompt) => {
 
 export const testGroqConnection = async () => {
   try {
-    // console.log("Testing Groq connection with API Key:", GROQ_API_KEY ? "Loaded" : "Not Loaded");
     const response = await axios.post(
       GROQ_API_URL,
       {

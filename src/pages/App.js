@@ -30,7 +30,6 @@ function ProtectedRoute({ children, allowedRoles }) {
 
   const logoutUser = React.useCallback(() => {
     signOut(auth).then(() => {
-      // console.log("User logged out due to inactivity");
       navigate("/login");
     }).catch((error) => {
       console.error("Error signing out due to inactivity:", error);
