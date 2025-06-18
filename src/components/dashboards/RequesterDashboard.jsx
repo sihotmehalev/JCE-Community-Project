@@ -13,8 +13,7 @@ import {
   query,
   where,
   orderBy,
-  serverTimestamp,
-  deleteField,
+  serverTimestamp
 } from "firebase/firestore";
 import { Button } from "../ui/button";
 import LoadingSpinner from "../ui/LoadingSpinner";
@@ -262,7 +261,8 @@ export default function RequesterDashboard() {
     }
   }, [availableVolunteers, requestProfile, declinedVolunteers]);
 
-  /* -------- attach / detach listeners based on mode -------- */  useEffect(() => {
+  /* -------- attach / detach listeners based on mode -------- */  
+  useEffect(() => {
     if (loading || !user) return;
 
     console.log("[DEBUG] Setting up listeners for user:", user.uid);
@@ -293,15 +293,19 @@ export default function RequesterDashboard() {
       }
     );
 
-    // ---- personal mode sections ----
+    // Clear any existing listeners
+    unsubVolunteers.current?.();
+    unsubAdminApproval.current?.();
+
     if (personal) {
-      console.log("[DEBUG] Setting up listeners for personal mode (direct volunteer selection)");
+      console.log("[DEBUG] Setting up listeners for direct volunteer selection");
       // available volunteers
       unsubVolunteers.current = onSnapshot(
         query(
           collection(db, "Users", "Info", "Volunteers"),
           where("approved", "==", "true"),
-          where("isAvailable", "==", true)
+          where("isAvailable", "==", true),
+          where("personal", "==", true)
         ),
         (snap) => {
           console.log("[DEBUG] Available volunteers snapshot received:", snap.docs.length, "volunteers");
@@ -310,9 +314,9 @@ export default function RequesterDashboard() {
           );
         }
       );
-    } else {
-      console.log("[DEBUG] Setting up listeners for non-personal mode (admin approval)");
-      // ללא העדפה mode - show requests waiting for admin approval
+
+      console.log("[DEBUG] Setting up listeners for admin approval");
+      // show requests waiting for admin approval
       unsubAdminApproval.current = onSnapshot(
         query(
           collection(db, "Requests"),
@@ -332,15 +336,10 @@ export default function RequesterDashboard() {
           setAdminApprovalRequests(arr);
         }
       );
-
-      // clear personal mode data
-      unsubVolunteers.current?.();
-      setAvailableVolunteers([]);
     }
-
-    // cleanup on mode change
-    if (personal) {
-      unsubAdminApproval.current?.();
+    else {
+      // When not in personal mode, clear the states
+      setAvailableVolunteers([]);
       setAdminApprovalRequests([]);
     }
 
@@ -500,6 +499,8 @@ export default function RequesterDashboard() {
       console.log("Canceling request with ID:", requestId);
       console.log("Current pending requests:", pendingRequests);
       
+      // const volunteerId = requestDoc.data().volunteerId;
+
       // Update the request to remove the volunteerId and initiatedBy fields
       await updateDoc(doc(db, "Requests", requestId), {
         volunteerId: deleteField(),
@@ -512,11 +513,12 @@ export default function RequesterDashboard() {
       // listener in the useEffect above will automatically update the UI
       // when the document changes. However, we can still update it optimistically
       // for better UX.
-      const updatedPendingRequests = pendingRequests.filter(req => req.id !== requestId);
-      setPendingRequests(updatedPendingRequests);
+      // const updatedPendingRequests = pendingRequests.filter(req => req.id !== requestId);
+      // setPendingRequests(updatedPendingRequests);
       
-      console.log("Updated pending requests after cancel:", updatedPendingRequests);
-      
+      // console.log("Updated pending requests after cancel:", updatedPendingRequests);
+
+      setAlertMessage({message: "הבקשה בוטלה בהצלחה", type: "success"});
     } catch (error) {
       console.error("Error canceling request:", error);
       alert("אירעה שגיאה בביטול הבקשה. אנא נסה שוב");
@@ -889,14 +891,15 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
         <Button onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}>
           {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
         </Button>
-        <Button 
-          variant="outline" 
-          onClick={() => setShowUpcomingSessionsModal(true)}
-          className="flex items-center gap-2"
-          disabled={upcomingSessions.length === 0}
-        >
-          מפגשים מתוכננים ({upcomingSessions.length})
+        {upcomingSessions.length > 0 && (
+          <Button
+            variant="outline"
+            onClick={() => setShowUpcomingSessionsModal(true)}
+            className="flex items-center gap-2"
+          >
+            מפגשים מתוכננים ({upcomingSessions.length})
         </Button>
+        )}
         {pastSessionsCount > 0 && (
           <Button 
             variant="outline"

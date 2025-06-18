@@ -193,6 +193,7 @@ export default function RegisterVolunteerPage() {
           ? [...formData.availableHours.filter(h => h !== 'אחר'), customInputs.availableHours] 
           : formData.availableHours,
         approved: "pending",
+        personal: true,
         isAvailable: true,
         activeMatchIds: [],
         requestIds: [],

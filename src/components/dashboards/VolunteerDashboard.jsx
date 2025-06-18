@@ -346,6 +346,7 @@ export default function VolunteerDashboard() {
       } else if (action === "withdraw") {
         console.log("[DEBUG] Withdrawing from request");
         await updateDoc(ref, {
+          declinedVolunteers: arrayUnion(user.uid), // Add current volunteer to declinedVolunteers
           volunteerId: null, // Remove as assigned volunteer
           initiatedBy: null, // Clear initiation
           status:      "waiting_for_first_approval",        });
@@ -852,14 +853,15 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
           <Plus className="w-4 h-4" />
           קבע מפגש
         </Button>
-        <Button 
-          variant="outline" 
-          onClick={() => setShowUpcomingSessionsModal(true)}
-          className="flex items-center gap-2"
-          disabled={upcomingSessions.length === 0}
-        >
-          מפגשים מתוכננים ({upcomingSessions.length})
-        </Button>
+        {upcomingSessions.length > 0 && (
+          <Button 
+            variant="outline" 
+            onClick={() => setShowUpcomingSessionsModal(true)}
+            className="flex items-center gap-2"
+          >
+            מפגשים מתוכננים ({upcomingSessions.length})
+          </Button>
+        )}
         {pastSessionsNeedingCompletionCount > 0 && (
           <Button 
             variant="outline"
@@ -880,7 +882,8 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
         )}
       </div>
 
-      {/* Modals */}        {showScheduleModal && (
+      {/* Modals */}        
+      {showScheduleModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
             <SessionScheduler
               match={match}
@@ -889,6 +892,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
             />
           </div>
         )}
+      {console.log("Rendering modal section, showUpcomingModal:", showUpcomingSessionsModal)}
       {showUpcomingSessionsModal && (
         <SessionModal
           title="מפגשים מתוכננים"
