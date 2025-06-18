@@ -4,6 +4,8 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, increment, writeBatch, collection, serverTimestamp } from "firebase/firestore";
 import RegisterLayout from "../layout/RegisterLayout";
 import { Eye, EyeOff } from 'lucide-react';
+import CustomAlert from "../ui/CustomAlert";
+import { useNavigate } from "react-router-dom";
 
 export default function RegisterRequesterPage() {
   const [formData, setFormData] = useState({
@@ -30,7 +32,6 @@ export default function RegisterRequesterPage() {
     note: ""
   });
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const genderOptions = ['זכר', 'נקבה', 'אחר'];
@@ -51,6 +52,12 @@ export default function RegisterRequesterPage() {
     frequency: false,
     chatPref: false
   });
+
+  // Alert state
+  const [alertMessage, setAlertMessage] = useState(null);
+
+  // Navigation
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -143,7 +150,7 @@ export default function RegisterRequesterPage() {
     
     // Check if all agreements are checked
     if (!formData.agree1 || !formData.agree2 || !formData.agree3) {
-      setMessage("יש לאשר את כל התנאים כדי להמשיך");
+      setAlertMessage({ message: "יש לאשר את כל התנאים כדי להמשיך", type: "error" });
       setLoading(false);
       return;
     }
@@ -195,10 +202,10 @@ export default function RegisterRequesterPage() {
 
       await batch.commit();
       
-      setMessage("נרשמת בהצלחה!");
+      setAlertMessage({ message: "נרשמת בהצלחה!", type: "success", onClose: () => navigate("/login") });
     } catch (error) {
       console.error(error);
-      setMessage("שגיאה: " + error.message);
+      setAlertMessage({ message: "שגיאה: " + error.message, type: "error" });
     }
     setLoading(false);
   };
@@ -214,7 +221,6 @@ export default function RegisterRequesterPage() {
       title="הרשמה כפונה"
       onSubmit={handleSubmit}
       loading={loading}
-      message={message}
     >
       <div className="max-w-[400px] mx-auto space-y-4">
         {/* Basic Information */}
@@ -552,6 +558,14 @@ export default function RegisterRequesterPage() {
           className={inputClassName}
         />
       </div>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        message={alertMessage?.message}
+        onClose={alertMessage?.onClose || (() => setAlertMessage(null))}
+        type={alertMessage?.type}
+        position="bottom"
+      />
     </RegisterLayout>
   );
 }
