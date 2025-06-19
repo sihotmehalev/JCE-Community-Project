@@ -779,7 +779,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
     );
   }, [match.id]);
 
-  // Split sessions into categories: upcoming, past (needing completion), and completed
+  // Split sessions into categories: upcoming, past, and completed
   const now = new Date();
   const { upcomingSessions, pastSessions, completedSessions } = sessions.reduce((acc, session) => {
     if (session.status === 'completed') {
@@ -882,6 +882,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
           title="מפגשים מתוכננים"
           sessions={upcomingSessions}
           onClose={() => setShowUpcomingSessionsModal(false)}
+          partnerName={requester?.fullName}
         />
       )}
       {showPastSessionsModal && (
@@ -890,6 +891,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
           sessions={pastSessions}
           onClose={() => setShowPastSessionsModal(false)}
           showCompletionButton={true}
+          partnerName={requester?.fullName}
         />
       )}
       {showCompletedSessionsModal && (
@@ -898,6 +900,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
           sessions={completedSessions}
           onClose={() => setShowCompletedSessionsModal(false)}
           readOnly={true}
+          partnerName={requester?.fullName}
         />
       )}
     </div>
@@ -1147,7 +1150,7 @@ function SessionCompletionModal({ session, onClose, onSubmit }) {
   );
 }
 
-function SessionModal({ title, sessions, onClose, showCompletionButton = false, readOnly = false }) {
+function SessionModal({ title, sessions, onClose, showCompletionButton = false, readOnly = false, partnerName }) {
   const [sessionToComplete, setSessionToComplete] = useState(null);
   const now = new Date();
 
@@ -1164,8 +1167,36 @@ function SessionModal({ title, sessions, onClose, showCompletionButton = false, 
     });
   };
 
+  // Helper to generate Google Calendar link
+  const generateGoogleCalendarLink = (session, partnerName) => {
+    const startTime = new Date(session.scheduledTime);
+    const endTime = new Date(startTime.getTime() + session.durationMinutes * 60 * 1000);
+
+    const formatDateTime = (date) => {
+      return date.toISOString().replace(/[-:]|\.\d{3}/g, '');
+    };
+
+    const title = encodeURIComponent(`מפגש תמיכה עם ${partnerName}`);
+    const dates = `${formatDateTime(startTime)}/${formatDateTime(endTime)}`;
+    const details = encodeURIComponent(session.notes || 'מפגש תמיכה שנקבע דרך המערכת');
+    let location = '';
+    if (session.location === 'video') location = encodeURIComponent('שיחת וידאו');
+    if (session.location === 'phone') location = encodeURIComponent('שיחת טלפון');
+    if (session.location === 'in_person') location = encodeURIComponent('פגישה פיזית');
+
+    return (
+      `https://www.google.com/calendar/render?action=TEMPLATE` +
+      `&text=${title}` +
+      `&dates=${dates}` +
+      `&details=${details}` +
+      `&location=${location}` +
+      `&sf=true` +
+      `&output=xml`
+    );
+  };
+
   const handleSessionCompletion = () => {
-    setSessionToComplete(null); // Reset after completion
+    setSessionToComplete(null);
   };
 
   const getSessionStatusColor = (session) => {
@@ -1237,17 +1268,18 @@ function SessionModal({ title, sessions, onClose, showCompletionButton = false, 
                   </div>
                 )}
 
-                {session.status === 'completed' && session.sessionSummary && (
-                  <div className="mt-2 text-gray-600 bg-white/80 p-2 rounded border border-orange-100">
-                    <strong>סיכום המפגש:</strong> {session.sessionSummary}
-                  </div>
+                {!readOnly && session.scheduledTime > now && (
+                  <a
+                    href={generateGoogleCalendarLink(session, partnerName)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-orange-100 hover:text-orange-900 h-9 px-4 py-2 border border-orange-200 bg-orange-50 text-orange-700"
+                  >
+                    🗓️ הוסף ליומן גוגל
+                  </a>
                 )}
 
-                {/* Show completion button for past sessions that aren't completed */}
-                {showCompletionButton && 
-                 session.scheduledTime < now && 
-                 session.status !== 'completed' &&
-                 !readOnly && (
+                {showCompletionButton && session.scheduledTime < now && session.status !== 'completed' && (
                   <div className="mt-2">
                     <Button 
                       variant="outline" 
