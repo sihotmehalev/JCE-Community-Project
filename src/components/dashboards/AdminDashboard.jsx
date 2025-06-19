@@ -14,7 +14,8 @@ import {
   arrayUnion,
   increment,
   deleteDoc,
-  onSnapshot // <-- add this
+  onSnapshot, // <-- add this
+  addDoc
 } from "firebase/firestore";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
@@ -27,6 +28,8 @@ import { AdminEventList } from '../admin/event-management/AdminEventList'
 import CustomAlert from "../ui/CustomAlert";
 import { CancelMatchModal } from '.././ui/CancelMatchModal';
 import { DeleteUserModal } from '.././ui/DeleteUserModal'
+import ChatPanel from "../ui/ChatPanel";
+import { serverTimestamp } from "firebase/firestore";
 
 export default function AdminDashboard() {
   // State Management
@@ -85,6 +88,12 @@ export default function AdminDashboard() {
   // New state for delete user modal
   const [showDeleteUserModal, setshowDeleteUserModal] = useState(false);
   const [selectedUserForDelete, setSelectedUserForDelete] = useState(null);
+
+  // New state for chat panel
+  const [showChatPanel, setShowChatPanel] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [newMsg, setNewMsg] = useState("");
+  const [userSelectedForChat, setUserSelectedForChat] = useState(null);
 
   // useEffect for resetting currentPage (moved here to ensure unconditional call)
   useEffect(() => {
@@ -739,6 +748,44 @@ export default function AdminDashboard() {
         return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
       }
     });
+
+    const closeChat = () => {
+      setUserSelectedForChat(null);
+      setShowChatPanel(false);
+      setNewMsg("");
+      setMessages([]);
+    };
+  
+    const sendMessage = async () => {
+      if (!newMsg.trim() || !userSelectedForChat) return;
+      try {
+        let convoId = userSelectedForChat.conversationsWithAdminId;
+        console.log(convoId);
+        if (!convoId) {
+          convoId = generateRandomId();
+          const userRole = userSelectedForChat.role;
+          const userRoleDoc = userRole === "volunteer" ? "Volunteers" : "Requesters";
+          await updateDoc(doc(db, "Users", "Info", userRoleDoc, userSelectedForChat.id), {
+            conversationsWithAdminId: convoId
+          });
+          setUserSelectedForChat(prev => ({ ...prev, conversationsWithAdminId: convoId }));
+        }
+        await addDoc(
+          collection(db, "conversations", convoId, "messages"),
+          {
+            text: newMsg.trim(),
+            senderId: "1",
+            timestamp: serverTimestamp(),
+          }
+        );
+        console.log("message sent");
+        setNewMsg("");
+      } catch (error) {
+        setAlertMessage({ message: "שגיאה בשליחת ההודעה", type: "error" });
+      }
+
+
+    };
 
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -1559,6 +1606,10 @@ export default function AdminDashboard() {
                             ${u.approved === "declined" ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "text-blue-600 hover:text-white hover:bg-blue-600"}
                           `}
                           disabled={u.approved === "declined"}
+                          onClick={() => {
+                            setUserSelectedForChat(u);
+                            setShowChatPanel(true);
+                          }}
                         >
                           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -1658,6 +1709,16 @@ export default function AdminDashboard() {
         }}
         user={selectedUserForDelete}
         onConfirm={() => deleteUser(selectedUserForDelete)}
+      />
+
+      <ChatPanel
+        isOpen={showChatPanel}
+        onClose={closeChat}
+        messages={messages}
+        newMsg={newMsg}
+        setNewMsg={setNewMsg}
+        onSend={sendMessage}
+        chatPartnerName={userSelectedForChat?.fullName || 'שיחה'}
       />
     </div>
   );
