@@ -110,8 +110,9 @@ export default function AdminDashboard() {
   const [newMsg, setNewMsg] = useState("");
   const [userSelectedForChat, setUserSelectedForChat] = useState(null);
 
-  // Fetch last message timestamps for all users with admin chat
+  // eslint-disable-next-line no-unused-vars
   const [userLastChatTimestamps, setUserLastChatTimestamps] = useState({});
+  
   useEffect(() => {
     const fetchLastMessages = async () => {
       const timestamps = {};
