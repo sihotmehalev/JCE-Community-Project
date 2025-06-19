@@ -217,7 +217,7 @@ export default function RegisterVolunteerPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setMessage("");
+    setAlertMessage(null);
 
     if (!formData.agree) {
       setAlertMessage({ message: "יש לאשר את ההצהרה כדי להמשיך", type: "error" });
@@ -225,7 +225,7 @@ export default function RegisterVolunteerPage() {
       return;
     }
     if (adminConfigLoading) {
-      setMessage("עדיין טוען הגדרות טופס, אנא המתן...");
+      setAlertMessage({ message: "עדיין טוען הגדרות טופס, אנא המתן...", type: "info" });
       setLoading(false);
       return;
     }
@@ -292,7 +292,7 @@ export default function RegisterVolunteerPage() {
       } else if (error.code === 'auth/weak-password') {
         specificMessage = 'הסיסמה חלשה מדי. אנא בחר סיסמה באורך 6 תווים לפחות.';
       }
-      setMessage(specificMessage);
+      setAlertMessage({ message: specificMessage, type: "error" });
     }
     setLoading(false);
   };
@@ -369,7 +369,6 @@ export default function RegisterVolunteerPage() {
       title="הרשמה כמתנדב"
       onSubmit={handleSubmit}
       loading={loading || adminConfigLoading}
-      message={message}
     >
       <div className="max-w-[400px] mx-auto space-y-4">
         {/* Basic Information */}
@@ -526,6 +525,7 @@ export default function RegisterVolunteerPage() {
             {/* Phone Field */}
             <label htmlFor="phone" className="block text-sm font-medium text-orange-700">טלפון</label>
             <input
+              type="tel"
               name="phone"
               id="phone"
               required

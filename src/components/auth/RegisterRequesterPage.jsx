@@ -459,6 +459,7 @@ export default function RegisterRequesterPage() {
               )}
             </div>
 
+            <label htmlFor="age" className="block text-sm font-medium text-orange-700">גיל</label>
             <input
               type="number"
               name="age"
@@ -497,6 +498,7 @@ export default function RegisterRequesterPage() {
               )}
             </div>
 
+            <label htmlFor="location" className="block text-sm font-medium text-orange-700">מקום מגורים</label>
             <input
               name="location"
               id="location"
@@ -505,7 +507,9 @@ export default function RegisterRequesterPage() {
               className={inputClassName}
             />
 
+            <label htmlFor="phone" className="block text-sm font-medium text-orange-700">טלפון</label>
             <input
+              type="tel"
               name="phone"
               id="phone"
               required
