@@ -71,11 +71,28 @@ export default function RegisterRequesterPage() {
         if (docSnap.exists()) {
           const configData = docSnap.data() || {}; // Ensure configData is an object
           console.log("[RegisterRequesterPage] Raw configData from Firestore:", configData);
+          
+          const customFields = Array.isArray(configData.customFields) ? configData.customFields : [];
+          
           // Ensure customFields is always an array and hideNoteField has a default
           setAdminConfig({
             hideNoteField: configData.hideNoteField === true, // Explicitly check for true
-            customFields: Array.isArray(configData.customFields) ? configData.customFields : [],
+            customFields: customFields,
           });
+
+          // Initialize formData with default values for custom fields
+          const initialCustomData = {};
+          customFields.forEach(field => {
+            if (field.name) { // Ensure field has a name
+                if (field.type === 'checkbox' && !field.isArray) {
+                    initialCustomData[field.name] = field.defaultValue || false;
+                } else {
+                    initialCustomData[field.name] = field.defaultValue || '';
+                }
+            }
+          });
+          setFormData(prev => ({ ...prev, ...initialCustomData }));
+
         } else {
           console.log("[RegisterRequesterPage] No admin configuration found for requesters. Using defaults.");
           setAdminConfig({ hideNoteField: false, customFields: [] }); // Explicitly set defaults

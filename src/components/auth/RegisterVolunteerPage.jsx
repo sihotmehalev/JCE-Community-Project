@@ -197,10 +197,27 @@ export default function RegisterVolunteerPage() {
         if (docSnap.exists()) {
           const configData = docSnap.data() || {}; // Ensure configData is an object
           console.log("[RegisterVolunteerPage] Raw configData from Firestore:", configData);
+          
+          const customFields = Array.isArray(configData.customFields) ? configData.customFields : [];
+
           // Ensure customFields is always an array
           setAdminConfig({
-            customFields: Array.isArray(configData.customFields) ? configData.customFields : []
+            customFields: customFields
           });
+
+          // Initialize formData with default values for custom fields
+          const initialCustomData = {};
+          customFields.forEach(field => {
+            if (field.name) { // Ensure field has a name
+                if (field.type === 'checkbox' && !field.isArray) {
+                    initialCustomData[field.name] = field.defaultValue || false;
+                } else {
+                    initialCustomData[field.name] = field.defaultValue || '';
+                }
+            }
+          });
+          setFormData(prev => ({ ...prev, ...initialCustomData }));
+
         } else {
           console.log("[RegisterVolunteerPage] No admin configuration found for volunteers. Using defaults.");
           setAdminConfig({ customFields: [] }); // Explicitly set defaults

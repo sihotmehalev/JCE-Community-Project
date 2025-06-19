@@ -369,6 +369,47 @@ export default function AdminDashboard() {
     }
   }, [selectedMatchForDetails, showSessionDetails]);
 
+  const sendMatchConfirmationEmail = (userName, matchedUserName, userEmail) => {
+    console.log("Service ID:", process.env.REACT_APP_EMAILJS_SERVICE_ID);
+    console.log("Template ID:", process.env.REACT_APP_EMAILJS_TEMPLATE_ID_MATCH);
+    const serviceID = process.env.REACT_APP_EMAILJS_SERVICE_ID;
+    const templateID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID_MATCH; 
+
+    const templateParams = {
+      userName: userName,
+      matchedUserName: matchedUserName,
+      userEmail: userEmail,
+    };
+
+    console.log('Sending match confirmation email:', serviceID);
+    emailjs.send(serviceID, templateID, templateParams)
+      .then((response) => {
+        console.log('Match confirmation email successfully sent!', response.status, response.text);
+      })
+      .catch((err) => {
+        console.error('Failed to send match confirmation email. Error: ', err);
+      });
+  };
+
+  const sendMatchDeclineEmail = (userName, matchedUserName, userEmail) => {
+    const serviceID = process.env.REACT_APP_EMAILJS_SERVICE_ID;
+    const templateID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID_DECLINE; 
+
+    const templateParams = {
+      userName: userName,
+      matchedUserName: matchedUserName,
+      userEmail: userEmail,
+    };
+
+    emailjs.send(serviceID, templateID, templateParams)
+      .then((response) => {
+        console.log('Match decline email successfully sent!', response.status, response.text);
+      })
+      .catch((err) => {
+        console.error('Failed to send match decline email. Error: ', err);
+      });
+  };
+
   const handleSort = (columnName) => {
     setSortOrder(sortColumn === columnName && sortOrder === "asc" ? "desc" : "asc");
     setSortColumn(columnName);
