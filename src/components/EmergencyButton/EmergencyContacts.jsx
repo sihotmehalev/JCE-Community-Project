@@ -15,11 +15,27 @@ const EMERGENCY_CONTACTS = [
   }
 ];
 
-export function EmergencyContacts() {
+export function EmergencyContacts({ activeMatch }) {
   return (
     <div className="space-y-4">
       <h3 className="text font-bold text-orange-800">אנשי קשר לשעת חירום</h3>
-      
+
+      {/* Volunteer Help - only shown when there's an active match with volunteer info */}
+      {activeMatch?.volunteer?.phone && (
+        <div className="bg-white p-4 rounded-lg shadow border-2 border-orange-200">
+          <h4 className="font-semibold text-orange-700 mb-3">המתנדב/ת שלך</h4>
+          <div className="p-3 border border-orange-100 rounded-lg bg-orange-50">
+            <div className="font-medium">{activeMatch.volunteer.fullName || "מתנדב/ת"}</div>
+            <a 
+              href={`tel:${activeMatch.volunteer.phone}`}
+              className="text-orange-600 hover:underline block font-medium"
+            >
+              📞 {activeMatch.volunteer.phone}
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Professional Help */}
       <div className="bg-white p-4 rounded-lg shadow">
         <h4 className="font-semibold text-orange-700 mb-3">עזרה מקצועית</h4>
