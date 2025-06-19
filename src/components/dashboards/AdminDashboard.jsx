@@ -1,5 +1,5 @@
 // AdminDashboard.jsx - Full Implementation
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { db } from "../../config/firebaseConfig";
 import { 
   collection, 
@@ -14,7 +14,8 @@ import {
   arrayUnion,
   increment,
   deleteDoc,
-  onSnapshot // <-- add this
+  onSnapshot,
+  orderBy // <-- add this
 } from "firebase/firestore";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
@@ -49,14 +50,19 @@ export default function AdminDashboard() {
   const [sortColumn, setSortColumn] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc"); // 'asc' or 'desc'
   const [currentPage, setCurrentPage] = useState(1);
+  const [volunteerCurrentPage, setVolunteerCurrentPage] = useState(1); // New state for volunteer pagination
+  const [approvalCurrentPage, setApprovalCurrentPage] = useState(1);   // New state for approval pagination
+  const [activeMatchCurrentPage, setActiveMatchCurrentPage] = useState(1);
+  const [matchSessionCurrentPage, setMatchSessionCurrentPage] = useState(1); // New state for match session pagination
   const [itemsPerPage] = useState(10);
+  const [volunteersPerPage] = useState(3); // New state for volunteers per page
+  const [approvalsPerPage] = useState(2); // New state for approvals per page
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all"); // 'all', 'approved', 'pending'
   const [personalFilter, setPersonalFilter] = useState("all"); // 'all', 'true', 'false'
   const [activeMatchesFilter, setActiveMatchesFilter] = useState("all"); // 'all', 'hasMatches', 'noMatches'
   const [activeMatches, setActiveMatches] = useState([]);
   const [activeMatchSearch, setActiveMatchSearch] = useState("");
-  const [activeMatchCurrentPage, setActiveMatchCurrentPage] = useState(1);
   const [matchRequesterFilter] = useState("all"); // filter by requester ID
   const [matchVolunteerFilter] = useState("all"); // filter by volunteer ID
   const [matchSortColumn, setMatchSortColumn] = useState(null);
@@ -85,6 +91,86 @@ export default function AdminDashboard() {
   // New state for delete user modal
   const [showDeleteUserModal, setshowDeleteUserModal] = useState(false);
   const [selectedUserForDelete, setSelectedUserForDelete] = useState(null);
+
+  // Pagination logic for All Users table
+  const filteredAndSortedUsers = useMemo(() => {
+    return allUsers
+      .filter(u =>
+        (roleFilter === "all" || u.role === roleFilter) &&
+        (statusFilter === "all" || u.derivedDisplayStatus === statusFilter) &&
+        (personalFilter === "all" || String(u.personal) === personalFilter) &&
+        (activeMatchesFilter === "all" ||
+          (activeMatchesFilter === "hasMatches" && (u.activeMatchId || u.activeMatchIds?.length > 0)) ||
+          (activeMatchesFilter === "noMatches" && !u.activeMatchId && !(u.activeMatchIds?.length > 0)))
+      )
+      .filter(u =>
+        userSearch.toLowerCase() === '' ||
+        u.fullName.toLowerCase().includes(userSearch.toLowerCase()) ||
+        u.email.toLowerCase().includes(userSearch.toLowerCase())
+      )
+      .sort((a, b) => {
+        if (!sortColumn) return 0;
+
+        let aValue = a[sortColumn];
+        let bValue = b[sortColumn];
+
+        if (sortColumn === 'activeMatchIds') {
+          aValue = a.activeMatchIds?.length || 0;
+          bValue = b.activeMatchIds?.length || 0;
+        }
+
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+        } else {
+          return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+      });
+  }, [allUsers, userSearch, roleFilter, statusFilter, personalFilter, activeMatchesFilter, sortColumn, sortOrder]);
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentUsers = filteredAndSortedUsers.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredAndSortedUsers.length / itemsPerPage);
+
+  // Pagination logic for Volunteers Awaiting Approval
+  const filteredVolunteers = useMemo(() => {
+    return volunteers.filter(v => v.approved === "pending")
+      .sort((a, b) => {
+        const dateA = a.createdAt ? a.createdAt.toDate() : new Date(0);
+        const dateB = b.createdAt ? b.createdAt.toDate() : new Date(0);
+        return dateA - dateB;
+      });
+  }, [volunteers]);
+
+  const indexOfLastVolunteer = volunteerCurrentPage * volunteersPerPage;
+  const indexOfFirstVolunteer = indexOfLastVolunteer - volunteersPerPage;
+  const currentVolunteers = filteredVolunteers.slice(indexOfFirstVolunteer, indexOfLastVolunteer);
+  const totalVolunteerPages = Math.ceil(filteredVolunteers.length / volunteersPerPage);
+
+  // Pagination logic for Pending Approval Requests
+  const filteredPendingRequests = useMemo(() => {
+    return pendingRequests.sort((a, b) => {
+      const dateA = a.createdAt ? a.createdAt.toDate() : new Date(0);
+      const dateB = b.createdAt ? b.createdAt.toDate() : new Date(0);
+      return dateA - dateB;
+    });
+  }, [pendingRequests]);
+
+  const indexOfLastApproval = approvalCurrentPage * approvalsPerPage;
+  const indexOfFirstApproval = indexOfLastApproval - approvalsPerPage;
+  const currentApprovals = filteredPendingRequests.slice(indexOfFirstApproval, indexOfLastApproval);
+  const totalApprovalPages = Math.ceil(filteredPendingRequests.length / approvalsPerPage);
+
+  // Pagination logic for Session Details for a Match
+  const filteredMatchSessions = useMemo(() => {
+    // Assuming matchSessions is already sorted or doesn't require sorting for pagination
+    return matchSessions;
+  }, [matchSessions]);
+
+  const indexOfLastMatchSession = matchSessionCurrentPage * itemsPerPage;
+  const indexOfFirstMatchSession = indexOfLastMatchSession - itemsPerPage;
+  const currentMatchSessions = filteredMatchSessions.slice(indexOfFirstMatchSession, indexOfLastMatchSession);
+  const totalMatchSessionPages = Math.ceil(filteredMatchSessions.length / itemsPerPage);
 
   // useEffect for resetting currentPage (moved here to ensure unconditional call)
   useEffect(() => {
@@ -249,16 +335,28 @@ export default function AdminDashboard() {
         })
       );
       setActiveMatches(matches);
+      setLoading(false);
     });
     unsubscribes.push(unsubMatches);
 
-    setLoading(false);
+    // Session Details Listener
+    if (selectedMatchForDetails && showSessionDetails) {
+      setLoadingSessions(true);
+      const sessionsRef = query(collection(db, `Matches/${selectedMatchForDetails}/Sessions`), orderBy("scheduledTime"));
+      const unsubSessions = onSnapshot(sessionsRef, (snapshot) => {
+        const sessionsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setMatchSessions(sessionsData);
+        setLoadingSessions(false);
+      });
+      unsubscribes.push(unsubSessions);
+    }
 
-    // Cleanup
-    return () => {
-      unsubscribes.forEach(unsub => unsub());
-    };
-  }, []);
+    // Cleanup listeners on component unmount
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, [selectedMatchForDetails, showSessionDetails]);
 
   const fetchSessions = useCallback(async (matchId) => {
     setLoadingSessions(true);
@@ -680,72 +778,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Filter and sort users for the All Users table
-  const filteredAndSortedUsers = allUsers
-    .filter(u =>
-      u.fullName?.toLowerCase().includes(userSearch.toLowerCase()) ||
-      u.email?.toLowerCase().includes(userSearch.toLowerCase())
-    )
-    .filter(u => {
-      if (roleFilter !== "all" && u.role !== roleFilter) return false;
-      if (statusFilter !== "all" && u.derivedDisplayStatus !== statusFilter) return false;
-      if (personalFilter === "true" && !u.personal) return false;
-      if (personalFilter === "false" && u.personal) return false;
-      if (activeMatchesFilter === "hasMatches" && (
-        (u.role === 'requester' && !u.activeMatchId) || 
-        (u.role === 'volunteer' && (!u.activeMatchIds || u.activeMatchIds.length === 0))
-      )) return false;
-      if (activeMatchesFilter === "noMatches" && (
-        (u.role === 'requester' && u.activeMatchId) || 
-        (u.role === 'volunteer' && u.activeMatchIds?.length > 0)
-      )) return false;
-
-      return true;
-    })
-    .sort((a, b) => {
-      if (!sortColumn) return 0;
-
-      let aValue;
-      let bValue;
-
-      if (sortColumn === 'activeMatchIds') {
-        aValue = a[sortColumn]?.length || 0;
-        bValue = b[sortColumn]?.length || 0;
-      } else if (sortColumn === 'approved') {
-        // Sort by derivedDisplayStatus, custom order: pending, declined, inactive, active
-        const statusOrder = { "ממתין לאישור": 1, "נדחה": 2, "לא פעיל": 3, "פעיל": 4 };
-        aValue = statusOrder[a.derivedDisplayStatus] || 99; // Assign a high value for unknown statuses
-        bValue = statusOrder[b.derivedDisplayStatus] || 99;
-      } else if (sortColumn === 'personal') {
-        aValue = a[sortColumn] === undefined ? false : a[sortColumn];
-        bValue = b[sortColumn] === undefined ? false : b[sortColumn];
-      } else {
-        aValue = a[sortColumn];
-        bValue = b[sortColumn];
-      }
-
-      if (aValue === undefined || aValue === null) return sortOrder === 'asc' ? 1 : -1;
-      if (bValue === undefined || bValue === null) return sortOrder === 'asc' ? -1 : 1;
-
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-      } else if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
-        if (sortOrder === 'asc') {
-          return aValue - bValue;
-        } else {
-          return bValue - aValue;
-        }
-      } else {
-        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-    });
-
-  // Pagination logic
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentUsers = filteredAndSortedUsers.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredAndSortedUsers.length / itemsPerPage);
-
   return (
     <div className="p-6 space-y-6 mt-[-2rem]">
       <h2 className="text-3xl font-bold text-orange-800 text-center">לוח ניהול</h2>
@@ -815,60 +847,73 @@ export default function AdminDashboard() {
             <h3 className="font-semibold mb-4 text-orange-700">
               מתנדבים ממתינים לאישור
             </h3>
-            {volunteers.filter(v => v.approved === "pending").length === 0 ? (
+            {filteredVolunteers.length === 0 ? (
               <p className="text-orange-600/80">אין מתנדבים בהמתנה.</p>
             ) : (
               <div className="space-y-2">
-                {volunteers.filter(v => v.approved === "pending")
-                  .sort((a, b) => {
-                    const dateA = a.createdAt ? a.createdAt.toDate() : new Date(0);
-                    const dateB = b.createdAt ? b.createdAt.toDate() : new Date(0);
-                    return dateA - dateB;
-                  })
-                  .map(v => (
-                  <div key={v.id} className="flex justify-between items-start bg-orange-50/50 p-3 rounded border border-orange-100">
-                    <div className="flex-grow">
-                      <div className="grid grid-cols-2 gap-x-8 w-full">
-                        <div>
-                          <h4 className="font-semibold text-orange-800 mb-2">פרטי מתנדב</h4>
-                          <p className="text-sm text-orange-600"><strong>שם:</strong> {v.fullName}</p>
-                          <p className="text-sm text-orange-600"><strong>אימייל:</strong> {v.email}</p>
-                          <p className="text-sm text-orange-600"><strong>מקצוע:</strong> {v.profession}</p>
-                          {v.age && <p className="text-sm text-orange-600"><strong>גיל:</strong> {v.age}</p>}
-                          {v.gender && <p className="text-sm text-orange-600"><strong>מגדר:</strong> {v.gender}</p>}
-                          {v.location && <p className="text-sm text-orange-600"><strong>מיקום:</strong> {v.location}</p>}
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-orange-800 mb-2">פרטים נוספים</h4>
-                          {v.experience && <p className="text-sm text-orange-600"><strong>ניסיון:</strong> {v.experience}</p>}
-                          {v.maritalStatus && <p className="text-sm text-orange-600"><strong>מצב משפחתי:</strong> {v.maritalStatus}</p>}
-                          {v.motivation && <p className="text-sm text-orange-600"><strong>מוטיבציה:</strong> {v.motivation}</p>}
-                          {v.strengths && <p className="text-sm text-orange-600"><strong>חוזקות:</strong> {v.strengths}</p>}
-                          {v.availableDays && v.availableDays.length > 0 && (
-                            <p className="text-sm text-orange-600"><strong>ימים פנויים:</strong> {v.availableDays.join(", ")}</p>
-                          )}
-                          {v.availableHours && v.availableHours.length > 0 && (
-                            <p className="text-sm text-orange-600"><strong>שעות פנויות:</strong> {v.availableHours.join(", ")}</p>
-                          )}
-                        </div>
+                {currentVolunteers.map(v => (
+                <div key={v.id} className="flex justify-between items-start bg-orange-50/50 p-3 rounded border border-orange-100">
+                  <div className="flex-grow">
+                    <div className="grid grid-cols-2 gap-x-8 w-full">
+                      <div>
+                        <h4 className="font-semibold text-orange-800 mb-2">פרטי מתנדב</h4>
+                        <p className="text-sm text-orange-600"><strong>שם:</strong> {v.fullName}</p>
+                        <p className="text-sm text-orange-600"><strong>אימייל:</strong> {v.email}</p>
+                        <p className="text-sm text-orange-600"><strong>מקצוע:</strong> {v.profession}</p>
+                        {v.age && <p className="text-sm text-orange-600"><strong>גיל:</strong> {v.age}</p>}
+                        {v.gender && <p className="text-sm text-orange-600"><strong>מגדר:</strong> {v.gender}</p>}
+                        {v.location && <p className="text-sm text-orange-600"><strong>מיקום:</strong> {v.location}</p>}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-orange-800 mb-2">פרטים נוספים</h4>
+                        {v.experience && <p className="text-sm text-orange-600"><strong>ניסיון:</strong> {v.experience}</p>}
+                        {v.maritalStatus && <p className="text-sm text-orange-600"><strong>מצב משפחתי:</strong> {v.maritalStatus}</p>}
+                        {v.motivation && <p className="text-sm text-orange-600"><strong>מוטיבציה:</strong> {v.motivation}</p>}
+                        {v.strengths && <p className="text-sm text-orange-600"><strong>חוזקות:</strong> {v.strengths}</p>}
+                        {v.availableDays && v.availableDays.length > 0 && (
+                          <p className="text-sm text-orange-600"><strong>ימים פנויים:</strong> {v.availableDays.join(", ")}</p>
+                        )}
+                        {v.availableHours && v.availableHours.length > 0 && (
+                          <p className="text-sm text-orange-600"><strong>שעות פנויות:</strong> {v.availableHours.join(", ")}</p>
+                        )}
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => approveVolunteer(v.id)}
-                      >
-                        אשר מתנדב
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => declineVolunteer(v.id)}
-                      >
-                        דחה מתנדב
-                      </Button>
-                    </div>
                   </div>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => approveVolunteer(v.id)}
+                    >
+                      אשר מתנדב
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => declineVolunteer(v.id)}
+                    >
+                      דחה מתנדב
+                    </Button>
+                  </div>
+                </div>
                 ))}
+                <div className="flex justify-between items-center mt-4">
+                  <Button
+                    onClick={() => setVolunteerCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={volunteerCurrentPage === 1}
+                    variant="outline"
+                  >
+                    הקודם
+                  </Button>
+                  <span className="text-orange-700">
+                    עמוד {volunteerCurrentPage} מתוך {totalVolunteerPages}
+                  </span>
+                  <Button
+                    onClick={() => setVolunteerCurrentPage(prev => Math.min(totalVolunteerPages, prev + 1))}
+                    disabled={volunteerCurrentPage === totalVolunteerPages}
+                    variant="outline"
+                  >
+                    הבא
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
@@ -883,11 +928,11 @@ export default function AdminDashboard() {
               התאמות ממתינות לאישור
             </h3>
             
-            {pendingRequests.length === 0 ? (
+            {filteredPendingRequests.length === 0 ? (
               <p className="text-orange-600/80">אין התאמות ממתינות.</p>
             ) : (
               <div className="space-y-4">
-                {pendingRequests
+                {currentApprovals
                   .map(request => (
                   <div key={request.id} className="flex justify-between items-start border rounded p-4 bg-orange-50/50">
                     <div className="grid grid-cols-2 gap-x-8 flex-grow">
@@ -942,6 +987,25 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 ))}
+                <div className="flex justify-between items-center mt-4">
+                  <Button
+                    onClick={() => setApprovalCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={approvalCurrentPage === 1}
+                    variant="outline"
+                  >
+                    הקודם
+                  </Button>
+                  <span className="text-orange-700">
+                    עמוד {approvalCurrentPage} מתוך {totalApprovalPages}
+                  </span>
+                  <Button
+                    onClick={() => setApprovalCurrentPage(prev => Math.min(totalApprovalPages, prev + 1))}
+                    disabled={approvalCurrentPage === totalApprovalPages}
+                    variant="outline"
+                  >
+                    הבא
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
@@ -1242,7 +1306,7 @@ export default function AdminDashboard() {
                 <h4 className="text-xl font-semibold text-orange-800">פירוט פגישות עבור התאמה</h4>
                 {loadingSessions ? (
                   <LoadingSpinner />
-                ) : matchSessions.length === 0 ? (
+                ) : filteredMatchSessions.length === 0 ? (
                   <p className="text-orange-600/80">אין פגישות זמינות עבור התאמה זו.</p>
                 ) : (
                   <div className="overflow-x-auto">
@@ -1258,7 +1322,7 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {matchSessions.map(session => (
+                        {currentMatchSessions.map(session => (
                           <tr key={session.id} className="hover:bg-orange-50/50">
                             <td className="border border-orange-100 p-2 text-orange-700">
                               {session.scheduledTime ? new Date(session.scheduledTime.seconds * 1000).toLocaleString() : 'N/A'}
@@ -1281,6 +1345,25 @@ export default function AdminDashboard() {
                     </table>
                   </div>
                 )}
+                <div className="flex justify-between items-center mt-4">
+                  <Button
+                    onClick={() => setMatchSessionCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={matchSessionCurrentPage === 1}
+                    variant="outline"
+                  >
+                    הקודם
+                  </Button>
+                  <span className="text-orange-700">
+                    עמוד {matchSessionCurrentPage} מתוך {totalMatchSessionPages}
+                  </span>
+                  <Button
+                    onClick={() => setMatchSessionCurrentPage(prev => Math.min(totalMatchSessionPages, prev + 1))}
+                    disabled={matchSessionCurrentPage === totalMatchSessionPages}
+                    variant="outline"
+                  >
+                    הבא
+                  </Button>
+                </div>
               </div>
             ) : (
               <>
