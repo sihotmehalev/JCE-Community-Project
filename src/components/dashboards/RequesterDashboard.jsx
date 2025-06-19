@@ -498,7 +498,7 @@ export default function RequesterDashboard() {
   };
 
   const openChat = (matchId) => {
-    setShowAdminChatPanel(false);
+    closeAdminChat();
     setActiveMatchId(matchId);
     unsubChat.current?.();
     unsubChat.current = onSnapshot(
