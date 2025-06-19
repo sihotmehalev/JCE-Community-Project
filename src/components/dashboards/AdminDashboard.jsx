@@ -922,6 +922,7 @@ export default function AdminDashboard() {
     setMessages([]);
   };
 
+  const ADMIN_ID = "admin";
   const sendMessage = async () => {
     if (!newMsg.trim() || !userSelectedForChat) return;
     try {
@@ -939,17 +940,15 @@ export default function AdminDashboard() {
         collection(db, "conversations", convoId, "messages"),
         {
           text: newMsg.trim(),
-          senderId: "1",
+          senderId: ADMIN_ID,
           timestamp: serverTimestamp(),
         }
       );
       setNewMsg("");
-      setMessages(prev => [...prev, { text: newMsg.trim(), senderId: "1", timestamp: serverTimestamp() }]);
+      setMessages(prev => [...prev, { text: newMsg.trim(), senderId: ADMIN_ID, timestamp: serverTimestamp() }]);
     } catch (error) {
       setAlertMessage({ message: "שגיאה בשליחת ההודעה", type: "error" });
     }
-
-
   };
 
 
@@ -1930,6 +1929,7 @@ export default function AdminDashboard() {
         setNewMsg={setNewMsg}
         onSend={sendMessage}
         chatPartnerName={userSelectedForChat?.fullName || 'שיחה'}
+        currentUserId={ADMIN_ID}
       />
     </div>
   );
