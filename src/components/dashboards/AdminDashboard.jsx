@@ -13,7 +13,8 @@ import {
   getDoc, 
   arrayUnion,
   increment,
-  deleteDoc
+  deleteDoc,
+  onSnapshot // <-- add this
 } from "firebase/firestore";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
@@ -95,11 +96,15 @@ export default function AdminDashboard() {
     setActiveMatchCurrentPage(1);
   }, [activeMatchSearch, matchSortColumn, matchSortOrder]);
 
-  const fetchData = useCallback(async () => {
+  // useEffect for real-time updates
+  useEffect(() => {
     setLoading(true);
-    try {
-      // Fetch volunteers
-      const volunteersSnap = await getDocs(collection(db, "Users", "Info", "Volunteers"));
+    // Listeners array for cleanup
+    const unsubscribes = [];
+
+    // Volunteers listener
+    const volunteersRef = collection(db, "Users", "Info", "Volunteers");
+    const unsubVolunteers = onSnapshot(volunteersRef, async (volunteersSnap) => {
       const v = volunteersSnap.docs.map(doc => {
         const data = doc.data();
         return {
@@ -108,9 +113,50 @@ export default function AdminDashboard() {
           role: "volunteer"
         };
       });
+      setVolunteers(prev => {
+        // Keep the same processing as before
+        const processedVolunteers = v.map(vol => {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const lastActivityTimestamp = vol.lastActivity || vol.lastLogin || vol.createdAt;
+          let isActiveByTime = false;
+          if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
+              const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
+              isActiveByTime = lastActivityDate >= thirtyDaysAgo;
+          }
 
-      // Fetch requesters
-      const requestersSnap = await getDocs(collection(db, "Users", "Info", "Requesters"));
+          let volunteerDerivedStatus;
+          if (vol.approved === "true" && isActiveByTime) {
+              volunteerDerivedStatus = "פעיל";
+          } else if (vol.approved === "true" && !isActiveByTime) {
+              volunteerDerivedStatus = "לא פעיל";
+          } else if (vol.approved === "pending") {
+              volunteerDerivedStatus = "ממתין לאישור";
+          } else if (vol.approved === "declined") {
+              volunteerDerivedStatus = "נדחה";
+          } else {
+              volunteerDerivedStatus = "לא פעיל"; // Fallback for any other unexpected state
+          }
+
+          return {
+              ...vol,
+              derivedDisplayStatus: volunteerDerivedStatus,
+              lastActivity: lastActivityTimestamp
+          };
+        });
+        // Also update allUsers
+        setAllUsers(allUsersPrev => {
+          const requestersOnly = allUsersPrev.filter(u => u.role !== 'volunteer');
+          return [...processedVolunteers, ...requestersOnly];
+        });
+        return processedVolunteers;
+      });
+    });
+    unsubscribes.push(unsubVolunteers);
+
+    // Requesters listener
+    const requestersRef = collection(db, "Users", "Info", "Requesters");
+    const unsubRequesters = onSnapshot(requestersRef, async (requestersSnap) => {
       const r = requestersSnap.docs.map(doc => {
         const data = doc.data();
         const thirtyDaysAgo = new Date();
@@ -138,62 +184,17 @@ export default function AdminDashboard() {
           lastActivity: lastActivityTimestamp
         };
       });
+      setRequesters(r);
+      setAllUsers(allUsersPrev => {
+        const volunteersOnly = allUsersPrev.filter(u => u.role !== 'requester');
+        return [...volunteersOnly, ...r];
+      });
+    });
+    unsubscribes.push(unsubRequesters);
 
-      // Fetch admins
-      // const adminsFirst = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "FirstLevel"));
-      // const adminsSecond = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "SecondLevel"));
-      
-      /*
-      Admin excluded from counting the users
-      const a = [
-        ...adminsFirst.docs.map(doc => {
-          const data = doc.data();
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-          const lastActivityTimestamp = data.lastActivity || data.lastLogin || data.createdAt;
-          let isActiveByTime = false;
-          if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
-              const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
-              isActiveByTime = lastActivityDate >= thirtyDaysAgo;
-          }
-
-          return {
-            id: doc.id,
-            ...data,
-            role: "admin-first",
-            derivedDisplayStatus: isActiveByTime ? "פעיל" : "לא פעיל", // Admins are active based on login
-            lastActivity: lastActivityTimestamp
-          };
-        }),
-        ...adminsSecond.docs.map(doc => {
-          const data = doc.data();
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-          const lastActivityTimestamp = data.lastActivity || data.lastLogin || data.createdAt;
-          let isActiveByTime = false;
-          if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
-              const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
-              isActiveByTime = lastActivityDate >= thirtyDaysAgo;
-          }
-
-          return {
-            id: doc.id,
-            ...data,
-            role: "admin-second",
-            derivedDisplayStatus: isActiveByTime ? "פעיל" : "לא פעיל", // Admins are active based on login
-            lastActivity: lastActivityTimestamp
-          };
-        })
-      ];
-      */
-
-      // Fetch pending requests (waiting_for_admin_approval)
-      const pendingRequestsSnap = await getDocs(
-        query(collection(db, "Requests"), where("status", "==", "waiting_for_admin_approval"))
-      );
-      
+    // Pending Requests listener
+    const requestsRef = query(collection(db, "Requests"), where("status", "==", "waiting_for_admin_approval"));
+    const unsubRequests = onSnapshot(requestsRef, async (pendingRequestsSnap) => {
       const pending = await Promise.all(
         pendingRequestsSnap.docs.map(async (docSnap) => {
           const data = docSnap.data();
@@ -202,20 +203,13 @@ export default function AdminDashboard() {
           if (data.requesterId && typeof data.requesterId === 'string' && data.requesterId.trim() !== '') {
             const requesterDoc = await getDoc(doc(db, "Users", "Info", "Requesters", data.requesterId));
             requesterInfo = requesterDoc.exists() ? requesterDoc.data() : null;
-          } else {
-            console.warn(`Skipping requester info for pending request ${docSnap.id}: requesterId is invalid or undefined. Value: ${data.requesterId}`);
           }
-          
           // Fetch volunteer info if exists
           let volunteerInfo = null;
           if (data.volunteerId && typeof data.volunteerId === 'string' && data.volunteerId.trim() !== '') {
             const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", data.volunteerId));
             volunteerInfo = volunteerDoc.exists() ? volunteerDoc.data() : null;
-          } else if (data.volunteerId === undefined || (typeof data.volunteerId === 'string' && data.volunteerId.trim() === '')) { 
-            // Log only if it's truly undefined or an empty string, not null (which is valid for non-personal requests)
-            console.warn(`Skipping volunteer info for pending request ${docSnap.id}: volunteerId is invalid or undefined. Value: ${data.volunteerId}`);
           }
-          
           return {
             id: docSnap.id,
             ...data,
@@ -224,9 +218,13 @@ export default function AdminDashboard() {
           };
         })
       );
+      setPendingRequests(pending);
+    });
+    unsubscribes.push(unsubRequests);
 
-      // Fetch all matches
-      const matchesSnap = await getDocs(collection(db, "Matches"));
+    // Matches listener
+    const matchesRef = collection(db, "Matches");
+    const unsubMatches = onSnapshot(matchesRef, async (matchesSnap) => {
       const matches = await Promise.all(
         matchesSnap.docs.map(async (docSnap) => {
           const data = docSnap.data();
@@ -235,19 +233,13 @@ export default function AdminDashboard() {
           if (data.requesterId && typeof data.requesterId === 'string' && data.requesterId.trim() !== '') {
             const requesterDoc = await getDoc(doc(db, "Users", "Info", "Requesters", data.requesterId));
             requesterInfo = requesterDoc.exists() ? requesterDoc.data() : null;
-          } else {
-            console.warn(`Skipping requester info for match ${docSnap.id}: requesterId is invalid or undefined. Value: ${data.requesterId}`);
           }
-          
           // Fetch volunteer info
           let volunteerInfo = null;
           if (data.volunteerId && typeof data.volunteerId === 'string' && data.volunteerId.trim() !== '') {
             const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", data.volunteerId));
             volunteerInfo = volunteerDoc.exists() ? volunteerDoc.data() : null;
-          } else {
-            console.warn(`Skipping volunteer info for match ${docSnap.id}: volunteerId is invalid or undefined. Value: ${data.volunteerId}`);
           }
-          
           return {
             id: docSnap.id,
             ...data,
@@ -256,51 +248,16 @@ export default function AdminDashboard() {
           };
         })
       );
-
-      const processedVolunteers = v.map(vol => {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const lastActivityTimestamp = vol.lastActivity || vol.lastLogin || vol.createdAt;
-        let isActiveByTime = false;
-        if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
-            const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
-            isActiveByTime = lastActivityDate >= thirtyDaysAgo;
-        }
-
-        let volunteerDerivedStatus;
-        if (vol.approved === "true" && isActiveByTime) {
-            volunteerDerivedStatus = "פעיל";
-        } else if (vol.approved === "true" && !isActiveByTime) {
-            volunteerDerivedStatus = "לא פעיל";
-        } else if (vol.approved === "pending") {
-            volunteerDerivedStatus = "ממתין לאישור";
-        } else if (vol.approved === "declined") {
-            volunteerDerivedStatus = "נדחה";
-        } else {
-            volunteerDerivedStatus = "לא פעיל"; // Fallback for any other unexpected state
-        }
-
-        return {
-            ...vol,
-            derivedDisplayStatus: volunteerDerivedStatus,
-            lastActivity: lastActivityTimestamp
-        };
-    });
-
-      setVolunteers(processedVolunteers);
-      setRequesters(r);
-      setAllUsers([
-        ...processedVolunteers,
-        ...r
-      ]);
-      setPendingRequests(pending);
       setActiveMatches(matches);
+    });
+    unsubscribes.push(unsubMatches);
 
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      console.error("Full error object:", error);
-    }
     setLoading(false);
+
+    // Cleanup
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
   }, []);
 
   const fetchSessions = useCallback(async (matchId) => {
@@ -334,10 +291,6 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  useEffect(() => {
     if (selectedMatchForDetails && showSessionDetails) {
       fetchSessions(selectedMatchForDetails);
     } else if (!selectedMatchForDetails) {
@@ -350,7 +303,6 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, "Users", "Info", "Volunteers", id), { approved: "true" });
       await setDoc(doc(db, "Users", "Info"), { Volunteers: increment(1) }, { merge: true });
       setAlertMessage({ message: "מתנדב אושר בהצלחה!", type: "success" });
-      fetchData();
     } catch (error) {
       console.error("Error approving volunteer:", error);
       setAlertMessage({ message: "שגיאה באישור המתנדב", type: "error" });
@@ -361,7 +313,6 @@ export default function AdminDashboard() {
     try {
       await updateDoc(doc(db, "Users", "Info", "Volunteers", id), { approved: "declined" });
       setAlertMessage({ message: "מתנדב נדחה בהצלחה.", type: "info" });
-      fetchData();
     } catch (error) {
       console.error("Error declining volunteer:", error);
       setAlertMessage({ message: "שגיאה בדחיית המתנדב", type: "error" });
@@ -408,7 +359,6 @@ export default function AdminDashboard() {
 
       await batch.commit();
       setAlertMessage({ message: "הבקשה אושרה והתאמה נוצרה בהצלחה!", type: "success" });
-      fetchData();
     } catch (error) {
       console.error("Error approving request:", error);
       setAlertMessage({ message: "שגיאה באישור הבקשה", type: "error" });
@@ -440,7 +390,6 @@ export default function AdminDashboard() {
       }
       
       setAlertMessage({ message: suggestAnother ? "הבקשה נדחתה. ניתן לבחור מתנדב אחר." : "הבקשה נדחתה.", type: "info" });
-      fetchData();
     } catch (error) {
       console.error("Error declining request:", error);
       setAlertMessage({ message: "שגיאה בדחיית הבקשה", type: "error" });
@@ -527,7 +476,6 @@ export default function AdminDashboard() {
 
       await batch.commit();
       setAlertMessage({ message: "התאמה נוצרה בהצלחה!", type: "success" });
-      fetchData();
     } catch (error) {
       console.error("Error creating match:", error);
       setAlertMessage({ message: "שגיאה ביצירת התאמה", type: "error" });
@@ -871,7 +819,13 @@ export default function AdminDashboard() {
               <p className="text-orange-600/80">אין מתנדבים בהמתנה.</p>
             ) : (
               <div className="space-y-2">
-                {volunteers.filter(v => v.approved === "pending").map(v => (
+                {volunteers.filter(v => v.approved === "pending")
+                  .sort((a, b) => {
+                    const dateA = a.createdAt ? a.createdAt.toDate() : new Date(0);
+                    const dateB = b.createdAt ? b.createdAt.toDate() : new Date(0);
+                    return dateA - dateB;
+                  })
+                  .map(v => (
                   <div key={v.id} className="flex justify-between items-start bg-orange-50/50 p-3 rounded border border-orange-100">
                     <div className="flex-grow">
                       <div className="grid grid-cols-2 gap-x-8 w-full">
@@ -939,7 +893,7 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-2 gap-x-8 flex-grow">
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-2">פרטי הפונה</h4>
-                        <p className="text-sm text-orange-600"><strong>שם:</strong> {request.requesterInfo?.fullName}</p>
+                        <p className="text-sm text-orange-600"><strong>שם:</strong> {getRequesterDisplayName(request.requesterInfo)}</p>
                         <p className="text-sm text-orange-600"><strong>אימייל:</strong> {request.requesterInfo?.email}</p>
                         <p className="text-sm text-orange-600"><strong>גיל:</strong> {request.requesterInfo?.age}</p>
                         {request.requesterInfo?.gender && <p className="text-sm text-orange-600"><strong>מגדר:</strong> {request.requesterInfo?.gender}</p>}
@@ -1022,7 +976,7 @@ export default function AdminDashboard() {
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי פונה</h3>
                 {(selectedRequester && requesters.find(r => r.id === selectedRequester)) ? (
                   <div className="space-y-2 text-base">
-                    <p><strong>שם:</strong> {requesters.find(r => r.id === selectedRequester)?.fullName}</p>
+                    <p><strong>שם:</strong> {getRequesterDisplayName(requesters.find(r => r.id === selectedRequester))}</p>
                     <p><strong>אימייל:</strong> {requesters.find(r => r.id === selectedRequester)?.email}</p>
                     <p><strong>גיל:</strong> {requesters.find(r => r.id === selectedRequester)?.age}</p>
                     <p><strong>מגדר:</strong> {requesters.find(r => r.id === selectedRequester)?.gender}</p>
@@ -1036,7 +990,7 @@ export default function AdminDashboard() {
                   </div>
                 ) : hoveredRequester ? (
                   <div className="space-y-2 text-base">
-                    <p><strong>שם:</strong> {hoveredRequester.fullName}</p>
+                    <p><strong>שם:</strong> {getRequesterDisplayName(hoveredRequester)}</p>
                     <p><strong>אימייל:</strong> {hoveredRequester.email}</p>
                     <p><strong>גיל:</strong> {hoveredRequester.age}</p>
                     <p><strong>מגדר:</strong> {hoveredRequester.gender}</p>
@@ -1508,9 +1462,9 @@ export default function AdminDashboard() {
                   className="border rounded px-3 py-2"
                 >
                   <option value="all">כל הסטטוסים</option>
-                  <option value="approved">פעיל</option>
-                  <option value="pending">ממתין לאישור</option>
-                  <option value="declined">נדחה</option>
+                  <option value="פעיל">פעיל</option>
+                  <option value="ממתין לאישור">ממתין לאישור</option>
+                  <option value="נדחה">נדחה</option>
                   <option value="לא פעיל">לא פעיל</option>
                 </select>
               </div>
@@ -1592,8 +1546,11 @@ export default function AdminDashboard() {
                       </td>
                       <td className="border border-orange-100 p-2 text-center">
                         {u.role === 'requester' 
-                          ? (u.activeMatchId ? 1 : 0)
-                          : (u.activeMatchIds?.length || 0)}
+                          ? (u.activeMatchId ? <span className="text-green-600">כן</span> : <span className="text-red-600">לא</span>)
+                          : (u.activeMatchIds?.length || 0) === 0 
+                            ? <span className="text-red-600">0</span> 
+                            : <span className="text-green-600">{u.activeMatchIds?.length || 0}</span>
+                        }
                       </td>
                       <td>                       
                          <button
@@ -1711,4 +1668,17 @@ const ViewSessionSummaryModal = ({ isOpen, onClose, sessionSummary }) => {
       </Card>
     </div>
   );
+};
+
+// Helper function for displaying fullName with behalf info
+const getRequesterDisplayName = (requester) => {
+  if (!requester) return '';
+  const { fullName, behalfName, behalfDetails } = requester;
+  let extra = [];
+  if (behalfName && behalfName.trim() !== "") extra.push(behalfName);
+  if (behalfDetails && behalfDetails.trim() !== "") extra.push(behalfDetails);
+  if (extra.length > 0) {
+    return `${fullName} (עבור: ${extra.join(', ')})`;
+  }
+  return fullName;
 };
