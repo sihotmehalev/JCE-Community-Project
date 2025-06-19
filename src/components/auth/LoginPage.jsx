@@ -159,8 +159,13 @@ export default function LoginPage() {
           {message && <p className="mt-4 text-center text-sm text-orange-600">{message}</p>}
           <p className="mt-6 text-center text-sm text-orange-700">
             אין לך חשבון עדיין?{" "}
+            <br></br>
             <Link to="/register-requester" className="text-orange-600 hover:text-orange-700 underline font-medium">
-              לחץ כאן להרשמה
+              הרשמה כפונה
+            </Link>
+            <br></br>
+            <Link to="/register-volunteer" className="text-orange-600 hover:text-orange-700 underline font-medium">
+              הרשמה כמתנדב
             </Link>
           </p>
         </CardContent>
