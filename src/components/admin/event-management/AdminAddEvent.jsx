@@ -247,6 +247,28 @@ const AdminAddEvent = ({ onEventAdded }) => {
                         )}
                     </div>
 
+                    {/* Image Link Field (single image) */}
+                    <div className="space-y-2">
+                        <label className="block font-medium text-gray-700 text-right">קישור לתמונה (תמונה אחת בלבד)</label>
+                        <input
+                            type="text"
+                            name="image"
+                            value={formData.image}
+                            onChange={handleInputChange}
+                            className="w-full p-2 border rounded-md border-orange-100 focus:border-orange-500 focus:ring-orange-200"
+                            dir="ltr"
+                            placeholder="https://example.com/image.jpg"
+                        />
+                        <a
+                            href="https://imgbb.com/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline text-sm text-right block"
+                        >
+                            העלה תמונה לשרת (imgbb.com) לקבלת קישור
+                        </a>
+                    </div>
+
                     <Button
                         type="submit"
                         className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded transition-colors"

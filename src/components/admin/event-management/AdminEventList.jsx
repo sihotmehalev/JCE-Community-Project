@@ -140,11 +140,13 @@ export const AdminEventList = () => {
                 break;
                 
             case 'Contact_info':
-                const phoneRegex = /^\d{3}(?:-)?(?:\d{3})(?:-)?(?:\d{3})$/;
-                if (!value.trim()) {
+                const cleanedValue = value.replace(/\D/g, ''); // Remove all non-digits
+                if (!cleanedValue.trim()) {
                     errors.Contact_info = 'טלפון הוא שדה חובה';
-                } else if (!phoneRegex.test(value.replace(/\s/g, ''))) {
+                } else if (cleanedValue.length < 9 || cleanedValue.length > 10) {
                     errors.Contact_info = 'מספר טלפון לא תקין (צריך להיות 9-10 ספרות)';
+                } else if (!cleanedValue.startsWith('0')) {
+                    errors.Contact_info = 'מספר טלפון לא תקין (צריך להתחיל ב-0)';
                 }
                 break;
                 
@@ -492,6 +494,27 @@ export const AdminEventList = () => {
                                     {validationErrors.description && (
                                         <p className="text-red-500 text-sm mt-1 text-right">{validationErrors.description}</p>
                                     )}
+                                </div>
+
+                                {/* Image Link Field (single image) */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1 text-right">קישור לתמונה (תמונה אחת בלבד)</label>
+                                    <input
+                                        type="text"
+                                        value={editForm.image || ''}
+                                        onChange={(e) => updateForm('image', e.target.value)}
+                                        className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                        dir="ltr"
+                                        placeholder="https://example.com/image.jpg"
+                                    />
+                                    <a
+                                        href="https://imgbb.com/"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:underline text-sm text-right block mt-1"
+                                    >
+                                        העלה תמונה לשרת (imgbb.com) לקבלת קישור
+                                    </a>
                                 </div>
 
                                 <div>
