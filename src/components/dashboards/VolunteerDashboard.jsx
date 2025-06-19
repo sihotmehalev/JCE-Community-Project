@@ -15,6 +15,7 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  increment,
   arrayUnion,
 } from "firebase/firestore";
 import { Button } from "../ui/button";
@@ -382,6 +383,12 @@ export default function VolunteerDashboard() {
       };
 
       await addDoc(collection(db, "Sessions"), sessionData);
+
+      // Update the match with the session reference AND increment totalSessions
+      await updateDoc(doc(db, "Matches", match.id), {
+        totalSessions: increment(1) // Increment totalSessions by 1
+      });
+      setAlertMessage({message: "המפגש נקבע בהצלחה!", type: "success"});
       onSuccess?.();
       return true;
     } catch (error) {
