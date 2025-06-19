@@ -49,7 +49,7 @@ export function BreathingTimer() {
         <div 
           className={`absolute inset-0 rounded-full transition-all duration-[4000ms] ease-in-out`}
           style={{
-            background: 'radial-gradient(circle at center, rgba(255, 68, 0, 0.7) 0%, rgba(244,155,140,0.3) 100%)',
+            background: 'radial-gradient(circle at center, rgba(235, 75, 11, 0.7) 0%, rgba(190, 118, 34, 0.3) 100%)',
             boxShadow: '0 0 40px rgba(244,155,140,0.4)',
             transform: `scale(${
               phase === 'inhale' ? 1.5 : 
