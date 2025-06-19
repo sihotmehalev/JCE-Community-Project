@@ -16,3 +16,22 @@ Benefits of this change:
 Easier to update or add new charts in one place.
 Reduces repeated code and simplifies imports.
 Makes the analytics section more scalable and maintainable.
+
+import { AdminAnalyticsTab } from '../analytics/AnalyticsTab';
+
+<Button
+          variant={activeTab === "analytics" ? "default" : "outline"}
+          onClick={() => setActiveTab("analytics")}
+          className="py-3 px-6 text-lg"
+        >
+          סטטיסטיקה
+        </Button>
+
+{/*analytics tab*/}
+      {activeTab === "analytics" && (
+        <Card>
+          <CardContent>
+            <AdminAnalyticsTab />
+          </CardContent>
+        </Card>
+      )}
