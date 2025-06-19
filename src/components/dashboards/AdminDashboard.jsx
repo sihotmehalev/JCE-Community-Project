@@ -14,7 +14,9 @@ import {
   arrayUnion,
   increment,
   deleteDoc,
-  onSnapshot,
+  onSnapshot, // <-- add this
+  addDoc,
+  limit,
   orderBy // <-- add this
 } from "firebase/firestore";
 import emailjs from 'emailjs-com'; // Import emailjs
@@ -29,6 +31,8 @@ import { AdminEventList } from '../admin/event-management/AdminEventList'
 import CustomAlert from "../ui/CustomAlert";
 import { CancelMatchModal } from '.././ui/CancelMatchModal';
 import { DeleteUserModal } from '.././ui/DeleteUserModal'
+import ChatPanel from "../ui/ChatPanel";
+import { serverTimestamp } from "firebase/firestore";
 
 export default function AdminDashboard() {
   // State Management
@@ -99,6 +103,38 @@ export default function AdminDashboard() {
   // New state for delete user modal
   const [showDeleteUserModal, setshowDeleteUserModal] = useState(false);
   const [selectedUserForDelete, setSelectedUserForDelete] = useState(null);
+
+  // New state for chat panel
+  const [showChatPanel, setShowChatPanel] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [newMsg, setNewMsg] = useState("");
+  const [userSelectedForChat, setUserSelectedForChat] = useState(null);
+
+  // Fetch last message timestamps for all users with admin chat
+  const [userLastChatTimestamps, setUserLastChatTimestamps] = useState({});
+  useEffect(() => {
+    const fetchLastMessages = async () => {
+      const timestamps = {};
+      for (const user of allUsers) {
+        // Only fetch if user has a conversation with admin (not all users will have this field)
+        if (user.conversationsWithAdminId) {
+          const messagesRef = collection(db, "conversations", user.conversationsWithAdminId, "messages");
+          const q = query(messagesRef, orderBy("timestamp", "desc"), limit(1));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const ts = snap.docs[0].data().timestamp;
+            timestamps[user.id] = ts && ts.toMillis ? ts.toMillis() : (ts?.seconds ? ts.seconds * 1000 : 0);
+          } else {
+            timestamps[user.id] = 0;
+          }
+        } else {
+          timestamps[user.id] = 0;
+        }
+      }
+      setUserLastChatTimestamps(timestamps);
+    };
+    if (allUsers.length > 0) fetchLastMessages();
+  }, [allUsers]);
 
   // Pagination logic for All Users table
   const filteredAndSortedUsers = useMemo(() => {
@@ -862,6 +898,60 @@ export default function AdminDashboard() {
         console.error('Failed to send match decline email. Error: ', err);
       });
   };
+
+  const openChat = async  (chatter) => {
+    setUserSelectedForChat(chatter);
+    setMessages([]);
+    if (chatter.conversationsWithAdminId) {
+      const msgs = await getDocs(
+        query(
+          collection(db, "conversations", chatter.conversationsWithAdminId, "messages"),
+          orderBy("timestamp")
+        )
+      );
+      setMessages(msgs.docs.map((d) => ({ id: d.id, ...d.data() })));
+    }
+    setShowChatPanel(true);
+  };
+
+  const closeChat = () => {
+    setUserSelectedForChat(null);
+    setShowChatPanel(false);
+    setNewMsg("");
+    setMessages([]);
+  };
+
+  const sendMessage = async () => {
+    if (!newMsg.trim() || !userSelectedForChat) return;
+    try {
+      let convoId = userSelectedForChat.conversationsWithAdminId;
+      if (!convoId) {
+        convoId = generateRandomId();
+        const userRole = userSelectedForChat.role;
+        const userRoleDoc = userRole === "volunteer" ? "Volunteers" : "Requesters";
+        await updateDoc(doc(db, "Users", "Info", userRoleDoc, userSelectedForChat.id), {
+          conversationsWithAdminId: convoId
+        });
+        setUserSelectedForChat(prev => ({ ...prev, conversationsWithAdminId: convoId }));
+      }
+      await addDoc(
+        collection(db, "conversations", convoId, "messages"),
+        {
+          text: newMsg.trim(),
+          senderId: "1",
+          timestamp: serverTimestamp(),
+        }
+      );
+      setNewMsg("");
+      setMessages(prev => [...prev, { text: newMsg.trim(), senderId: "1", timestamp: serverTimestamp() }]);
+    } catch (error) {
+      setAlertMessage({ message: "שגיאה בשליחת ההודעה", type: "error" });
+    }
+
+
+  };
+
+
 
   return (
     <div className="p-6 space-y-6 mt-[-2rem]">
@@ -1677,6 +1767,7 @@ export default function AdminDashboard() {
                     <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('approved')}>סטטוס{sortColumn === 'approved' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('personal')}>אישי{sortColumn === 'personal' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('activeMatchIds')}>התאמות פעילות{sortColumn === 'activeMatchIds' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('lastAdminChat')}>צאטים{sortColumn === 'lastAdminChat' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     <th className="w-24 border border-orange-100 p-2 text-orange-800 cursor-pointer">מחיקת משתמש</th>
                   </tr>
                 </thead>
@@ -1719,6 +1810,21 @@ export default function AdminDashboard() {
                             ? <span className="text-red-600">0</span> 
                             : <span className="text-green-600">{u.activeMatchIds?.length || 0}</span>
                         }
+                      </td>
+                      <td className="border border-orange-100 p-2 text-center">
+                        <button
+                          className={`p-2 rounded-full focus:outline-none transition-colors duration-200 flex items-center justify-center mx-auto
+                            ${u.approved === "declined" ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "text-blue-600 hover:text-white hover:bg-blue-600"}
+                          `}
+                          disabled={u.approved === "declined"}
+                          onClick={() => openChat(u)}
+                          title="פתח צ'אט עם המשתמש"
+                        >
+                          {/* Envelope (letter) icon for chat */}
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="h-5 w-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                        </button>
                       </td>
                       <td className="flex items-center justify-center border border-orange-100 p-2 text-center">                       
                          <button
@@ -1813,6 +1919,16 @@ export default function AdminDashboard() {
         }}
         user={selectedUserForDelete}
         onConfirm={() => deleteUser(selectedUserForDelete)}
+      />
+
+      <ChatPanel
+        isOpen={showChatPanel}
+        onClose={closeChat}
+        messages={messages}
+        newMsg={newMsg}
+        setNewMsg={setNewMsg}
+        onSend={sendMessage}
+        chatPartnerName={userSelectedForChat?.fullName || 'שיחה'}
       />
     </div>
   );
