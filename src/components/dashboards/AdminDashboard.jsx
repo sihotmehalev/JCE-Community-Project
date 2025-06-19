@@ -871,7 +871,13 @@ export default function AdminDashboard() {
               <p className="text-orange-600/80">אין מתנדבים בהמתנה.</p>
             ) : (
               <div className="space-y-2">
-                {volunteers.filter(v => v.approved === "pending").map(v => (
+                {volunteers.filter(v => v.approved === "pending")
+                  .sort((a, b) => {
+                    const dateA = a.createdAt ? a.createdAt.toDate() : new Date(0);
+                    const dateB = b.createdAt ? b.createdAt.toDate() : new Date(0);
+                    return dateA - dateB;
+                  })
+                  .map(v => (
                   <div key={v.id} className="flex justify-between items-start bg-orange-50/50 p-3 rounded border border-orange-100">
                     <div className="flex-grow">
                       <div className="grid grid-cols-2 gap-x-8 w-full">
