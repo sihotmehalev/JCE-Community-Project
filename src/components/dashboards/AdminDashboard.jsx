@@ -1377,7 +1377,7 @@ export default function AdminDashboard() {
                                 </span>
                               </td>
                               <td className="border border-orange-100 p-2 text-center">
-                                <Button
+                                <button
                                   onClick={() => {
                                     setSelectedMatchForDetails(match.id);
                                     setShowSessionDetails(false);
@@ -1388,7 +1388,7 @@ export default function AdminDashboard() {
                                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                   </svg>
-                                </Button>
+                                </button>
                               </td>
                             </tr>
                           ))}
@@ -1552,7 +1552,7 @@ export default function AdminDashboard() {
                             : <span className="text-green-600">{u.activeMatchIds?.length || 0}</span>
                         }
                       </td>
-                      <td>                       
+                      <td className="flex items-center justify-center border border-orange-100 p-2 text-center">                       
                          <button
                           className="p-2 rounded-full text-red-600 hover:text-white hover:bg-red-600 focus:outline-none transition-colors duration-200 flex items-center justify-center mx-auto"
                           onClick={() => { 
