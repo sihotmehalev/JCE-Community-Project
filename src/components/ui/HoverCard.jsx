@@ -50,7 +50,20 @@ export function HoverCard({ user, children }) {
       className="absolute z-[9999] w-64 bg-white border border-orange-200 rounded shadow-lg p-4 text-sm text-orange-900"
       style={{ top: position.top, left: position.left, transform: 'translateY(-50%)', minWidth: 220 }}
     >
-      <div className="font-bold text-orange-700 mb-1">{user.fullName}</div>
+      <div className="font-bold text-orange-700 mb-1">
+        {(() => {
+          if (user.role === 'requester') {
+            const { fullName, behalfName, behalfDetails } = user;
+            let extra = [];
+            if (behalfName && behalfName.trim() !== "") extra.push(behalfName);
+            if (behalfDetails && behalfDetails.trim() !== "") extra.push(behalfDetails);
+            if (extra.length > 0) {
+              return `${fullName} (עבור: ${extra.join(', ')})`;
+            }
+          }
+          return user.fullName;
+        })()}
+      </div>
       <div><span className="font-semibold">אימייל:</span> {user.email}</div>
       {user.phone && <div><span className="font-semibold">טלפון:</span> {user.phone}</div>}
       {user.role && <div><span className="font-semibold">תפקיד:</span> {user.role}</div>}

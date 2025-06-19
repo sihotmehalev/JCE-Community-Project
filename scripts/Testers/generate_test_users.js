@@ -189,11 +189,19 @@ const getRandomDateInLastMonth = () => {
  |                            4. GENERATE                              |
  *─────────────────────────────────────────────────────────────────────*/
 async function generate() {
-  const requesterCount = 3;   // מספר מבקשים
-  const volunteerCount = 3;    // מספר מתנדבים
-  const startId        = 25;    // מתחילים מ-1 לשני הסוגים
+  const requesterCount = 10;   // מספר מבקשים
+  const volunteerCount = 0;    // מספר מתנדבים
+  const startId        = 50;    // מתחילים מ-1 לשני הסוגים
 
   console.log(`\n➤ יוצר ${requesterCount} מבקשים ו-${volunteerCount} מתנדבים (IDs 1..)…\n`);
+
+  // Add pools for behalfName and behalfDetails
+  const behalfNamePool = [
+    "דוד לוי", "שרה כהן", "משה מזרחי", "רונית ברק", "יוסי הרשקוביץ", "רחל דיין", "עדי פרידמן", "לירון ביטון", "אבי אברג'יל", "תמר צור"
+  ];
+  const behalfDetailsPool = [
+    "אח של הפונה", "חבר מהעבודה", "שכן קרוב", "מטפל סוציאלי", "מורה בבית הספר", "בן משפחה רחוק", "קולגה לשעבר", "חבר ילדות", "מדריך בתנועת נוער", "שכן בבניין"
+  ];
 
   // --- Requesters ---------------------------------------------------
   for (let i = 0; i < requesterCount; i++) {
@@ -202,12 +210,18 @@ async function generate() {
     const pass  = reqPass(id);
     const { uid } = await auth.createUser({ email, password: pass });
 
+    // Randomly decide if this requester is on behalf of someone else
+    const isBehalf = Math.random() < 0.5; // 50% chance
+    const behalfName = isBehalf ? faker.helpers.arrayElement(behalfNamePool) : "";
+    const behalfDetails = isBehalf ? faker.helpers.arrayElement(behalfDetailsPool) : "";
+    const onBehalfOf = isBehalf ? "אדם אחר בידיעתו" : "עצמי";
+
     await db.doc(`Users/Info/Requesters/${uid}`).set({
       email,
       fullName: randomHebName(),
-      onBehalfOf: "עצמי",
-      behalfDetails: "",
-      behalfName: "",
+      onBehalfOf,
+      behalfDetails,
+      behalfName,
       gender: randGender(),
       age: faker.number.int({ min: 18, max: 90 }),
       maritalStatus: rand(["נשוי","גרוש","אלמן"]),

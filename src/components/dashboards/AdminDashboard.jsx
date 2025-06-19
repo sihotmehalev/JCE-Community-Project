@@ -893,7 +893,7 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-2 gap-x-8 flex-grow">
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-2">פרטי הפונה</h4>
-                        <p className="text-sm text-orange-600"><strong>שם:</strong> {request.requesterInfo?.fullName}</p>
+                        <p className="text-sm text-orange-600"><strong>שם:</strong> {getRequesterDisplayName(request.requesterInfo)}</p>
                         <p className="text-sm text-orange-600"><strong>אימייל:</strong> {request.requesterInfo?.email}</p>
                         <p className="text-sm text-orange-600"><strong>גיל:</strong> {request.requesterInfo?.age}</p>
                         {request.requesterInfo?.gender && <p className="text-sm text-orange-600"><strong>מגדר:</strong> {request.requesterInfo?.gender}</p>}
@@ -976,7 +976,7 @@ export default function AdminDashboard() {
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי פונה</h3>
                 {(selectedRequester && requesters.find(r => r.id === selectedRequester)) ? (
                   <div className="space-y-2 text-base">
-                    <p><strong>שם:</strong> {requesters.find(r => r.id === selectedRequester)?.fullName}</p>
+                    <p><strong>שם:</strong> {getRequesterDisplayName(requesters.find(r => r.id === selectedRequester))}</p>
                     <p><strong>אימייל:</strong> {requesters.find(r => r.id === selectedRequester)?.email}</p>
                     <p><strong>גיל:</strong> {requesters.find(r => r.id === selectedRequester)?.age}</p>
                     <p><strong>מגדר:</strong> {requesters.find(r => r.id === selectedRequester)?.gender}</p>
@@ -990,7 +990,7 @@ export default function AdminDashboard() {
                   </div>
                 ) : hoveredRequester ? (
                   <div className="space-y-2 text-base">
-                    <p><strong>שם:</strong> {hoveredRequester.fullName}</p>
+                    <p><strong>שם:</strong> {getRequesterDisplayName(hoveredRequester)}</p>
                     <p><strong>אימייל:</strong> {hoveredRequester.email}</p>
                     <p><strong>גיל:</strong> {hoveredRequester.age}</p>
                     <p><strong>מגדר:</strong> {hoveredRequester.gender}</p>
@@ -1668,4 +1668,17 @@ const ViewSessionSummaryModal = ({ isOpen, onClose, sessionSummary }) => {
       </Card>
     </div>
   );
+};
+
+// Helper function for displaying fullName with behalf info
+const getRequesterDisplayName = (requester) => {
+  if (!requester) return '';
+  const { fullName, behalfName, behalfDetails } = requester;
+  let extra = [];
+  if (behalfName && behalfName.trim() !== "") extra.push(behalfName);
+  if (behalfDetails && behalfDetails.trim() !== "") extra.push(behalfDetails);
+  if (extra.length > 0) {
+    return `${fullName} (עבור: ${extra.join(', ')})`;
+  }
+  return fullName;
 };
