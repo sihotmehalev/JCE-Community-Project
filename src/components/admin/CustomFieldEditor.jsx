@@ -33,7 +33,7 @@ export default function CustomFieldEditor({ field, onSave, onCancel }) {
     } else {
       // Reset for new field
       setCurrentField({
-        name: `custom_${Date.now()}`, // Simple unique name generation
+        name: `custom${Date.now()}`, // Simple unique name generation
         label: '',
         type: 'text',
         required: false,
