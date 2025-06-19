@@ -17,6 +17,7 @@ import {
   onSnapshot,
   orderBy // <-- add this
 } from "firebase/firestore";
+import emailjs from 'emailjs-com'; // Import emailjs
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { HoverCard } from "../ui/HoverCard";
@@ -33,6 +34,13 @@ export default function AdminDashboard() {
   // State Management
   const [selectedRequester, setSelectedRequester] = useState(null);
   const [selectedVolunteer, setSelectedVolunteer] = useState(null);
+  // Initialize EmailJS with your Public Key
+  // IMPORTANT: Replace 'YOUR_EMAILJS_PUBLIC_KEY' with your actual EmailJS Public Key.
+  // In a production environment, consider using environment variables for this.
+  useEffect(() => {
+    console.log("EmailJS Public Key:", process.env.REACT_APP_EMAILJS_PUBLIC_KEY); // Add this line
+    emailjs.init(process.env.REACT_APP_EMAILJS_PUBLIC_KEY);
+  }, []);
   const [requesterSearch, setRequesterSearch] = useState("");
   const [volunteerSearch, setVolunteerSearch] = useState("");
   const [volunteers, setVolunteers] = useState([]);
@@ -457,6 +465,18 @@ export default function AdminDashboard() {
 
       await batch.commit();
       setAlertMessage({ message: "הבקשה אושרה והתאמה נוצרה בהצלחה!", type: "success" });
+
+      // Send match confirmation email to both requester and volunteer
+      const requester = requesters.find(r => r.id === requestData.requesterId);
+      const matchedVolunteer = volunteers.find(v => v.id === requestData.volunteerId);
+
+      if (requester && matchedVolunteer) {
+        // Email to Requester
+        sendMatchConfirmationEmail(requester.fullName, matchedVolunteer.fullName, requester.email);
+        // Email to Volunteer
+        sendMatchConfirmationEmail(matchedVolunteer.fullName, requester.fullName, matchedVolunteer.email);
+      }
+      
     } catch (error) {
       console.error("Error approving request:", error);
       setAlertMessage({ message: "שגיאה באישור הבקשה", type: "error" });
@@ -488,6 +508,19 @@ export default function AdminDashboard() {
       }
       
       setAlertMessage({ message: suggestAnother ? "הבקשה נדחתה. ניתן לבחור מתנדב אחר." : "הבקשה נדחתה.", type: "info" });
+
+      // Send match decline email to both requester and volunteer
+      const requestData = docSnap.data(); // Get current data before potential re-fetch
+      const requester = requesters.find(r => r.id === requestData.requesterId);
+      const declinedVolunteer = volunteers.find(v => v.id === requestData.volunteerId);
+
+      if (requester && declinedVolunteer) {
+        // Email to Requester
+        sendMatchDeclineEmail(requester.fullName, declinedVolunteer.fullName, requester.email);
+        // Email to Volunteer
+        sendMatchDeclineEmail(declinedVolunteer.fullName, requester.fullName, declinedVolunteer.email);
+      }
+
     } catch (error) {
       console.error("Error declining request:", error);
       setAlertMessage({ message: "שגיאה בדחיית הבקשה", type: "error" });
@@ -574,6 +607,18 @@ export default function AdminDashboard() {
 
       await batch.commit();
       setAlertMessage({ message: "התאמה נוצרה בהצלחה!", type: "success" });
+
+      // Send match confirmation email for manual match to both requester and volunteer
+      const requester = requesters.find(r => r.id === requesterId);
+      const matchedVolunteer = volunteers.find(v => v.id === volunteerId);
+
+      if (requester && matchedVolunteer) {
+        // Email to Requester
+        sendMatchConfirmationEmail(requester.fullName, matchedVolunteer.fullName, requester.email);
+        // Email to Volunteer
+        sendMatchConfirmationEmail(matchedVolunteer.fullName, requester.fullName, matchedVolunteer.email);
+      }
+
     } catch (error) {
       console.error("Error creating match:", error);
       setAlertMessage({ message: "שגיאה ביצירת התאמה", type: "error" });
@@ -776,6 +821,46 @@ export default function AdminDashboard() {
       console.error("Error deleting user:", error);
       setAlertMessage({ message: "שגיאה במחיקת המשתמש", type: "error" });
     }
+  };
+
+  const sendMatchConfirmationEmail = (userName, matchedUserName, userEmail) => {
+    // IMPORTANT: Replace with your actual EmailJS Service ID and Template ID.
+    // In a production environment, consider using environment variables for this.
+    const serviceID = process.env.REACT_APP_EMAILJS_SERVICE_ID;
+    const templateID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID_MATCH; 
+
+    const templateParams = {
+      userName: userName,
+      matchedUserName: matchedUserName,
+      userEmail: userEmail, // Add userEmail to templateParams
+    };
+
+    emailjs.send(serviceID, templateID, templateParams)
+      .then((response) => {
+        console.log('Match confirmation email successfully sent!', response.status, response.text);
+      })
+      .catch((err) => {
+        console.error('Failed to send match confirmation email. Error: ', err);
+      });
+  };
+
+  const sendMatchDeclineEmail = (userName, matchedUserName, userEmail) => {
+    const serviceID = process.env.REACT_APP_EMAILJS_SERVICE_ID;
+    const templateID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID_DECLINE; 
+
+    const templateParams = {
+      userName: userName,
+      matchedUserName: matchedUserName,
+      userEmail: userEmail,
+    };
+
+    emailjs.send(serviceID, templateID, templateParams)
+      .then((response) => {
+        console.log('Match decline email successfully sent!', response.status, response.text);
+      })
+      .catch((err) => {
+        console.error('Failed to send match decline email. Error: ', err);
+      });
   };
 
   return (
