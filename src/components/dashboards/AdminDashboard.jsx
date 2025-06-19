@@ -1387,7 +1387,7 @@ export default function AdminDashboard() {
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('requesterInfo.fullName')}>פונה{matchSortColumn === 'requesterInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב{matchSortColumn === 'volunteerInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('meetingFrequency')}>תדירות פגישות{matchSortColumn === 'meetingFrequency' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                          <th className="border border-orange-100 p-2 text-orange-800">סיכום</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">פגישות</th>
                           <th className="border border-orange-100 p-2 text-orange-800">ביטול התאמה</th>
                         </tr>
                       </thead>
@@ -1456,7 +1456,7 @@ export default function AdminDashboard() {
                                     setShowSessionDetails(true);
                                   }}
                                 >
-                                  פירוט
+                                  צפייה
                                 </span>
                               </td>
                               <td className="border border-orange-100 p-2 text-center">
