@@ -28,6 +28,7 @@ import { User } from "lucide-react";
 
 // one-shot fetch of a volunteer's public profile
 const fetchVolunteer = async (uid) => {
+  console.log("[DEBUG-FETCH] fetchVolunteer called with UID:", uid);
   if (!uid) {
     console.warn("[DEBUG-FETCH] fetchVolunteer called with invalid UID. Returning null.");
     return null;
@@ -35,11 +36,13 @@ const fetchVolunteer = async (uid) => {
   const snap = await getDoc(
     doc(db, "Users", "Info", "Volunteers", uid)
   );
+  console.log("[DEBUG-FETCH] fetchVolunteer result:", uid, snap.exists() ? "exists" : "not found");
   return snap.exists() ? { id: uid, ...snap.data() } : null;
 };
 
 // Calculate compatibility score between requester and volunteer preferences
 const calculateCompatibilityScore = (requesterProfile, volunteer) => {
+  console.log("[DEBUG-COMPAT] Starting compatibility calculation for volunteer:", volunteer.id);
   let score = 0;
   let maxScore = 0;
 
@@ -61,6 +64,7 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
     // Filter out "אחר" from requester frequencies
     const validFreqs = requesterFreqs.filter(f => f !== "אחר");
     
+    console.log("[DEBUG-COMPAT] Frequency check - Requester:", validFreqs, "Volunteer days:", volunteer.availableDays);
     
     if (validFreqs.length > 0) {
       const volunteerDaysCount = volunteer.availableDays?.length || 0;
@@ -87,6 +91,7 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
     // Extract just the time period names from volunteer hours
     const volunteerPeriods = volunteer.availableHours.map(extractTimePeriod);
     
+    console.log("[DEBUG-COMPAT] Time check - Requester:", validTimes, "Volunteer:", volunteerPeriods);
     
     // Count matching time periods
     const matchingPeriods = validTimes.filter(rt => 
@@ -103,6 +108,7 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
   }
 
   const finalScore = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+  console.log("[DEBUG-COMPAT] Final compatibility score for", volunteer.id, ":", finalScore, "(score:", score, "/ maxScore:", maxScore, ")");
   return finalScore;
 };
 
@@ -167,12 +173,14 @@ export default function RequesterDashboard() {
   useEffect(() => {
     if (!authChecked || !user) return;
 
+    console.log("[DEBUG] Initializing requester profile for user:", user.uid);
     const reqRef = doc(db, "Users", "Info", "Requesters", user.uid);
 
     const unsubReq = onSnapshot(
       reqRef,
       async (snap) => {
         const data = snap.data();
+        console.log("[DEBUG] Loaded requester profile:", data);
         setRequestProfile(data);
         setPersonal(data.personal ?? true);
         setUserData(data);
@@ -212,6 +220,7 @@ export default function RequesterDashboard() {
           
           // Extract declinedVolunteers array or use empty array if it doesn't exist
           const declined = requestData.declinedVolunteers || [];
+          console.log("Declined volunteers list:", declined);
           setDeclinedVolunteers(declined);
         } else {
           setDeclinedVolunteers([]);
@@ -232,6 +241,12 @@ export default function RequesterDashboard() {
         volunteer => !declinedVolunteers.includes(volunteer.id)
       );
       
+      console.log("Filtering volunteers:", {
+        total: availableVolunteers.length,
+        declined: declinedVolunteers.length,
+        filtered: filteredVolunteers.length,
+      });
+      
       const sorted = sortVolunteersByCompatibility(filteredVolunteers, requestProfile);
       setSortedVolunteers(sorted);
     } else {
@@ -243,6 +258,7 @@ export default function RequesterDashboard() {
   useEffect(() => {
     if (loading || !user) return;
 
+    console.log("[DEBUG] Setting up listeners for user:", user.uid);
 
     // ---- active matches (always) ----
     unsubMatch.current?.();
@@ -253,16 +269,18 @@ export default function RequesterDashboard() {
         where("status", "==", "active")
       ),
       async (snap) => {
+        console.log("[DEBUG] Active matches snapshot received:", snap.docs.length, "matches");
         const arr = [];
         for (const d of snap.docs) {
           const m = d.data();
+          console.log("[DEBUG] Processing match:", d.id, m);
           const vol = await fetchVolunteer(m.volunteerId);
           if (vol) {
             arr.push({ id: d.id, ...m, volunteer: vol });
           } else {
             console.warn("[DEBUG] Failed to fetch volunteer for match:", m);
           }
-        }        
+        }        console.log("[DEBUG] Final matches array:", arr);
         setActiveMatch(arr.length > 0 ? arr[0] : null); // Keep existing activeMatch behavior
         setMatches(arr);
       }
@@ -273,6 +291,7 @@ export default function RequesterDashboard() {
     unsubAdminApproval.current?.();
 
     if (personal) {
+      console.log("[DEBUG] Setting up listeners for direct volunteer selection");
       // available volunteers
       unsubVolunteers.current = onSnapshot(
         query(
@@ -281,12 +300,14 @@ export default function RequesterDashboard() {
           where("isAvailable", "==", true)
         ),
         (snap) => {
+          console.log("[DEBUG] Available volunteers snapshot received:", snap.docs.length, "volunteers");
           setAvailableVolunteers(
             snap.docs.map(d => ({ id: d.id, ...d.data() }))
           );
         }
       );
 
+      console.log("[DEBUG] Setting up listeners for admin approval");
       // show requests waiting for admin approval
       unsubAdminApproval.current = onSnapshot(
         query(
@@ -295,6 +316,7 @@ export default function RequesterDashboard() {
           where("status", "==", "waiting_for_admin_approval")
         ),
         async (snap) => {
+          console.log("[DEBUG] Admin approval requests snapshot received:", snap.docs.length, "requests");
           const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
@@ -329,6 +351,7 @@ export default function RequesterDashboard() {
         where("status", "in", ["waiting_for_first_approval", "waiting_for_admin_approval"])
       ),
       async (snap) => {
+        console.log("Pending requests snapshot received:", snap.docs.map(d => ({id: d.id, ...d.data()})));
         
         // Look for the waiting_for_first_approval request to get declinedVolunteers
         const firstApprovalRequest = snap.docs.find(d => d.data().status === "waiting_for_first_approval");
@@ -336,6 +359,7 @@ export default function RequesterDashboard() {
           const data = firstApprovalRequest.data();
           // Update declined volunteers list
           setDeclinedVolunteers(data.declinedVolunteers || []);
+          console.log("Updated declined volunteers from snapshot:", data.declinedVolunteers || []);
         }
         
         const requests = await Promise.all(snap.docs.map(async (d) => {
@@ -349,6 +373,7 @@ export default function RequesterDashboard() {
         
         // Filter out requests that don't have a volunteerId
         const requestsWithVolunteer = requests.filter(req => req.volunteerId);
+        console.log("Pending requests with volunteer:", requestsWithVolunteer);
         
         setPendingRequests(requestsWithVolunteer);
       }
@@ -370,6 +395,7 @@ export default function RequesterDashboard() {
   };  
   const requestVolunteer = async (volunteerId) => {
     try {
+      console.log("[DEBUG] Requesting volunteer:", volunteerId);
       setRequestLoading(true);
       
       // First verify the volunteer is still available
@@ -381,6 +407,11 @@ export default function RequesterDashboard() {
       }
       
       const volunteerData = volunteerDoc.data();
+      console.log("[DEBUG] Volunteer data:", { 
+        isAvailable: volunteerData.isAvailable, 
+        approved: volunteerData.approved,
+        fullName: volunteerData.fullName
+      });
       
       if (!volunteerData.isAvailable || !volunteerData.approved) {
         console.warn("[DEBUG] Volunteer is unavailable or not approved");
@@ -396,15 +427,18 @@ export default function RequesterDashboard() {
         where("status", "==", "waiting_for_first_approval")
       );
       
+      console.log("[DEBUG] Searching for existing request for requester:", user.uid);
       const snapshot = await getDocs(q);
+      console.log("[DEBUG] Found", snapshot.docs.length, "existing requests");
       
       if (!snapshot.empty) {
         const requestDoc = snapshot.docs[0];
         const requestId = requestDoc.id;
+        console.log("[DEBUG] Updating existing request:", requestId);
         
         // Determine the appropriate status based on volunteer's personal mode setting
         const newStatus = volunteerData.personal === false ? 
-        "waiting_for_admin_approval" : 
+        "waiting_for_admin_approval":
         "waiting_for_first_approval";
 
         // Update the existing request with the selected volunteer
@@ -418,6 +452,7 @@ export default function RequesterDashboard() {
         // Update the local state to reflect this change
         const updatedPendingRequests = [...pendingRequests];
         const existingReqIndex = updatedPendingRequests.findIndex(req => req.id === requestId);
+        console.log("[DEBUG] Request found in pending requests:", existingReqIndex >= 0);
         
         if (existingReqIndex >= 0) {
           // Update existing request
@@ -461,6 +496,9 @@ export default function RequesterDashboard() {
         return;
       }
       
+      console.log("Canceling request with ID:", requestId);
+      console.log("Current pending requests:", pendingRequests);
+      
       // const volunteerId = requestDoc.data().volunteerId;
 
       // Update the request to remove the volunteerId and initiatedBy fields
@@ -478,6 +516,7 @@ export default function RequesterDashboard() {
       // const updatedPendingRequests = pendingRequests.filter(req => req.id !== requestId);
       // setPendingRequests(updatedPendingRequests);
       
+      // console.log("Updated pending requests after cancel:", updatedPendingRequests);
 
       setAlertMessage({message: "הבקשה בוטלה בהצלחה", type: "success"});
     } catch (error) {
@@ -620,7 +659,8 @@ export default function RequesterDashboard() {
       <Card className="mb-6">
         <div className="flex border-b border-gray-200">
           {personal && (
-            <>              <button
+            <>              
+            <button
                 onClick={() => setActiveTab("available")}
                 className={`
                   flex-1 p-4 text-center font-medium text-sm focus:outline-none
@@ -630,7 +670,7 @@ export default function RequesterDashboard() {
                   }
                 `}
               >
-                מתנדבים זמינים ({sortedVolunteers.length})
+                מתנדבים זמינים{!activeMatch && ` (${sortedVolunteers.length})`}
               </button>
               <button
                 onClick={() => setActiveTab("pending")}
@@ -714,6 +754,7 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
   // Don't show the button if this is not the pending volunteer and there's another pending request
   const shouldShowButton = showOtherVolunteers || isPending;
   
+  console.log(`Volunteer ${volunteer.id}: isPending=${isPending}, hasAnyPending=${hasAnyPendingRequest}, shouldShow=${shouldShowButton}`);
 
   return (    <div className="border border-orange-100 rounded-lg p-4 bg-orange-100">
       {isRecommended && (
