@@ -13,7 +13,8 @@ import {
   getDoc, 
   arrayUnion,
   increment,
-  deleteDoc
+  deleteDoc,
+  setDoc as setFirestoreDoc // Alias setDoc to avoid conflict
 } from "firebase/firestore";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
@@ -26,6 +27,52 @@ import { AdminEventList } from '../admin/event-management/AdminEventList'
 import CustomAlert from "../ui/CustomAlert";
 import { CancelMatchModal } from '.././ui/CancelMatchModal';
 import { DeleteUserModal } from '.././ui/DeleteUserModal'
+import CustomFieldEditor from '../admin/CustomFieldEditor'; // Import the new component
+
+// Helper function to render custom fields for admin view
+const renderCustomFieldsForAdmin = (user, config, title = "מידע נוסף:") => {
+  if (!user || !config || !Array.isArray(config.customFields) || config.customFields.length === 0) {
+    // console.log("[renderCustomFieldsForAdmin] No user, config, or customFields to render for title:", title, {userExists: !!user, configExists: !!config, customFields: config?.customFields});
+    return null;
+  }
+
+  const fieldsToRender = config.customFields
+    .filter(fieldDef => {
+      const hasProp = user.hasOwnProperty(fieldDef.name);
+      // console.log(`[renderCustomFieldsForAdmin] Field: ${fieldDef.name}, Label: ${fieldDef.label}, User has property: ${hasProp}`);
+      return hasProp;
+    })
+    .map(fieldDef => {
+      let displayValue = user[fieldDef.name];
+      if (Array.isArray(displayValue)) {
+        displayValue = displayValue.join(", ");
+      } else if (typeof displayValue === 'boolean') {
+        displayValue = displayValue ? "כן" : "לא";
+      } else if (displayValue === null || displayValue === undefined || displayValue === '') {
+        displayValue = "—";
+      }
+      return (
+        <p key={fieldDef.name} className="text-sm text-orange-600">
+          <strong>{fieldDef.label}:</strong> {String(displayValue)}
+        </p>
+      );
+    });
+
+  if (fieldsToRender.length === 0) {
+    // console.log("[renderCustomFieldsForAdmin] No fields to render after filtering for title:", title);
+    return null;
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-orange-200">
+      <h5 className="font-semibold text-orange-700 mb-1">{title}</h5>
+      <div className="space-y-1">
+        {fieldsToRender}
+      </div>
+    </div>
+  );
+};
+
 
 export default function AdminDashboard() {
   // State Management
@@ -85,6 +132,14 @@ export default function AdminDashboard() {
   const [showDeleteUserModal, setshowDeleteUserModal] = useState(false);
   const [selectedUserForDelete, setSelectedUserForDelete] = useState(null);
 
+  // State for Form Customization
+  const [requesterFormConfig, setRequesterFormConfig] = useState({ hideNoteField: false, customFields: [] });
+  const [volunteerFormConfig, setVolunteerFormConfig] = useState({ customFields: [] });
+  const [loadingFormConfig, setLoadingFormConfig] = useState(true);
+  const [showFieldEditor, setShowFieldEditor] = useState(false);
+  const [editingField, setEditingField] = useState(null); // null for new, object for editing
+  const [editingRoleType, setEditingRoleType] = useState(null); // 'requester' or 'volunteer'
+
   // useEffect for resetting currentPage (moved here to ensure unconditional call)
   useEffect(() => {
     setCurrentPage(1);
@@ -138,56 +193,6 @@ export default function AdminDashboard() {
           lastActivity: lastActivityTimestamp
         };
       });
-
-      // Fetch admins
-      // const adminsFirst = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "FirstLevel"));
-      // const adminsSecond = await getDocs(collection(db, "Users", "Info", "Admins", "Level", "SecondLevel"));
-      
-      /*
-      Admin excluded from counting the users
-      const a = [
-        ...adminsFirst.docs.map(doc => {
-          const data = doc.data();
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-          const lastActivityTimestamp = data.lastActivity || data.lastLogin || data.createdAt;
-          let isActiveByTime = false;
-          if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
-              const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
-              isActiveByTime = lastActivityDate >= thirtyDaysAgo;
-          }
-
-          return {
-            id: doc.id,
-            ...data,
-            role: "admin-first",
-            derivedDisplayStatus: isActiveByTime ? "פעיל" : "לא פעיל", // Admins are active based on login
-            lastActivity: lastActivityTimestamp
-          };
-        }),
-        ...adminsSecond.docs.map(doc => {
-          const data = doc.data();
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-          const lastActivityTimestamp = data.lastActivity || data.lastLogin || data.createdAt;
-          let isActiveByTime = false;
-          if (lastActivityTimestamp && typeof lastActivityTimestamp.toDate === 'function') {
-              const lastActivityDate = lastActivityTimestamp.toDate ? lastActivityTimestamp.toDate() : new Date(lastActivityTimestamp.seconds * 1000);
-              isActiveByTime = lastActivityDate >= thirtyDaysAgo;
-          }
-
-          return {
-            id: doc.id,
-            ...data,
-            role: "admin-second",
-            derivedDisplayStatus: isActiveByTime ? "פעיל" : "לא פעיל", // Admins are active based on login
-            lastActivity: lastActivityTimestamp
-          };
-        })
-      ];
-      */
 
       // Fetch pending requests (waiting_for_admin_approval)
       const pendingRequestsSnap = await getDocs(
@@ -296,11 +301,40 @@ export default function AdminDashboard() {
       setPendingRequests(pending);
       setActiveMatches(matches);
 
-      // console.log("Fetched Volunteers:", processedVolunteers);
-      // console.log("Fetched Requesters:", r);
-      // console.log("Fetched All Users:", [...processedVolunteers, ...r]);
-      // console.log("Fetched Pending Requests:", pending);
-      // console.log("Fetched Active Matches:", matches);
+      // Fetch Form Configurations
+      setLoadingFormConfig(true);
+      try {
+        const reqConfDocRef = doc(db, "admin_form_configs", "requester_config");
+        const reqConfSnap = await getDoc(reqConfDocRef);
+        if (reqConfSnap.exists()) {
+          const configData = reqConfSnap.data();
+          console.log("[AdminDashboard] Fetched requester_config:", JSON.stringify(configData, null, 2));
+          setRequesterFormConfig({
+            hideNoteField: configData.hideNoteField || false,
+            customFields: Array.isArray(configData.customFields) ? configData.customFields : []
+          });
+        } else {
+          console.log("[AdminDashboard] requester_config not found, using default.");
+          setRequesterFormConfig({ hideNoteField: false, customFields: [] }); // Default
+        }
+
+        const volConfDocRef = doc(db, "admin_form_configs", "volunteer_config");
+        const volConfSnap = await getDoc(volConfDocRef);
+        if (volConfSnap.exists()) {
+          const configData = volConfSnap.data();
+          console.log("[AdminDashboard] Fetched volunteer_config:", JSON.stringify(configData, null, 2));
+          setVolunteerFormConfig({
+            customFields: Array.isArray(configData.customFields) ? configData.customFields : []
+          });
+        } else {
+          console.log("[AdminDashboard] volunteer_config not found, using default.");
+          setVolunteerFormConfig({ customFields: [] }); // Default
+        }
+      } catch (configError) {
+        console.error("Error fetching form configurations:", configError);
+        setAlertMessage({ message: "שגיאה בטעינת הגדרות טפסים", type: "error" });
+      }
+      setLoadingFormConfig(false);
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -738,6 +772,98 @@ export default function AdminDashboard() {
     }
   };
 
+  // --- Form Customization Handlers ---
+  const handleToggleHideNote = async () => {
+    const newConfig = { ...requesterFormConfig, hideNoteField: !requesterFormConfig.hideNoteField };
+    try {
+      await setFirestoreDoc(doc(db, "admin_form_configs", "requester_config"), newConfig);
+      setRequesterFormConfig(newConfig);
+      setAlertMessage({ message: "הגדרת שדה 'הערה' עודכנה.", type: "success" });
+    } catch (error) {
+      console.error("Error updating hideNoteField:", error);
+      setAlertMessage({ message: "שגיאה בעדכון הגדרת שדה 'הערה'.", type: "error" });
+    }
+  };
+
+  const openFieldEditorModal = (roleType, field = null) => {
+    setEditingRoleType(roleType);
+    setEditingField(field);
+    setShowFieldEditor(true);
+  };
+
+  const handleSaveCustomField = async (fieldData) => {
+    let currentConfig = editingRoleType === 'requester' ? { ...requesterFormConfig } : { ...volunteerFormConfig };
+    let updatedFields;
+
+    if (editingField) { // Editing existing field
+      updatedFields = currentConfig.customFields.map(f => f.name === fieldData.name ? fieldData : f);
+    } else { // Adding new field
+      // Check for duplicate name (client-side check, server-side rules are better for production)
+      if (currentConfig.customFields.some(f => f.name === fieldData.name)) {
+        setAlertMessage({ message: `שדה עם המזהה '${fieldData.name}' כבר קיים.`, type: "error" });
+        return;
+      }
+      updatedFields = [...currentConfig.customFields, fieldData];
+    }
+    const newConfig = { ...currentConfig, customFields: updatedFields }; // Ensure newConfig is created with updatedFields
+
+    try {
+      await setFirestoreDoc(doc(db, "admin_form_configs", `${editingRoleType}_config`), newConfig);
+      if (editingRoleType === 'requester') {
+        setRequesterFormConfig(newConfig);
+      } else {
+        setVolunteerFormConfig(newConfig);
+      }
+      setAlertMessage({ message: "שדה מותאם אישית נשמר בהצלחה.", type: "success" });
+      setShowFieldEditor(false);
+      setEditingField(null);
+    } catch (error) {
+      console.error("Error saving custom field:", error);
+      setAlertMessage({ message: "שגיאה בשמירת שדה מותאם אישית.", type: "error" });
+    }
+  };
+
+  const handleDeleteCustomField = async (roleType, fieldNameToDelete) => {
+    if (!window.confirm(`האם אתה בטוח שברצונך למחוק את השדה '${fieldNameToDelete}'? פעולה זו אינה הפיכה.`)) return;
+
+    let currentConfig = roleType === 'requester' ? { ...requesterFormConfig } : { ...volunteerFormConfig };
+    const updatedFields = currentConfig.customFields.filter(f => f.name !== fieldNameToDelete);
+    const newConfig = { ...currentConfig, customFields: updatedFields }; // Ensure newConfig is created with filteredFields
+
+    try {
+      await setFirestoreDoc(doc(db, "admin_form_configs", `${roleType}_config`), newConfig);
+      if (roleType === 'requester') {
+        setRequesterFormConfig(newConfig);
+      } else {
+        setVolunteerFormConfig(newConfig);
+      }
+      setAlertMessage({ message: "שדה מותאם אישית נמחק.", type: "success" });
+    } catch (error) {
+      console.error("Error deleting custom field:", error);
+      setAlertMessage({ message: "שגיאה במחיקת שדה מותאם אישית.", type: "error" });
+    }
+  };
+
+  const renderCustomFieldsList = (roleType, fieldsConfig) => (
+    fieldsConfig.customFields.map(field => (
+      <div key={field.name} className="flex justify-between items-center p-3 border rounded-md mb-2 bg-gray-50 shadow-sm">
+         <div className="flex-grow flex items-center">
+          <span className="font-medium text-gray-700">{field.label}</span>
+          <span className="text-xs text-gray-500 ml-2">({field.name})</span>
+          <span className="text-xs text-gray-500 ml-2">- {field.type}</span>
+          {field.required && <span className="text-red-500 text-xs ml-1">*חובה</span>}
+          {field.shareWithPartner && (
+            <span className="text-xs text-blue-500 ml-2 bg-blue-100 px-1.5 py-0.5 rounded-full border border-blue-200">משותף</span>
+          )}
+        </div>
+        <div className="flex-shrink-0 flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => openFieldEditorModal(roleType, field)} className="text-blue-600 border-blue-300 hover:bg-blue-50">ערוך</Button>
+          <Button variant="destructive" size="sm" onClick={() => handleDeleteCustomField(roleType, field.name)} className="bg-red-500 hover:bg-red-600 text-white">מחק</Button>
+        </div>
+      </div>
+    ))
+  );
+
   // Filter and sort users for the All Users table
   const filteredAndSortedUsers = allUsers
     .filter(u =>
@@ -859,6 +985,13 @@ export default function AdminDashboard() {
         >
             רשימת אירועים
         </Button>
+        <Button
+          variant={activeTab === "formCustomization" ? "default" : "outline"}
+          onClick={() => setActiveTab("formCustomization")}
+          className="py-3 px-6 text-lg"
+        >
+          שינוי תנאי הרשמה
+        </Button>
       </div>
 
       {/* Volunteers Awaiting Approval */}
@@ -897,6 +1030,7 @@ export default function AdminDashboard() {
                           {v.availableHours && v.availableHours.length > 0 && (
                             <p className="text-sm text-orange-600"><strong>שעות פנויות:</strong> {v.availableHours.join(", ")}</p>
                           )}
+                          {renderCustomFieldsForAdmin(v, volunteerFormConfig, "מידע מותאם אישית:")}
                         </div>
                       </div>
                     </div>
@@ -951,6 +1085,7 @@ export default function AdminDashboard() {
                         {request.requesterInfo?.preferredTimes && <p className="text-sm text-orange-600"><strong>זמנים מועדפים:</strong> {request.requesterInfo?.preferredTimes}</p>}
                         {request.requesterInfo?.location && <p className="text-sm text-orange-600"><strong>מיקום:</strong> {request.requesterInfo?.location}</p>}
                         <p className="text-sm text-orange-600"><strong>התאמות פעילות:</strong> {request.requesterInfo?.activeMatchIds?.length || 0}</p>
+                        {renderCustomFieldsForAdmin(request.requesterInfo, requesterFormConfig, "מידע מותאם אישית (פונה):")}
                       </div>
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-2">פרטי המתנדב</h4>
@@ -971,6 +1106,7 @@ export default function AdminDashboard() {
                           <p className="text-sm text-orange-600"><strong>שעות פנויות:</strong> {request.volunteerInfo.availableHours.join(", ")}</p>
                         )}
                         <p className="text-sm text-orange-600"><strong>התאמות פעילות:</strong> {request.volunteerInfo?.activeMatchIds?.length || 0}</p>
+                        {renderCustomFieldsForAdmin(request.volunteerInfo, volunteerFormConfig, "מידע מותאם אישית (מתנדב):")}
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
@@ -1034,6 +1170,7 @@ export default function AdminDashboard() {
                     {requesters.find(r => r.id === selectedRequester)?.preferredTimes && <p><strong>זמנים מועדפים:</strong> {requesters.find(r => r.id === selectedRequester)?.preferredTimes}</p>}
                     {requesters.find(r => r.id === selectedRequester)?.location && <p><strong>מיקום:</strong> {requesters.find(r => r.id === selectedRequester)?.location}</p>}
                     <p><strong>התאמות פעילות:</strong> {requesters.find(r => r.id === selectedRequester)?.activeMatchIds?.length || 0}</p>
+                    {renderCustomFieldsForAdmin(requesters.find(r => r.id === selectedRequester), requesterFormConfig)}
                   </div>
                 ) : hoveredRequester ? (
                   <div className="space-y-2 text-base">
@@ -1048,6 +1185,7 @@ export default function AdminDashboard() {
                     {hoveredRequester.preferredTimes && <p><strong>זמנים מועדפים:</strong> {hoveredRequester.preferredTimes}</p>}
                     {hoveredRequester.location && <p><strong>מיקום:</strong> {hoveredRequester.location}</p>}
                     <p><strong>התאמות פעילות:</strong> {hoveredRequester.activeMatchIds?.length || 0}</p>
+                    {renderCustomFieldsForAdmin(hoveredRequester, requesterFormConfig)}
                   </div>
                 ) : (
                   <p className="text-gray-500">רחף על פונה או בחר אותו כדי לראות פרטים.</p>
@@ -1204,6 +1342,7 @@ export default function AdminDashboard() {
                     {volunteers.find(v => v.id === selectedVolunteer)?.availableDays && volunteers.find(v => v.id === selectedVolunteer)?.availableDays.length > 0 && <p><strong>ימים פנויים:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.availableDays.join(', ')}</p>}
                     {volunteers.find(v => v.id === selectedVolunteer)?.availableHours && volunteers.find(v => v.id === selectedVolunteer)?.availableHours.length > 0 && <p><strong>שעות פנויות:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.availableHours.join(', ')}</p>}
                     <p><strong>התאמות פעילות:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.activeMatchIds?.length || 0}</p>
+                    {renderCustomFieldsForAdmin(volunteers.find(v => v.id === selectedVolunteer), volunteerFormConfig)}
                   </div>
                 ) : hoveredVolunteer ? (
                   <div className="space-y-2 text-base">
@@ -1219,6 +1358,7 @@ export default function AdminDashboard() {
                     {hoveredVolunteer.availableDays && hoveredVolunteer.availableDays.length > 0 && <p><strong>ימים פנויים:</strong> {hoveredVolunteer.availableDays.join(', ')}</p>}
                     {hoveredVolunteer.availableHours && hoveredVolunteer.availableHours.length > 0 && <p><strong>שעות פנויות:</strong> {hoveredVolunteer.availableHours.join(', ')}</p>}
                     <p><strong>התאמות פעילות:</strong> {hoveredVolunteer.activeMatchIds?.length || 0}</p>
+                    {renderCustomFieldsForAdmin(hoveredVolunteer, volunteerFormConfig)}
                   </div>
                 ) : (
                   <p className="text-gray-500">רחף על מתנדב או בחר אותו כדי לראות פרטים.</p>
@@ -1400,12 +1540,12 @@ export default function AdminDashboard() {
                           .map(match => (
                             <tr key={match.id} className="hover:bg-orange-50/50">
                               <td className="border border-orange-100 p-2 text-orange-700">
-                                <HoverCard user={match.requesterInfo}>
+                                <HoverCard user={match.requesterInfo} adminConfig={requesterFormConfig}>
                                   {match.requesterInfo?.fullName || 'N/A'}
                                 </HoverCard>
                               </td>
                               <td className="border border-orange-100 p-2 text-orange-700">
-                                <HoverCard user={match.volunteerInfo}>
+                                <HoverCard user={match.volunteerInfo} adminConfig={volunteerFormConfig}>
                                   {match.volunteerInfo?.fullName || 'N/A'}
                                 </HoverCard>
                               </td>
@@ -1509,9 +1649,9 @@ export default function AdminDashboard() {
                   className="border rounded px-3 py-2"
                 >
                   <option value="all">כל הסטטוסים</option>
-                  <option value="approved">פעיל</option>
-                  <option value="pending">ממתין לאישור</option>
-                  <option value="declined">נדחה</option>
+                  <option value="פעיל">פעיל</option>
+                  <option value="ממתין לאישור">ממתין לאישור</option>
+                  <option value="נדחה">נדחה</option>
                   <option value="לא פעיל">לא פעיל</option>
                 </select>
               </div>
@@ -1563,7 +1703,10 @@ export default function AdminDashboard() {
                   {currentUsers.map(u => (
                     <tr key={`${u.id}-${u.role}`} className="hover:bg-orange-50/50">
                       <td className="border border-orange-100 p-2 text-orange-700">
-                        <HoverCard user={u}>
+                        <HoverCard 
+                          user={u} 
+                          adminConfig={u.role === 'requester' ? requesterFormConfig : u.role === 'volunteer' ? volunteerFormConfig : null}
+                        >
                           {u.fullName}
                         </HoverCard>
                       </td>
@@ -1645,6 +1788,63 @@ export default function AdminDashboard() {
 
       {activeTab === 'EventList' && (
         <AdminEventList/>
+      )}
+
+      {/* Form Customization Tab */}
+      {activeTab === "formCustomization" && (
+        <Card className="shadow-lg">
+          <CardContent className="p-6 space-y-8">
+            <h3 className="text-2xl font-bold text-orange-800 text-center border-b pb-4 mb-6">שינוי תנאי הרשמה</h3>
+            
+            <div className="bg-orange-50/30 p-4 rounded-lg border border-orange-200 mb-6">
+              <h4 className="text-lg font-semibold text-orange-700 mb-2">אודות התאמה אישית של טפסים</h4>
+              <p className="text-sm text-orange-600 leading-relaxed">
+                כאן ניתן להתאים אישית את טפסי ההרשמה עבור פונים ומתנדבים. ניתן להוסיף שדות חדשים, לערוך קיימים,
+                לקבוע אם שדה הוא חובה, ואף להחליט האם מידע משדה מסוים ישותף עם השותף להתאמה (לדוגמה, פונה יראה מידע מסוים על המתנדב ולהיפך).
+                שינויים אלו ישפיעו על המידע הנאסף בעת ההרשמה ועל המידע המוצג למשתמשים בדשבורדים שלהם.
+                השתמשו באפשרות זו בזהירות כדי לאסוף מידע רלוונטי ולשפר את תהליך ההתאמה.
+              </p>
+            </div>
+            
+            {/* Requester Form Configuration */}
+            <div className="p-6 border border-orange-200 rounded-xl bg-orange-50/50 shadow-md">
+              <h4 className="text-xl font-semibold text-orange-800 mb-4 border-b border-orange-200 pb-2">טופס פונים</h4>
+              <div className="flex items-center mb-6 p-3 bg-white rounded-lg shadow-sm">
+                <input
+                  type="checkbox"
+                  id="hideNoteField"
+                  checked={requesterFormConfig.hideNoteField || false}
+                  onChange={handleToggleHideNote}
+                  className="h-5 w-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500 cursor-pointer"
+                />
+                <label htmlFor="hideNoteField" className="ml-3 text-md font-medium text-gray-700 cursor-pointer">
+                  הסתר את שדה "משהו מהלב..." (הערה) בטופס הפונים
+                </label>
+              </div>
+              <h5 className="text-lg font-medium text-orange-700 mb-3">שדות מותאמים אישית לפונים:</h5>
+              {loadingFormConfig ? <LoadingSpinner /> : 
+                requesterFormConfig.customFields?.length > 0 ? renderCustomFieldsList('requester', requesterFormConfig) : <p className="text-gray-500 text-sm">אין שדות מותאמים אישית.</p>}
+              <Button onClick={() => openFieldEditorModal('requester')} className="mt-4 bg-orange-500 hover:bg-orange-600 text-white">הוסף שדה לפונים</Button>
+            </div>
+
+            {/* Volunteer Form Configuration */}
+            <div className="p-6 border border-blue-200 rounded-xl bg-blue-50/50 shadow-md">
+              <h4 className="text-xl font-semibold text-blue-800 mb-4 border-b border-blue-200 pb-2">טופס מתנדבים</h4>
+              <h5 className="text-lg font-medium text-blue-700 mb-3">שדות מותאמים אישית למתנדבים:</h5>
+              {loadingFormConfig ? <LoadingSpinner /> : 
+                volunteerFormConfig.customFields?.length > 0 ? renderCustomFieldsList('volunteer', volunteerFormConfig) : <p className="text-gray-500 text-sm">אין שדות מותאמים אישית.</p>}
+              <Button onClick={() => openFieldEditorModal('volunteer')} className="mt-4 bg-blue-500 hover:bg-blue-600 text-white">הוסף שדה למתנדבים</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {showFieldEditor && (
+        <CustomFieldEditor
+          field={editingField}
+          onSave={handleSaveCustomField}
+          onCancel={() => { setShowFieldEditor(false); setEditingField(null); }}
+        />
       )}
 
       {/* AI Suggestions Modal */}

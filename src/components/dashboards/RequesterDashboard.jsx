@@ -737,6 +737,36 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
     }
     return list;
   };
+
+  const [volunteerAdminConfig, setVolunteerAdminConfig] = useState(null);
+
+  useEffect(() => {
+    const fetchVolunteerConfig = async () => {
+      console.log(`[VolunteerCard] Attempting to fetch volunteer_config for volunteerId: ${volunteer.id}`);
+      try {
+        const configDocRef = doc(db, "admin_form_configs", "volunteer_config");
+        const configSnap = await getDoc(configDocRef);
+        if (configSnap.exists()) {
+          const configData = configSnap.data();
+          console.log("[VolunteerCard] Successfully fetched volunteer_config data:", JSON.stringify(configData, null, 2));
+          setVolunteerAdminConfig({
+            ...configData,
+            customFields: Array.isArray(configData.customFields) ? configData.customFields : []
+          });
+        } else {
+          console.warn("[VolunteerCard] Volunteer admin config document not found at admin_form_configs/volunteer_config.");
+          setVolunteerAdminConfig({ customFields: [] });
+        }
+      } catch (error) {
+        console.error("[VolunteerCard] Error fetching volunteer admin config:", error);
+        setVolunteerAdminConfig({ customFields: [] });
+      }
+    };
+    if (volunteer?.id) { // Only fetch if volunteer.id is available
+      fetchVolunteerConfig();
+    }
+  }, [volunteer?.id]); // Depend on volunteer.id
+
   // Check if there's a pending request for this volunteer
   const pendingRequest = pendingRequests.find(req => req.volunteerId === volunteer.id);
   const isPending = !!pendingRequest;
@@ -748,6 +778,27 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
   // Don't show the button if this is not the pending volunteer and there's another pending request
   const shouldShowButton = showOtherVolunteers || isPending;
   
+  // Determine if there are any shareable custom fields to display
+  let shareableCustomFields = [];
+  if (volunteer && volunteerAdminConfig && Array.isArray(volunteerAdminConfig.customFields) && volunteerAdminConfig.customFields.length > 0) {
+    Object.entries(volunteer).forEach(([key, value]) => {
+      const fieldDef = volunteerAdminConfig.customFields.find(
+        (f) => f.name === key && f.shareWithPartner === true
+      );
+      if (fieldDef) {
+        let displayValue = value;
+        if (Array.isArray(value)) {
+          displayValue = value.join(", ");
+        } else if (typeof value === 'boolean') {
+          displayValue = value ? "כן" : "לא";
+        } else if (value === null || value === undefined || value === '') {
+          displayValue = "—"; 
+        }
+        shareableCustomFields.push({ key, label: fieldDef.label, value: String(displayValue) });
+      }
+    });
+  }
+
   console.log(`Volunteer ${volunteer.id}: isPending=${isPending}, hasAnyPending=${hasAnyPendingRequest}, shouldShow=${shouldShowButton}`);
 
   return (    <div className="border border-orange-100 rounded-lg p-4 bg-orange-100">
@@ -787,6 +838,26 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
         <p className="text-sm mb-3 text-orange-700">
           תדירות: {formatList(volunteer.frequency)}
         </p>
+      )}
+
+      {/* Shared Custom Fields from Volunteer */}
+      {shareableCustomFields.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-orange-200">
+          <h4 className="font-semibold text-orange-800 text-md mb-2">מידע נוסף מהמתנדב:</h4>
+          <div className="space-y-1 text-sm">
+            {(() => {
+              console.log("[VolunteerCard] START Rendering Shared Fields. Volunteer Data:", JSON.stringify(volunteer, null, 2));
+              console.log("[VolunteerCard] Using Volunteer Admin Config:", JSON.stringify(volunteerAdminConfig, null, 2));
+              console.log("[VolunteerCard] Shareable fields to render:", shareableCustomFields);
+              return null; 
+            })()}
+            {shareableCustomFields.map(field => (
+              <p key={field.key} className="text-orange-700">
+                <strong className="text-orange-800">{field.label}:</strong> {field.value}
+              </p>
+            ))}
+          </div>
+        </div>
       )}
       
       {shouldShowButton && (
@@ -839,6 +910,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
   const [showUpcomingSessionsModal, setShowUpcomingSessionsModal] = useState(false);
   const [showPastSessionsModal, setShowPastSessionsModal] = useState(false);
   const [showCompletedSessionsModal, setShowCompletedSessionsModal] = useState(false);
+  const [volunteerAdminConfig, setVolunteerAdminConfig] = useState(null); 
 
   useEffect(() => {
     const sessionsRef = collection(db, "Sessions");
@@ -859,6 +931,38 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
     );
   }, [match.id]);
 
+  // Fetch volunteer admin config when volunteer data is available
+  useEffect(() => {
+    const fetchVolunteerConfig = async () => {
+      if (match?.volunteerId) {
+        console.log(`[MatchCard - RequesterDashboard] Attempting to fetch volunteer_config for volunteerId: ${match.volunteerId}`);
+        try {
+          const configDocRef = doc(db, "admin_form_configs", "volunteer_config");
+          const configSnap = await getDoc(configDocRef);
+          if (configSnap.exists()) {
+            const configData = configSnap.data();
+            console.log("[MatchCard - RequesterDashboard] Successfully fetched volunteer_config data:", JSON.stringify(configData, null, 2));
+            setVolunteerAdminConfig({
+              ...configData,
+              customFields: Array.isArray(configData.customFields) ? configData.customFields : []
+            });
+          } else {
+            console.warn("[MatchCard - RequesterDashboard] Volunteer admin config document not found at admin_form_configs/volunteer_config.");
+            setVolunteerAdminConfig({ customFields: [] }); 
+          }
+        } catch (error) {
+          console.error("[MatchCard - RequesterDashboard] Error fetching volunteer admin config:", error);
+          setVolunteerAdminConfig({ customFields: [] }); 
+        }
+      } else {
+        console.log("[MatchCard - RequesterDashboard] No volunteerId in match, cannot fetch config.");
+        setVolunteerAdminConfig({ customFields: [] });
+      }
+    };
+    fetchVolunteerConfig();
+  }, [match?.volunteerId]); // Depend on volunteerId
+
+
   // Split sessions into categories: upcoming, past, and completed
   const now = new Date();
   const { upcomingSessions, pastSessions, completedSessions } = sessions.reduce((acc, session) => {
@@ -875,6 +979,27 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
   // Get the count of past sessions
   const pastSessionsCount = pastSessions.length;
 
+  // Determine if there are any shareable custom fields to display for the MatchCard
+  let matchShareableCustomFields = [];
+  if (volunteer && volunteerAdminConfig && Array.isArray(volunteerAdminConfig.customFields) && volunteerAdminConfig.customFields.length > 0) {
+    Object.entries(volunteer).forEach(([key, value]) => {
+      const fieldDef = volunteerAdminConfig.customFields.find(
+        (f) => f.name === key && f.shareWithPartner === true
+      );
+      if (fieldDef) {
+        let displayValue = value;
+        if (Array.isArray(value)) {
+          displayValue = value.join(", ");
+        } else if (typeof value === 'boolean') {
+          displayValue = value ? "כן" : "לא";
+        } else if (value === null || value === undefined || value === '') {
+          displayValue = "—"; 
+        }
+        matchShareableCustomFields.push({ key, label: fieldDef.label, value: String(displayValue) });
+      }
+    });
+  }
+
   return (
     <div className="border border-orange-100 bg-orange-100 rounded-lg p-4">
     {/* Header Section */}
@@ -885,32 +1010,54 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
           </div>
           <div>
             <h3 className="font-bold text-orange-900 text-xl mb-1">
-              {volunteer?.fullName || "פונה ללא שם"}
+              {volunteer?.fullName || "מתנדב/ת ללא שם"} {/* Changed to volunteer */}
             </h3>
             <div className="flex items-center gap-4 text-sm text-orange-700">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
-                גיל: {volunteer?.age ?? "—"}
+                גיל: {volunteer?.age ?? "—"} {/* Changed to volunteer */}
               </span>
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
-                מגדר: {volunteer?.gender ?? "—"}
+                מגדר: {volunteer?.gender ?? "—"} {/* Changed to volunteer */}
               </span>
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
-                טלפון: {volunteer?.phone ?? "—"}
+                טלפון: {volunteer?.phone ?? "—"} {/* Changed to volunteer */}
               </span>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Shared Custom Fields from Volunteer */}
+      {matchShareableCustomFields.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-orange-200">
+          <h4 className="font-semibold text-orange-800 text-md mb-2">מידע נוסף מהמתנדב:</h4>
+          <div className="space-y-1 text-sm">
+            {(() => {
+              console.log("[MatchCard - RequesterDashboard] START Rendering Shared Fields. Volunteer Data:", JSON.stringify(volunteer, null, 2));
+              console.log("[MatchCard - RequesterDashboard] Using Volunteer Admin Config:", JSON.stringify(volunteerAdminConfig, null, 2));
+              console.log("[MatchCard - RequesterDashboard] Shareable fields to render:", matchShareableCustomFields);
+              return null; // Or <></>
+            })()}
+            {matchShareableCustomFields.map(field => (
+              <p key={field.key} className="text-orange-700">
+                <strong className="text-orange-800">{field.label}:</strong> {field.value}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+
       {/* Chat and Sessions Buttons */}
       <div className="flex gap-2 flex-wrap">
         <Button onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}>
           {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
         </Button>
-        {upcomingSessions.length > 0 && (
+        {/* Removed Schedule Session button from Requester MatchCard */}
+        {/* {upcomingSessions.length > 0 && (
           <Button
             variant="outline"
             onClick={() => setShowUpcomingSessionsModal(true)}
@@ -918,9 +1065,9 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
           >
             מפגשים מתוכננים ({upcomingSessions.length})
         </Button>
-        )}
+        )} */}
         {pastSessionsCount > 0 && (
-          <Button 
+          <Button
             variant="outline"
             onClick={() => setShowPastSessionsModal(true)}
             className="flex items-center gap-2"
@@ -929,8 +1076,8 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
           </Button>
         )}
         {completedSessions.length > 0 && (
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => setShowCompletedSessionsModal(true)}
             className="flex items-center gap-2"
           >
@@ -940,6 +1087,17 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
       </div>
 
       {/* Modals */}
+      {/* Removed SessionScheduler modal from Requester MatchCard */}
+      {/* {showScheduleModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <SessionScheduler
+              match={match}
+              onClose={() => setShowScheduleModal(false)}
+              handleScheduleSession={handleScheduleSession}
+            />
+          </div>
+        )} */}
+      {/* console.log("Rendering modal section, showUpcomingModal:", showUpcomingSessionsModal) */}
       {showUpcomingSessionsModal && (
         <SessionModal
           title="מפגשים מתוכננים"
@@ -955,7 +1113,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
           readOnly={true}
         />
       )}
-      {showCompletedSessionsModal && (
+      {completedSessions.length > 0 && (
         <SessionModal
           title="מפגשים שהושלמו"
           sessions={completedSessions}
@@ -1011,7 +1169,7 @@ function SessionModal({ title, sessions, onClose, readOnly = false }) {
       <div className="bg-white p-4 rounded-lg border border-orange-200 max-w-md w-full">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-orange-800">{title}</h3>
-          <button 
+          <button
             onClick={onClose}
             className="text-orange-400 hover:text-orange-600"
           >
@@ -1026,8 +1184,8 @@ function SessionModal({ title, sessions, onClose, readOnly = false }) {
         ) : (
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
             {sessions.map(session => (
-              <div 
-                key={session.id} 
+              <div
+                key={session.id}
                 className={`p-3 rounded-md text-sm transition-colors ${getSessionStatusColor(session)}`}
               >
                 <div className="font-medium text-orange-800 flex items-center justify-between">
@@ -1038,7 +1196,7 @@ function SessionModal({ title, sessions, onClose, readOnly = false }) {
                     </span>
                   )}
                 </div>
-                
+
                 <div className="text-orange-600 mt-1">
                   {getLocationIcon(session.location)}{' '}
                   {session.location === 'video' ? 'שיחת וידאו' :
@@ -1053,7 +1211,7 @@ function SessionModal({ title, sessions, onClose, readOnly = false }) {
                 )}
 
               </div>
-            ))} 
+            ))}
           </div>
         )}
       </div>

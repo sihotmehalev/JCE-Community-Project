@@ -2,12 +2,22 @@
 import React, { useState, useRef, useEffect } from "react";
 import ReactDOM from 'react-dom';
 
-export function HoverCard({ user, children }) {
+const formatDisplayValue = (value) => {
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === 'boolean') return value ? "כן" : "לא";
+  if (value === null || value === undefined || value === '') return "—";
+  return String(value);
+};
+
+export function HoverCard({ user, children, adminConfig }) { // Added adminConfig prop
   const [show, setShow] = useState(false);
   const targetRef = useRef(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
   const updatePosition = () => {
+    if (!targetRef.current) { // Added check for targetRef.current
+      return;
+    }
     if (targetRef.current) {
       const rect = targetRef.current.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
@@ -29,6 +39,10 @@ export function HoverCard({ user, children }) {
       });
     }
   };
+
+  useEffect(() => {
+    if (show) console.log("[HoverCard] Props received:", { user, adminConfig });
+  }, [show, user, adminConfig]);
 
   useEffect(() => {
     if (show) {
@@ -77,6 +91,28 @@ export function HoverCard({ user, children }) {
         <div>
           <span className="font-semibold">שעות פנויות:</span> {user.availableHours.join(", ")}
         </div>
+      )}
+      {/* Display Custom Fields from adminConfig */}
+      {adminConfig && adminConfig.customFields && Array.isArray(adminConfig.customFields) && adminConfig.customFields.length > 0 && (
+        <>
+          <div className="mt-2 pt-2 border-t border-orange-100">
+            <div className="font-bold text-orange-700 mb-1">מידע נוסף:</div>
+          </div>
+          {adminConfig.customFields.map(fieldDef => {
+            // Log each field definition and whether the user has this property
+            // console.log(`[HoverCard] Checking field: ${fieldDef.name}, Label: ${fieldDef.label}, User has property: ${user && user.hasOwnProperty(fieldDef.name)}`);
+            
+            if (user && user.hasOwnProperty(fieldDef.name)) {
+              const displayValue = formatDisplayValue(user[fieldDef.name]);
+              return (
+                <div key={fieldDef.name} className="text-sm">
+                  <span className="font-semibold">{fieldDef.label}:</span> {displayValue}
+                </div>
+              );
+            }
+            return null;
+          })}
+        </>
       )}
     </div>
   );

@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { auth, db } from "../../config/firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, increment, writeBatch, collection, serverTimestamp } from "firebase/firestore";
-import RegisterLayout from "../layout/RegisterLayout";
+import { doc, increment, writeBatch, collection, serverTimestamp, getDoc } from "firebase/firestore";
+import RegisterLayout from "../layout/RegisterLayout"; // Assuming this is the correct layout
 import { Eye, EyeOff } from 'lucide-react';
 
 export default function RegisterRequesterPage() {
@@ -32,6 +32,12 @@ export default function RegisterRequesterPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  // Ensure adminConfig is initialized correctly to avoid undefined errors before fetch
+  const [adminConfig, setAdminConfig] = useState({
+    hideNoteField: false,
+    customFields: []
+  });
+  const [adminConfigLoading, setAdminConfigLoading] = useState(true);
 
   const genderOptions = ['זכר', 'נקבה', 'אחר'];
   const maritalStatusOptions = ['רווק/ה', 'נשוי/אה', 'גרוש/ה', 'אלמן/ה', 'אחר'];
@@ -52,6 +58,33 @@ export default function RegisterRequesterPage() {
     chatPref: false
   });
 
+  useEffect(() => {
+    const fetchAdminConfig = async () => {
+      setAdminConfigLoading(true);
+      try {
+        const configDocRef = doc(db, "admin_form_configs", "requester_config");
+        const docSnap = await getDoc(configDocRef);
+        console.log("[RegisterRequesterPage] Fetched admin_form_configs/requester_config snapshot exists:", docSnap.exists());
+        if (docSnap.exists()) {
+          const configData = docSnap.data() || {}; // Ensure configData is an object
+          console.log("[RegisterRequesterPage] Raw configData from Firestore:", configData);
+          // Ensure customFields is always an array and hideNoteField has a default
+          setAdminConfig({
+            hideNoteField: configData.hideNoteField === true, // Explicitly check for true
+            customFields: Array.isArray(configData.customFields) ? configData.customFields : [],
+          });
+        } else {
+          console.log("[RegisterRequesterPage] No admin configuration found for requesters. Using defaults.");
+          setAdminConfig({ hideNoteField: false, customFields: [] }); // Explicitly set defaults
+        }
+      } catch (error) {
+        console.error("[RegisterRequesterPage] Error fetching requester admin config:", error);
+      }
+      setAdminConfigLoading(false);
+    };
+    fetchAdminConfig();
+  }, []);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
       if (name.startsWith('custom_')) {
@@ -62,20 +95,29 @@ export default function RegisterRequesterPage() {
       }));
       return;
     }
-    
-    setFormData(prev => {      if (type === "checkbox") {
+
+    setFormData(prev => {
+      // Handle admin-defined custom fields
+      // Ensure adminConfig and customFields are defined before trying to find a field
+      const adminField = adminConfig?.customFields?.find(field => field.name === name);
+      if (adminField) {
+        if (adminField.type === "checkbox" && !adminField.isArray) { // Simple boolean checkbox
+             return { ...prev, [name]: checked };
+        }
+        return { ...prev, [name]: value };
+      }
+
+      if (type === "checkbox") {
         // Handle checkbox groups (chatPref and frequency)
         if (name === "chatPref" || name === "frequency") {
           const array = Array.isArray(prev[name]) ? prev[name] : [];
           
-          // Handle showing/hiding custom input when "אחר" is checked/unchecked
           if (value === "אחר") {
             setShowCustomInput(prevShow => ({
               ...prevShow,
               [name]: checked
             }));
             
-            // Clear custom input when unchecking "אחר"
             if (!checked) {
               setCustomInputs(prevCustom => ({
                 ...prevCustom,
@@ -104,18 +146,15 @@ export default function RegisterRequesterPage() {
           }));
           
           if (value !== "אחר") {
-            // Clear custom input when a regular option is selected
             setCustomInputs(prevCustom => ({
               ...prevCustom,
               [name]: ''
             }));
-            // Use the selected value directly
             return {
               ...prev,
               [name]: value
             };
           } else {
-            // Keep "אחר" as the field value when custom input is enabled
             return {
               ...prev,
               [name]: "אחר"
@@ -140,10 +179,15 @@ export default function RegisterRequesterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
-    // Check if all agreements are checked
+    setMessage("");
+
     if (!formData.agree1 || !formData.agree2 || !formData.agree3) {
       setMessage("יש לאשר את כל התנאים כדי להמשיך");
+      setLoading(false);
+      return;
+    }
+    if (adminConfigLoading) {
+      setMessage("עדיין טוען הגדרות טופס, אנא המתן...");
       setLoading(false);
       return;
     }
@@ -152,16 +196,25 @@ export default function RegisterRequesterPage() {
       const userCred = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const uid = userCred.user.uid;
         const batch = writeBatch(db);
-        // Merge custom input values for fields with "אחר"
 
-      const { password, ...formDataWithoutPassword } = formData;
-      
+      const { password, ...formDataWithoutPasswordAndAdmin } = formData;
+
+      const customFieldData = {};
+      if (adminConfig?.customFields) {
+        adminConfig.customFields.forEach(field => {
+          if (formData[field.name] !== undefined) {
+            customFieldData[field.name] = formData[field.name];
+          } else if (field.type === 'checkbox' && !field.isArray && field.required === false) {
+            customFieldData[field.name] = false; 
+          }
+        });
+      }
       const finalData = {
-        ...formDataWithoutPassword,
+        ...formDataWithoutPasswordAndAdmin,
+        ...customFieldData,
         gender: formData.gender === "אחר" ? customInputs.gender : formData.gender,
         maritalStatus: formData.maritalStatus === "אחר" ? customInputs.maritalStatus : formData.maritalStatus,
         preferredTimes: formData.preferredTimes === "אחר" ? customInputs.preferredTimes : formData.preferredTimes,
-        // Add custom inputs for checkbox groups if "אחר" is selected
         frequency: formData.frequency.includes("אחר") ? 
           formData.frequency.filter(f => f !== "אחר").concat(customInputs.frequency) : 
           formData.frequency,
@@ -170,24 +223,30 @@ export default function RegisterRequesterPage() {
           formData.chatPref,
         personal: true,
         activeMatchId: null,
-        approved: "true",
-        createdAt: new Date(),
+        approved: true,
+        createdAt: serverTimestamp(),
         lastActivity: serverTimestamp(),
-      };      // Add user data to Users/Info/Requesters collection
+        role: "requester"
+      };
+      
+      if (adminConfig?.hideNoteField === true) {
+        delete finalData.note;
+      }
+      console.log("[RegisterRequesterPage] Final data to save:", finalData);
       const userDocRef = doc(db, "Users", "Info", "Requesters", uid);
       batch.set(userDocRef, finalData);
 
-      // Create initial request document
       const requestRef = doc(collection(db, "Requests"));
       batch.set(requestRef, {
         requesterId: uid,
         volunteerId: null,
         matchId: null,
+        reason: formData.reason,
+        needs: formData.needs,
         status: "waiting_for_first_approval",
         createdAt: serverTimestamp(),
       });
 
-      // Increment the Requesters counter in Users/Info
       const counterRef = doc(db, "Users", "Info");
       batch.set(counterRef, {
         Requesters: increment(1)
@@ -197,8 +256,14 @@ export default function RegisterRequesterPage() {
       
       setMessage("נרשמת בהצלחה!");
     } catch (error) {
-      console.error(error);
-      setMessage("שגיאה: " + error.message);
+      console.error("Registration error:", error);
+      let specificMessage = "שגיאה ברישום: " + error.message;
+      if (error.code === 'auth/email-already-in-use') {
+        specificMessage = 'כתובת אימייל זו כבר רשומה במערכת.';
+      } else if (error.code === 'auth/weak-password') {
+        specificMessage = 'הסיסמה חלשה מדי. אנא בחר סיסמה באורך 6 תווים לפחות.';
+      }
+      setMessage(specificMessage);
     }
     setLoading(false);
   };
@@ -209,11 +274,77 @@ export default function RegisterRequesterPage() {
 
   const inputClassName = "w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 outline-none text-sm transition-all duration-200 bg-white/70 backdrop-blur-sm hover:border-orange-300";
 
+  const renderAdminFields = () => {
+    if (adminConfigLoading) {
+      return <p className="text-sm text-orange-600">טוען שדות נוספים...</p>;
+    }
+    // More robust check: ensure adminConfig exists, customFields is an array, and it's not empty.
+    if (!adminConfig || !Array.isArray(adminConfig.customFields) || adminConfig.customFields.length === 0) {
+      console.log("[RegisterRequesterPage] No custom fields to render or adminConfig.customFields is not an array. Current adminConfig.customFields:", adminConfig?.customFields);
+      return null;
+    }
+
+    return adminConfig.customFields.map(field => {
+      if (!field || typeof field !== 'object' || !field.name || !field.label || !field.type) { // Basic check for field validity
+        console.warn("[RegisterRequesterPage] Invalid custom field object:", field);
+        return null;
+      }
+      console.log("[RegisterRequesterPage] Attempting to render custom field:", field);
+      if (!['text', 'textarea', 'select', 'checkbox', 'number', 'date'].includes(field.type)) {
+          console.warn(`[RegisterRequesterPage] Unsupported field type "${field.type}" for field "${field.name}". Skipping.`);
+          return null;
+      }
+
+      const commonProps = {
+        name: field.name,
+        id: field.name,
+        onChange: handleChange,
+        required: field.required || false,
+        className: inputClassName,
+        placeholder: field.placeholder || field.label,
+        value: formData[field.name] || "", // Ensure formData has this key or defaults to empty string
+      };
+
+      return (
+        <div key={field.name} className="space-y-1">
+          <label htmlFor={field.name} className="block text-sm font-medium text-orange-700">
+            {field.label} {commonProps.required && <span className="text-red-500">*</span>}
+          </label>
+          {field.type === 'text' && <input type="text" {...commonProps} />}
+          {field.type === 'textarea' && <textarea {...commonProps} rows={field.rows || 3} />}
+          {field.type === 'select' && (
+            <select {...commonProps} className={`${inputClassName} bg-white`}>
+              <option value="">{field.placeholder || `בחר/י ${field.label}`}</option> {/* Allow unselecting */}
+              {field.options?.map(opt => ( 
+                <option key={opt.value || opt} value={opt.value || opt}>{opt.label || opt}</option>
+              ))}
+            </select>
+          )}
+          {field.type === 'checkbox' && !field.isArray && ( 
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="checkbox"
+                name={field.name} 
+                id={field.name}   
+                checked={!!formData[field.name]} 
+                onChange={handleChange}
+                required={field.required || false} 
+                className="h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-400"
+              />
+            </div>
+          )}
+          {field.type === 'number' && <input type="number" {...commonProps} />}
+          {field.type === 'date' && <input type="date" {...commonProps} />}
+        </div>
+      );
+    });
+  };
+
   return (
     <RegisterLayout
       title="הרשמה כפונה"
       onSubmit={handleSubmit}
-      loading={loading}
+      loading={loading || adminConfigLoading} 
       message={message}
     >
       <div className="max-w-[400px] mx-auto space-y-4">
@@ -295,9 +426,7 @@ export default function RegisterRequesterPage() {
             </div>
           )}
 
-          {/* Fixed layout - each field in separate row to prevent shifts */}
           <div className="space-y-4">
-            {/* Gender field */}
             <div>
               <select
                 name="gender"
@@ -324,7 +453,6 @@ export default function RegisterRequesterPage() {
               )}
             </div>
 
-            {/* Age field */}
             <input
               name="age"
               placeholder="גיל"
@@ -333,7 +461,6 @@ export default function RegisterRequesterPage() {
               className={inputClassName}
             />
 
-            {/* Marital Status field */}
             <div>
               <select
                 name="maritalStatus"
@@ -360,7 +487,6 @@ export default function RegisterRequesterPage() {
               )}
             </div>
 
-            {/* Location field */}
             <input
               name="location"
               placeholder="מקום מגורים"
@@ -369,7 +495,6 @@ export default function RegisterRequesterPage() {
               className={inputClassName}
             />
 
-            {/* Phone field */}
             <input
               name="phone"
               placeholder="טלפון"
@@ -405,7 +530,8 @@ export default function RegisterRequesterPage() {
         <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
           <h3 className="font-semibold text-orange-800 mb-2">העדפות</h3>
           <fieldset>
-            <legend className="font-medium text-orange-700 mb-2">העדפות לשיחה:</legend>            <div className="space-y-2">
+            <legend className="font-medium text-orange-700 mb-2">העדפות לשיחה:</legend>
+            <div className="space-y-2">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {['טלפון', 'וידאו', 'בהתכתבות', 'פרונטלית', 'אחר'].map((opt) => (
                   <label key={opt} className="flex items-center gap-2 text-orange-700">
@@ -433,7 +559,8 @@ export default function RegisterRequesterPage() {
             </div>
           </fieldset>
           <fieldset>
-            <legend className="font-medium text-orange-700 mb-2">העדפות תדירות:</legend>            <div className="space-y-2">
+            <legend className="font-medium text-orange-700 mb-2">העדפות תדירות:</legend>
+            <div className="space-y-2">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {['פעם בשבוע', 'פעם בשבועיים', 'אחר'].map((opt) => (
                   <label key={opt} className="flex items-center gap-2 text-orange-700">
@@ -527,14 +654,31 @@ export default function RegisterRequesterPage() {
           </label>
         </div>
 
-        <textarea
-          name="note"
-          placeholder="משהו מהלב..."
-          value={formData.note}
-          onChange={handleChange}
-          rows="2"
-          className={inputClassName}
-        />
+        {/* Admin Defined Custom Fields */}
+        {/* Stricter check for rendering custom fields section */}
+        {!adminConfigLoading && adminConfig && Array.isArray(adminConfig.customFields) && adminConfig.customFields.length > 0 && (
+          <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
+            <h3 className="font-semibold text-orange-800 mb-2">פרטים נוספים</h3>
+            {renderAdminFields()}
+          </div>
+        )}
+
+        {/* Note field - conditional rendering based on admin config. Ensure adminConfig is defined. */}
+        {/* Stricter check for rendering note field */}
+        {!adminConfigLoading && adminConfig && typeof adminConfig.hideNoteField === 'boolean' && adminConfig.hideNoteField === false && (
+            <div className="space-y-1">
+              <label htmlFor="note" className="block text-sm font-medium text-orange-700">משהו מהלב... (אופציונלי)</label>
+              <textarea
+                name="note"
+                id="note"
+                placeholder="כל דבר שתרצה/י להוסיף..."
+                value={formData.note}
+                onChange={handleChange}
+                rows="3"
+                className={inputClassName}
+              />
+            </div>
+          )}
       </div>
     </RegisterLayout>
   );

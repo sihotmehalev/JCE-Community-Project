@@ -1,8 +1,8 @@
 // RegisterVolunteerPage.jsx - טופס הרשמה למתנדבים ברמה מקצועית
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { auth, db } from "../../config/firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, increment, writeBatch, serverTimestamp } from "firebase/firestore";
+import { doc, increment, writeBatch, serverTimestamp, getDoc } from "firebase/firestore";
 import RegisterLayout from "../layout/RegisterLayout";
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -90,6 +90,11 @@ export default function RegisterVolunteerPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  // Ensure adminConfig is initialized correctly
+  const [adminConfig, setAdminConfig] = useState({
+    customFields: []
+  });
+  const [adminConfigLoading, setAdminConfigLoading] = useState(true);
 
   const togglePasswordVisibility = () => {
     setShowPassword(prev => !prev);
@@ -108,6 +113,16 @@ export default function RegisterVolunteerPage() {
     }
     
     setFormData(prev => {
+      // Handle admin-defined custom fields
+      // Ensure adminConfig and customFields are defined before trying to find a field
+      const adminField = adminConfig?.customFields?.find(field => field.name === name);
+      if (adminField) {
+        if (adminField.type === "checkbox" && !adminField.isArray) { // Simple boolean checkbox
+             return { ...prev, [name]: checked };
+        }
+        return { ...prev, [name]: value };
+      }
+
       if (type === "checkbox") {
         // Handle arrays for availableDays and availableHours
         if (name === "availableDays" || name === "availableHours") {
@@ -157,6 +172,7 @@ export default function RegisterVolunteerPage() {
         };
       }
       
+      // Handle all other input types
       return {
         ...prev,
         [name]: value
@@ -164,12 +180,45 @@ export default function RegisterVolunteerPage() {
     });
   };
 
+  useEffect(() => {
+    const fetchAdminConfig = async () => {
+      setAdminConfigLoading(true);
+      try {
+        const configDocRef = doc(db, "admin_form_configs", "volunteer_config");
+        const docSnap = await getDoc(configDocRef);
+        console.log("[RegisterVolunteerPage] Fetched admin_form_configs/volunteer_config snapshot exists:", docSnap.exists());
+        if (docSnap.exists()) {
+          const configData = docSnap.data() || {}; // Ensure configData is an object
+          console.log("[RegisterVolunteerPage] Raw configData from Firestore:", configData);
+          // Ensure customFields is always an array
+          setAdminConfig({
+            customFields: Array.isArray(configData.customFields) ? configData.customFields : []
+          });
+        } else {
+          console.log("[RegisterVolunteerPage] No admin configuration found for volunteers. Using defaults.");
+          setAdminConfig({ customFields: [] }); // Explicitly set defaults
+        }
+      } catch (error)
+       {
+        console.error("Error fetching volunteer admin config:", error);
+      }
+      setAdminConfigLoading(false);
+    };
+    fetchAdminConfig();
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setMessage("");
 
     if (!formData.agree) {
       setMessage("יש לאשר את ההצהרה כדי להמשיך");
+      setLoading(false);
+      return;
+    }
+    if (adminConfigLoading) {
+      setMessage("עדיין טוען הגדרות טופס, אנא המתן...");
       setLoading(false);
       return;
     }
@@ -182,6 +231,18 @@ export default function RegisterVolunteerPage() {
       
       const { password, ...formDataWithoutPassword } = formData;
 
+      // Prepare customData from admin-defined fields
+      const customFieldData = {};
+      if (adminConfig?.customFields) {
+        adminConfig.customFields.forEach(field => {
+          if (formData[field.name] !== undefined) {
+            customFieldData[field.name] = formData[field.name];
+          } else if (field.type === 'checkbox' && !field.isArray && field.required === false) {
+            customFieldData[field.name] = false; 
+          }
+        });
+      }
+
       // Merge custom input values for fields with "אחר"
       const finalData = {
         ...formDataWithoutPassword,
@@ -192,12 +253,14 @@ export default function RegisterVolunteerPage() {
         availableHours: formData.availableHours.includes('אחר') 
           ? [...formData.availableHours.filter(h => h !== 'אחר'), customInputs.availableHours] 
           : formData.availableHours,
+        ...customFieldData, // Add admin-defined fields
         approved: "pending",
         personal: true,
         isAvailable: true,
         activeMatchIds: [],
         requestIds: [],
-        createdAt: new Date(),
+        role: "volunteer", // Explicitly set role
+        createdAt: serverTimestamp(),
         lastActivity: serverTimestamp(),
       };
 
@@ -215,19 +278,90 @@ export default function RegisterVolunteerPage() {
       
       setMessage("נרשמת בהצלחה! בקשתך תיבדק על ידי מנהל המערכת.");
     } catch (error) {
-      console.error(error);
-      setMessage("שגיאה: " + error.message);
+      console.error("Registration error:", error);
+      let specificMessage = "שגיאה ברישום: " + error.message;
+      if (error.code === 'auth/email-already-in-use') {
+        specificMessage = 'כתובת אימייל זו כבר רשומה במערכת.';
+      } else if (error.code === 'auth/weak-password') {
+        specificMessage = 'הסיסמה חלשה מדי. אנא בחר סיסמה באורך 6 תווים לפחות.';
+      }
+      setMessage(specificMessage);
     }
     setLoading(false);
   };
 
   const inputClassName = "w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 outline-none text-sm transition-all duration-200 bg-white/70 backdrop-blur-sm hover:border-orange-300";
 
+  // Helper to render dynamic admin-defined fields
+  const renderAdminFields = () => {
+    if (adminConfigLoading) {
+      return <p className="text-sm text-orange-600">טוען שדות נוספים...</p>;
+    }
+    // More robust check
+    if (!adminConfig || !Array.isArray(adminConfig.customFields) || adminConfig.customFields.length === 0) {
+      console.log("[RegisterVolunteerPage] No custom fields to render or adminConfig.customFields is not an array. Current adminConfig.customFields:", adminConfig?.customFields);
+      return null;
+    }
+
+    return adminConfig.customFields.map(field => {
+      if (!field || typeof field !== 'object' || !field.name || !field.label || !field.type) {
+        console.warn("[RegisterVolunteerPage] Invalid custom field object:", field);
+        return null;
+      }
+      console.log("[RegisterVolunteerPage] Attempting to render custom field:", field);
+      if (!['text', 'textarea', 'select', 'checkbox', 'number', 'date'].includes(field.type)) {
+        console.warn(`[RegisterVolunteerPage] Unsupported field type "${field.type}" for field "${field.name}". Skipping.`);
+        return null;
+      }
+
+      const commonProps = {
+        name: field.name,
+        id: field.name,
+        onChange: handleChange,
+        required: field.required || false,
+        className: inputClassName,
+        placeholder: field.placeholder || field.label,
+        value: formData[field.name] || "", 
+      };
+
+      return (
+        <div key={field.name} className="space-y-1">
+          <label htmlFor={field.name} className="block text-sm font-medium text-orange-700">
+            {field.label} {commonProps.required && <span className="text-red-500">*</span>}
+          </label>
+          {field.type === 'text' && <input type="text" {...commonProps} />}
+          {field.type === 'textarea' && <textarea {...commonProps} rows={field.rows || 3} />}
+          {field.type === 'select' && (
+            <select {...commonProps} className={`${inputClassName} bg-white`}>
+              <option value="">{field.placeholder || `בחר/י ${field.label}`}</option>
+              {field.options?.map(opt => ( 
+                <option key={opt.value || opt} value={opt.value || opt}>{opt.label || opt}</option>
+              ))}
+            </select>
+          )}
+          {field.type === 'checkbox' && !field.isArray && ( 
+            <div className="flex items-center gap-2 mt-1">
+              <input type="checkbox" 
+                name={field.name} 
+                id={field.name} 
+                checked={!!formData[field.name]} 
+                onChange={handleChange} 
+                required={field.required || false} 
+                className="h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-400" />
+            </div>
+          )}
+          {field.type === 'number' && <input type="number" {...commonProps} />}
+          {field.type === 'date' && <input type="date" {...commonProps} />}
+        </div>
+      );
+    });
+  };
+
   return (
     <RegisterLayout
       title="הרשמה כמתנדב"
       onSubmit={handleSubmit}
-      loading={loading}
+      loading={loading || adminConfigLoading}
       message={message}
     >
       <div className="max-w-[400px] mx-auto space-y-4">
@@ -529,6 +663,15 @@ export default function RegisterVolunteerPage() {
             className={inputClassName}
           />
         </div>
+
+        {/* Admin Defined Custom Fields */}
+        {/* Stricter check for rendering custom fields section */}
+        {!adminConfigLoading && adminConfig && Array.isArray(adminConfig.customFields) && adminConfig.customFields.length > 0 && (
+          <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
+            <h3 className="font-semibold text-orange-800 mb-2">פרטים נוספים</h3>
+            {renderAdminFields()}
+          </div>
+        )}
 
         <label className="flex items-start gap-2 text-orange-700">
           <input
