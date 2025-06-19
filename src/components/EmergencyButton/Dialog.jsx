@@ -12,9 +12,10 @@ export function Dialog({ isOpen, onClose, children }) {
       />
       
       {/* Dialog Content */}
-      <div className="relative min-h-screen flex items-center justify-center p-4">        <div className="relative rounded-lg shadow-xl max-w-2xl w-full backdrop-blur-sm bg-orange-100/30" 
-             style={{ 
-               position: 'relative', 
+      <div className="relative min-h-screen flex items-center justify-center p-20">
+        <div className="relative rounded-lg shadow-xl max-w-2xl w-full backdrop-blur-sm bg-orange-100/30"
+             style={{
+               position: 'relative',
                zIndex: 999999,
              }}>
           {/* Close Button */}
