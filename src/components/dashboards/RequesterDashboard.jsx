@@ -878,9 +878,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
     return acc;
   }, { upcomingSessions: [], pastSessions: [], completedSessions: [] });
 
-  // Get the count of past sessions
-  const pastSessionsCount = pastSessions.length;
-
   return (
     <div className="border border-orange-100 bg-orange-100 rounded-lg p-4">
     {/* Header Section */}
@@ -925,13 +922,13 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
             מפגשים מתוכננים ({upcomingSessions.length})
         </Button>
         )}
-        {pastSessionsCount > 0 && (
+        {pastSessions.length > 0 && (
           <Button 
             variant="outline"
             onClick={() => setShowPastSessionsModal(true)}
             className="flex items-center gap-2"
           >
-            מפגשים שהסתיימו ({pastSessionsCount})
+            מפגשים שהסתיימו ({pastSessions.length})
           </Button>
         )}
         {completedSessions.length > 0 && (
@@ -951,6 +948,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
           title="מפגשים מתוכננים"
           sessions={upcomingSessions}
           onClose={() => setShowUpcomingSessionsModal(false)}
+          partnerName={volunteer?.fullName}
         />
       )}
       {showPastSessionsModal && (
@@ -959,6 +957,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
           sessions={pastSessions}
           onClose={() => setShowPastSessionsModal(false)}
           readOnly={true}
+          partnerName={volunteer?.fullName}
         />
       )}
       {showCompletedSessionsModal && (
@@ -967,50 +966,16 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
           sessions={completedSessions}
           onClose={() => setShowCompletedSessionsModal(false)}
           readOnly={true}
+          partnerName={volunteer?.fullName}
         />
       )}
     </div>
   );
 }
 
-function SessionModal({ title, sessions, onClose, readOnly = false }) {
+function SessionModal({ title, sessions, onClose, readOnly = false, partnerName }) {
   const now = new Date();
 
-  // Helper function to format session times in Hebrew
-  const formatSessionTime = (date) => {
-    if (!date) return "—";
-    return new Date(date).toLocaleString('he-IL', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getSessionStatusColor = (session) => {
-    if (session.status === 'completed') {
-      return 'bg-green-50 border-green-100';
-    }
-    if (session.scheduledTime < now && !session.status === 'completed') {
-      return 'bg-orange-100 border-orange-200';
-    }
-    return 'bg-orange-50 border-orange-100';
-  };
-
-  const getLocationIcon = (location) => {
-    switch (location) {
-      case 'video':
-        return '🎥';
-      case 'phone':
-        return '📱';
-      case 'in_person':
-        return '🤝';
-      default:
-        return '📅';
-    }
-  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -1034,10 +999,17 @@ function SessionModal({ title, sessions, onClose, readOnly = false }) {
             {sessions.map(session => (
               <div 
                 key={session.id} 
-                className={`p-3 rounded-md text-sm transition-colors ${getSessionStatusColor(session)}`}
+                className={`p-3 rounded-md text-sm transition-colors ${session.status === 'completed' ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}
               >
                 <div className="font-medium text-orange-800 flex items-center justify-between">
-                  <span>{formatSessionTime(session.scheduledTime)}</span>
+                  <span>{new Date(session.scheduledTime).toLocaleString('he-IL', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}</span>
                   {session.status === 'completed' && (
                     <span className="text-green-600 text-xs bg-green-100 px-2 py-1 rounded-full">
                       הושלם
@@ -1046,9 +1018,7 @@ function SessionModal({ title, sessions, onClose, readOnly = false }) {
                 </div>
                 
                 <div className="text-orange-600 mt-1">
-                  {getLocationIcon(session.location)}{' '}
-                  {session.location === 'video' ? 'שיחת וידאו' :
-                   session.location === 'phone' ? 'שיחת טלפון' : 'פגישה פיזית'}
+                  {session.location === 'video' ? '🎥' : session.location === 'phone' ? '📱' : '🤝'}
                   {' • '}{session.durationMinutes} דקות
                 </div>
 
@@ -1057,7 +1027,16 @@ function SessionModal({ title, sessions, onClose, readOnly = false }) {
                     <strong>הערות:</strong> {session.notes}
                   </div>
                 )}
-
+                {!readOnly && session.scheduledTime > now && (
+                  <a
+                    href={`https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`מפגש תמיכה עם ${partnerName || 'השותף/ה שלך'}`)}&dates=${new Date(session.scheduledTime).toISOString().replace(/[-:]|\.\d{3}/g, '')}/${new Date(session.scheduledTime.getTime() + session.durationMinutes * 60 * 1000).toISOString().replace(/[-:]|\.\d{3}/g, '')}&details=${encodeURIComponent(session.notes || 'מפגש תמיכה שנקבע דרך המערכת')}&location=${encodeURIComponent(session.location === 'video' ? 'שיחת וידאו' : session.location === 'phone' ? 'שיחת טלפון' : 'פגישה פיזית')}&sf=true&output=xml`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-orange-100 hover:text-orange-900 h-9 px-4 py-2 border border-orange-200 bg-orange-50 text-orange-700"
+                  >
+                    🗓️ הוסף ליומן גוגל
+                  </a>
+                )}
               </div>
             ))} 
           </div>
