@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { auth, db } from "../../config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -19,10 +19,11 @@ import { Button } from "../ui/button";
 import EmergencyButton from "../EmergencyButton/EmergencyButton";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { Card } from "../ui/card";
-import { X } from "lucide-react";
+import { X, User as UserIcon, Calendar, Clock, MessageCircle, Plus, Sparkles } from "lucide-react"; // Sparkles might be unused now
 import ChatPanel from "../ui/ChatPanel";
 import CustomAlert from "../ui/CustomAlert";
-import { User } from "lucide-react";
+// import { User } from "lucide-react"; // Redundant import
+import LifeAdvice from "./LifeAdvice"; // Corrected import casing
 
 /* ────────────────────────── helpers ────────────────────────── */
 
@@ -49,22 +50,22 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
     const match = timeSlot.match(/^([^(]+)/);
     return match ? match[1].trim() : timeSlot;
   };
-  
+
   // Check frequency and days compatibility
   if (requesterProfile.frequency && (volunteer.availableDays || volunteer.frequency)) {
     maxScore += 3;
-    
+
     const requesterFreqs = Array.isArray(requesterProfile.frequency)
       ? requesterProfile.frequency
       : [requesterProfile.frequency];
-    
+
     // Filter out "אחר" from requester frequencies
     const validFreqs = requesterFreqs.filter(f => f !== "אחר");
-    
-    
+
+
     if (validFreqs.length > 0) {
       const volunteerDaysCount = volunteer.availableDays?.length || 0;
-      
+
       // Score based on whether volunteer has enough available days
       validFreqs.forEach(freq => {
         if (freq === "פעם בשבוע" && volunteerDaysCount >= 1) score += 1.5;
@@ -76,23 +77,23 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
   // Check preferred times compatibility
   if (requesterProfile.preferredTimes && volunteer.availableHours) {
     maxScore += 4;
-    
+
     const requesterTimes = Array.isArray(requesterProfile.preferredTimes)
       ? requesterProfile.preferredTimes
       : [requesterProfile.preferredTimes];
-    
+
     // Filter out "אחר" from requester times
     const validTimes = requesterTimes.filter(t => t !== "אחר");
-    
+
     // Extract just the time period names from volunteer hours
     const volunteerPeriods = volunteer.availableHours.map(extractTimePeriod);
-    
-    
+
+
     // Count matching time periods
-    const matchingPeriods = validTimes.filter(rt => 
+    const matchingPeriods = validTimes.filter(rt =>
       volunteerPeriods.some(vp => vp === rt)
     );
-    
+
     // Award points based on number of matching periods
     // 1 match = 2 points, 2+ matches = 4 points
     if (matchingPeriods.length >= 2) {
@@ -105,6 +106,22 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
   const finalScore = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
   return finalScore;
 };
+
+// Helper function to generate Google Calendar link (moved here or should be imported)
+const generateGoogleCalendarLink = (session, partnerName) => {
+  const startTime = session.scheduledTime;
+  const endTime = new Date(startTime.getTime() + session.durationMinutes * 60000);
+
+  const formatDateForGoogle = (date) => {
+    return date.toISOString().replace(/-|:|\.\d+/g, '');
+  };
+
+  const eventName = `פגישה עם ${partnerName || 'השותף/ה שלך'}`;
+  const details = `מפגש תמיכה מתוכנן. מיקום: ${session.location}. ${session.notes ? `הערות: ${session.notes}` : ''}`;
+  
+  return `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventName)}&dates=${formatDateForGoogle(startTime)}/${formatDateForGoogle(endTime)}&details=${encodeURIComponent(details)}`;
+};
+
 
 // Sort volunteers by compatibility
 const sortVolunteersByCompatibility = (volunteers, requesterProfile) => {
@@ -133,7 +150,7 @@ export default function RequesterDashboard() {
   /* -------- UI state -------- */
   const [loading, setLoading] = useState(true);
   const [requestProfile, setRequestProfile] = useState({});
-  const [personal, setPersonal] = useState(true); // true = פנייה ישירה למתנדב, false = ללא העדפה  
+  const [personal, setPersonal] = useState(true); // true = פנייה ישירה למתנדב, false = ללא העדפה
   const [availableVolunteers, setAvailableVolunteers] = useState([]);
   const [sortedVolunteers, setSortedVolunteers] = useState([]);
   const [adminApprovalRequests, setAdminApprovalRequests] = useState([]);
@@ -143,19 +160,29 @@ export default function RequesterDashboard() {
   const [activeMatchId, setActiveMatchId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState("");
-  const [userData, setUserData] = useState(null);  const [requestLoading, setRequestLoading] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [requestLoading, setRequestLoading] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [activeTab, setActiveTab] = useState("available");
   const [alertMessage, setAlertMessage] = useState(null);
+  const [requesterFormConfig, setRequesterFormConfig] = useState({
+    hideNoteField: false, // Initialize with default structure
+    customFields: []
+  }); // For LifeAdvice
 
   // Set the appropriate first tab when switching modes
   useEffect(() => {
+    // If AI advice tab is active, don't change it when 'personal' toggles
+    if (activeTab === "lifeAdvice") return;
+
     if (personal) {
       setActiveTab("available");
     } else {
+      // If not personal, default to 'current' match tab
       setActiveTab("current");
     }
-  }, [personal]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personal]); // Only re-run when 'personal' changes
 
   /* listener refs */
   const unsubVolunteers = useRef(null);
@@ -174,8 +201,8 @@ export default function RequesterDashboard() {
       async (snap) => {
         const data = snap.data();
         setRequestProfile(data);
-        setPersonal(data.personal ?? true);
-        setUserData(data);
+        setPersonal(data.personal === undefined ? true : data.personal);
+        setUserData(data); // Keep this if other parts of the component use it directly
         setLoading(false);
       },
       (err) => {
@@ -192,7 +219,7 @@ export default function RequesterDashboard() {
   // Fetch the request document to get the declinedVolunteers list
   useEffect(() => {
     if (!user) return;
-    
+
     const fetchDeclinedVolunteers = async () => {
       try {
         // Query for the requester's request
@@ -202,14 +229,14 @@ export default function RequesterDashboard() {
           where("requesterId", "==", user.uid),
           where("status", "==", "waiting_for_first_approval")
         );
-        
+
         const snapshot = await getDocs(q);
-        
+
         if (!snapshot.empty) {
           // Get the first request document (there should only be one per requester)
           const requestDoc = snapshot.docs[0];
           const requestData = requestDoc.data();
-          
+
           // Extract declinedVolunteers array or use empty array if it doesn't exist
           const declined = requestData.declinedVolunteers || [];
           setDeclinedVolunteers(declined);
@@ -220,18 +247,39 @@ export default function RequesterDashboard() {
         console.error("Error fetching declined volunteers:", error);
       }
     };
-    
+
     fetchDeclinedVolunteers();
   }, [user, pendingRequests]); // Re-fetch when pendingRequests changes
-  
+
+  // Fetch requester form configuration for LifeAdvice
+  useEffect(() => {
+    const fetchRequesterConfig = async () => {
+      try {
+        const configDocRef = doc(db, "admin_form_configs", "requester_config");
+        const docSnap = await getDoc(configDocRef);
+        if (docSnap.exists()) {
+          const configData = docSnap.data() || {};
+          // Ensure hideNoteField is also captured if it exists
+          setRequesterFormConfig({
+            hideNoteField: configData.hideNoteField || false,
+            customFields: Array.isArray(configData.customFields) ? configData.customFields : [],
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching requester admin config for LifeAdvice:", error);
+      }
+    };
+    fetchRequesterConfig();
+  }, [authChecked, user]);
+
   /* -------- sort volunteers when data changes -------- */
   useEffect(() => {
-    if (availableVolunteers.length > 0 && requestProfile) {
+    if (availableVolunteers.length > 0 && requestProfile && Object.keys(requestProfile).length > 0) { // Ensure requestProfile is populated
       // Filter out any volunteers that are in the declinedVolunteers list
       const filteredVolunteers = availableVolunteers.filter(
         volunteer => !declinedVolunteers.includes(volunteer.id)
       );
-      
+
       const sorted = sortVolunteersByCompatibility(filteredVolunteers, requestProfile);
       setSortedVolunteers(sorted);
     } else {
@@ -239,7 +287,7 @@ export default function RequesterDashboard() {
     }
   }, [availableVolunteers, requestProfile, declinedVolunteers]);
 
-  /* -------- attach / detach listeners based on mode -------- */  
+  /* -------- attach / detach listeners based on mode -------- */
   useEffect(() => {
     if (loading || !user) return;
 
@@ -262,7 +310,7 @@ export default function RequesterDashboard() {
           } else {
             console.warn("[DEBUG] Failed to fetch volunteer for match:", m);
           }
-        }        
+        }
         setActiveMatch(arr.length > 0 ? arr[0] : null); // Keep existing activeMatch behavior
         setMatches(arr);
       }
@@ -278,7 +326,8 @@ export default function RequesterDashboard() {
         query(
           collection(db, "Users", "Info", "Volunteers"),
           where("approved", "==", "true"),
-          where("isAvailable", "==", true)
+          where("isAvailable", "==", true),
+          where("personal", "==", true) // Only show volunteers in personal mode
         ),
         (snap) => {
           setAvailableVolunteers(
@@ -322,14 +371,15 @@ export default function RequesterDashboard() {
 
   /* -------- listen for pending requests -------- */
   useEffect(() => {
-    if (!user) return;    unsubPendingRequests.current = onSnapshot(
+    if (!user) return;
+    unsubPendingRequests.current = onSnapshot(
       query(
         collection(db, "Requests"),
         where("requesterId", "==", user.uid),
         where("status", "in", ["waiting_for_first_approval", "waiting_for_admin_approval"])
       ),
       async (snap) => {
-        
+
         // Look for the waiting_for_first_approval request to get declinedVolunteers
         const firstApprovalRequest = snap.docs.find(d => d.data().status === "waiting_for_first_approval");
         if (firstApprovalRequest) {
@@ -337,7 +387,7 @@ export default function RequesterDashboard() {
           // Update declined volunteers list
           setDeclinedVolunteers(data.declinedVolunteers || []);
         }
-        
+
         const requests = await Promise.all(snap.docs.map(async (d) => {
           const data = d.data();
           if (data.volunteerId) {
@@ -346,10 +396,10 @@ export default function RequesterDashboard() {
           }
           return { id: d.id, ...data };
         }));
-        
+
         // Filter out requests that don't have a volunteerId
         const requestsWithVolunteer = requests.filter(req => req.volunteerId);
-        
+
         setPendingRequests(requestsWithVolunteer);
       }
     );
@@ -367,11 +417,11 @@ export default function RequesterDashboard() {
       { personal: newVal },
       { merge: true }
     );
-  };  
+  };
   const requestVolunteer = async (volunteerId) => {
     try {
       setRequestLoading(true);
-      
+
       // First verify the volunteer is still available
       const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", volunteerId));
       if (!volunteerDoc.exists()) {
@@ -379,10 +429,10 @@ export default function RequesterDashboard() {
         setAlertMessage({message: "המתנדב/ת לא נמצא/ה במערכת", type: "error"});
         return;
       }
-      
+
       const volunteerData = volunteerDoc.data();
-      
-      if (!volunteerData.isAvailable || !volunteerData.approved) {
+
+      if (!volunteerData.isAvailable || volunteerData.approved !== "true") { // Ensure approved is string "true"
         console.warn("[DEBUG] Volunteer is unavailable or not approved");
         setAlertMessage({message: "המתנדב/ת אינו/ה זמין/ה כעת", type: "error"});
         return;
@@ -395,15 +445,15 @@ export default function RequesterDashboard() {
         where("requesterId", "==", user.uid),
         where("status", "==", "waiting_for_first_approval")
       );
-      
+
       const snapshot = await getDocs(q);
-      
+
       if (!snapshot.empty) {
         const requestDoc = snapshot.docs[0];
         const requestId = requestDoc.id;
-        
+
         // Determine the appropriate status based on volunteer's personal mode setting
-        const newStatus = volunteerData.personal === false ? 
+        const newStatus = volunteerData.personal === false ?
         "waiting_for_admin_approval":
         "waiting_for_first_approval";
 
@@ -414,11 +464,11 @@ export default function RequesterDashboard() {
           status: newStatus,
           updatedAt: serverTimestamp(),
         });
-        
+
         // Update the local state to reflect this change
         const updatedPendingRequests = [...pendingRequests];
         const existingReqIndex = updatedPendingRequests.findIndex(req => req.id === requestId);
-        
+
         if (existingReqIndex >= 0) {
           // Update existing request
           updatedPendingRequests[existingReqIndex] = {
@@ -438,10 +488,15 @@ export default function RequesterDashboard() {
             volunteer: volunteerData
           });
         }
-        
+
         setPendingRequests(updatedPendingRequests);
+      } else {
+        // This case should ideally not happen if a request is always created on registration.
+        // If it can, you might need to create a new request document here.
+        console.error("No 'waiting_for_first_approval' request found for requester to update.");
+        setAlertMessage({message: "שגיאה: לא נמצאה בקשה פתוחה לעדכון.", type: "error"});
       }
-      
+
       setAlertMessage({message: "הבקשה נשלחה בהצלחה וממתינה לאישור", type: "success"});
     } catch (error) {
       console.error("Error requesting volunteer:", error);
@@ -453,15 +508,15 @@ export default function RequesterDashboard() {
   const cancelRequest = async (requestId) => {
     try {
       setRequestLoading(true);
-      
+
       // Find the request to extract current data before updating
       const requestDoc = await getDoc(doc(db, "Requests", requestId));
       if (!requestDoc.exists()) {
         setAlertMessage({message: "הבקשה לא נמצאה במערכת", type: "error"});
         return;
       }
-      
-      
+
+
       // const volunteerId = requestDoc.data().volunteerId;
 
       // Update the request to remove the volunteerId and initiatedBy fields
@@ -470,16 +525,6 @@ export default function RequesterDashboard() {
         initiatedBy: null,
         updatedAt: serverTimestamp(),
       });
-      
-      // In this specific case, since we're using a live snapshot,
-      // we don't need to update the state manually as the Firestore 
-      // listener in the useEffect above will automatically update the UI
-      // when the document changes. However, we can still update it optimistically
-      // for better UX.
-      // const updatedPendingRequests = pendingRequests.filter(req => req.id !== requestId);
-      // setPendingRequests(updatedPendingRequests);
-      
-      // console.log("Updated pending requests after cancel:", updatedPendingRequests);
 
       setAlertMessage({message: "הבקשה בוטלה בהצלחה", type: "success"});
     } catch (error) {
@@ -523,9 +568,10 @@ export default function RequesterDashboard() {
   };
 
   /* -------- render -------- */
-  if (!authChecked || loading) {
+  if (!authChecked || loading || !requestProfile) { // Ensure requestProfile is also loaded
     return <LoadingSpinner />;
-  }  const renderTabContent = () => {
+  }
+  const renderTabContent = () => {
     switch (activeTab) {
       case "available":
         return personal ? (
@@ -534,7 +580,8 @@ export default function RequesterDashboard() {
               <div className="bg-orange-100 border border-orange-200 rounded-lg p-4 text-orange-700 text-center">
                 <p className="font-medium">יש לך כבר שיבוץ פעיל עם מתנדב/ת. אין אפשרות לפנות למתנדבים נוספים.</p>
               </div>
-            ) : sortedVolunteers.length > 0 ? (              sortedVolunteers.map((vol) => (
+            ) : sortedVolunteers.length > 0 ? (
+              sortedVolunteers.map((vol) => (
                 <VolunteerCard
                   key={vol.id}
                   volunteer={vol}
@@ -566,7 +613,8 @@ export default function RequesterDashboard() {
               <Empty text="אין בקשות הממתינות לאישור" />
             )}
           </div>
-        );      case "current":
+        );
+      case "current":
         return (
           <div className="space-y-4">
             {activeMatch ? (
@@ -581,6 +629,13 @@ export default function RequesterDashboard() {
             )}
           </div>
         );
+      case "lifeAdvice": // New case for LifeAdvice tab
+        // Ensure both requestProfile and requesterFormConfig are loaded before rendering
+        if (!requestProfile || Object.keys(requestProfile).length === 0 || !requesterFormConfig) {
+           return <LoadingSpinner />;
+        }
+        // Pass requestProfile as userData and the fetched config
+        return requestProfile ? <LifeAdvice userData={requestProfile} requesterFormConfig={requesterFormConfig} /> : <LoadingSpinner />;
 
       default:
         return null;
@@ -591,8 +646,8 @@ export default function RequesterDashboard() {
     <div className="p-6">
       {/* header + toggle */}
       <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-orange-800">
-          שלום {userData?.fullName?.split(' ')[0] || ''} 👋
+        <h1 className="text-2xl font-bold text-orange-800 flex-grow">
+          שלום {requestProfile?.fullName?.split(' ')[0] || ''} 👋
         </h1>
         <Button
           variant="outline"
@@ -601,7 +656,7 @@ export default function RequesterDashboard() {
         >
           הפרופיל שלי
         </Button>
-        <div className="flex-1" />
+        {/* AI Button removed from here */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-orange-700">פנייה ישירה למתנדב</span>
           <button
@@ -618,11 +673,12 @@ export default function RequesterDashboard() {
           </button>
           <span className="text-sm text-orange-700">ללא העדפה</span>
         </div>
-      </div>      {/* Tabs */}
+      </div>
+      {/* Tabs */}
       <Card className="mb-6">
         <div className="flex border-b border-gray-200">
           {personal && (
-            <>              
+            <>
             <button
                 onClick={() => setActiveTab("available")}
                 className={`
@@ -648,7 +704,8 @@ export default function RequesterDashboard() {
                 בקשות שממתינות לאישור מנהל ({adminApprovalRequests.length})
               </button>
             </>
-          )}          <button
+          )}
+          <button
             onClick={() => setActiveTab("current")}
             className={`
               flex-1 p-4 text-center font-medium text-sm focus:outline-none
@@ -660,10 +717,25 @@ export default function RequesterDashboard() {
           >
             השיבוץ הנוכחי שלי ({activeMatch ? 1 : 0})
           </button>
+          <button
+            onClick={() => setActiveTab("lifeAdvice")}
+            className={`
+              flex-1 p-4 text-center font-medium text-sm focus:outline-none flex items-center justify-center gap-2
+              ${activeTab === "lifeAdvice"
+                ? 'bg-gradient-to-r from-orange-400 via-red-400 to-purple-500 text-white shadow-inner'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-orange-50/50'
+              }
+              transition-all duration-200 ease-in-out
+            `}
+          >
+            <Sparkles className={`w-4 h-4 ${activeTab === "lifeAdvice" ? 'text-white' : 'text-purple-500'}`} />
+            ייעוץ מהלב AI
+          </button>
         </div>
       </Card>
 
-      {/* Tab Content */}      <div className="mt-6">
+      {/* Tab Content */}
+      <div className="mt-6">
         {renderTabContent()}
       </div>
 
@@ -711,19 +783,19 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
 
   useEffect(() => {
     const fetchVolunteerConfig = async () => {
-      console.log(`[VolunteerCard] Attempting to fetch volunteer_config for volunteerId: ${volunteer.id}`);
+      // console.log(`[VolunteerCard] Attempting to fetch volunteer_config for volunteerId: ${volunteer.id}`);
       try {
         const configDocRef = doc(db, "admin_form_configs", "volunteer_config");
         const configSnap = await getDoc(configDocRef);
         if (configSnap.exists()) {
           const configData = configSnap.data();
-          console.log("[VolunteerCard] Successfully fetched volunteer_config data:", JSON.stringify(configData, null, 2));
+          // console.log("[VolunteerCard] Successfully fetched volunteer_config data:", JSON.stringify(configData, null, 2));
           setVolunteerAdminConfig({
             ...configData,
             customFields: Array.isArray(configData.customFields) ? configData.customFields : []
           });
         } else {
-          console.warn("[VolunteerCard] Volunteer admin config document not found at admin_form_configs/volunteer_config.");
+          // console.warn("[VolunteerCard] Volunteer admin config document not found at admin_form_configs/volunteer_config.");
           setVolunteerAdminConfig({ customFields: [] });
         }
       } catch (error) {
@@ -743,10 +815,10 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
   // Check if there's any pending request to any volunteer (to hide buttons for other volunteers)
   const hasAnyPendingRequest = pendingRequests.length > 0;
   const showOtherVolunteers = !hasAnyPendingRequest || isPending;
-  
+
   // Don't show the button if this is not the pending volunteer and there's another pending request
   const shouldShowButton = showOtherVolunteers || isPending;
-  
+
   // Determine if there are any shareable custom fields to display
   let shareableCustomFields = [];
   if (volunteer && volunteerAdminConfig && Array.isArray(volunteerAdminConfig.customFields) && volunteerAdminConfig.customFields.length > 0) {
@@ -761,16 +833,17 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
         } else if (typeof value === 'boolean') {
           displayValue = value ? "כן" : "לא";
         } else if (value === null || value === undefined || value === '') {
-          displayValue = "—"; 
+          displayValue = "—";
         }
         shareableCustomFields.push({ key, label: fieldDef.label, value: String(displayValue) });
       }
     });
   }
 
-  console.log(`Volunteer ${volunteer.id}: isPending=${isPending}, hasAnyPending=${hasAnyPendingRequest}, shouldShow=${shouldShowButton}`);
+  // console.log(`Volunteer ${volunteer.id}: isPending=${isPending}, hasAnyPending=${hasAnyPendingRequest}, shouldShow=${shouldShowButton}`);
 
-  return (    <div className="border border-orange-100 rounded-lg p-4 bg-orange-100">
+  return (
+    <div className="border border-orange-100 rounded-lg p-4 bg-orange-100">
       {isRecommended && (
         <div className="mb-2 flex items-center gap-2">
           <span className="text-green-600 text-sm font-medium bg-green-50 px-2 py-1 rounded-full border border-green-200">
@@ -781,11 +854,11 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
         <p className="font-semibold text-lg mb-1 text-orange-800">
         {volunteer.fullName || "מתנדב/ת"}
       </p>
-      
+
       <p className="text-sm mb-2 text-orange-700">
         תחום: {volunteer.profession ?? "—"}
       </p>
-      
+
       <p className="text-sm mb-2 text-orange-700">
         ניסיון: {volunteer.experience ?? "—"}
       </p>
@@ -796,7 +869,7 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
           שעות זמינות: {formatList(volunteer.availableHours)}
         </p>
       )}
-      
+
       {volunteer.availableDays && (
         <p className="text-sm mb-2 text-orange-700">
           ימים זמינים: {formatList(volunteer.availableDays)}
@@ -814,12 +887,12 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
         <div className="mt-4 pt-4 border-t border-orange-200">
           <h4 className="font-semibold text-orange-800 text-md mb-2">מידע נוסף מהמתנדב:</h4>
           <div className="space-y-1 text-sm">
-            {(() => {
+            {/* {(() => {
               console.log("[VolunteerCard] START Rendering Shared Fields. Volunteer Data:", JSON.stringify(volunteer, null, 2));
               console.log("[VolunteerCard] Using Volunteer Admin Config:", JSON.stringify(volunteerAdminConfig, null, 2));
               console.log("[VolunteerCard] Shareable fields to render:", shareableCustomFields);
-              return null; 
-            })()}
+              return null;
+            })()} */}
             {shareableCustomFields.map(field => (
               <p key={field.key} className="text-orange-700">
                 <strong className="text-orange-800">{field.label}:</strong> {field.value}
@@ -828,10 +901,10 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
           </div>
         </div>
       )}
-      
+
       {shouldShowButton && (
         isPending ? (
-          <Button 
+          <Button
             onClick={() => cancelRequest(pendingRequest.id)}
             className={requestLoading ? 'opacity-50 cursor-not-allowed bg-red-600 hover:bg-red-700' : 'bg-red-600 hover:bg-red-700'}
             disabled={requestLoading}
@@ -839,7 +912,7 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
             {requestLoading ? 'מבטל בקשה...' : 'בטל בקשה'}
           </Button>
         ) : (
-          <Button 
+          <Button
             onClick={onRequest}
             className={requestLoading ? 'opacity-50 cursor-not-allowed' : ''}
             disabled={requestLoading}
@@ -879,7 +952,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
   const [showUpcomingSessionsModal, setShowUpcomingSessionsModal] = useState(false);
   const [showPastSessionsModal, setShowPastSessionsModal] = useState(false);
   const [showCompletedSessionsModal, setShowCompletedSessionsModal] = useState(false);
-  const [volunteerAdminConfig, setVolunteerAdminConfig] = useState(null); 
+  const [volunteerAdminConfig, setVolunteerAdminConfig] = useState(null);
 
   useEffect(() => {
     const sessionsRef = collection(db, "Sessions");
@@ -904,27 +977,27 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
   useEffect(() => {
     const fetchVolunteerConfig = async () => {
       if (match?.volunteerId) {
-        console.log(`[MatchCard - RequesterDashboard] Attempting to fetch volunteer_config for volunteerId: ${match.volunteerId}`);
+        // console.log(`[MatchCard - RequesterDashboard] Attempting to fetch volunteer_config for volunteerId: ${match.volunteerId}`);
         try {
           const configDocRef = doc(db, "admin_form_configs", "volunteer_config");
           const configSnap = await getDoc(configDocRef);
           if (configSnap.exists()) {
             const configData = configSnap.data();
-            console.log("[MatchCard - RequesterDashboard] Successfully fetched volunteer_config data:", JSON.stringify(configData, null, 2));
+            // console.log("[MatchCard - RequesterDashboard] Successfully fetched volunteer_config data:", JSON.stringify(configData, null, 2));
             setVolunteerAdminConfig({
               ...configData,
               customFields: Array.isArray(configData.customFields) ? configData.customFields : []
             });
           } else {
-            console.warn("[MatchCard - RequesterDashboard] Volunteer admin config document not found at admin_form_configs/volunteer_config.");
-            setVolunteerAdminConfig({ customFields: [] }); 
+            // console.warn("[MatchCard - RequesterDashboard] Volunteer admin config document not found at admin_form_configs/volunteer_config.");
+            setVolunteerAdminConfig({ customFields: [] });
           }
         } catch (error) {
           console.error("[MatchCard - RequesterDashboard] Error fetching volunteer admin config:", error);
-          setVolunteerAdminConfig({ customFields: [] }); 
+          setVolunteerAdminConfig({ customFields: [] });
         }
       } else {
-        console.log("[MatchCard - RequesterDashboard] No volunteerId in match, cannot fetch config.");
+        // console.log("[MatchCard - RequesterDashboard] No volunteerId in match, cannot fetch config.");
         setVolunteerAdminConfig({ customFields: [] });
       }
     };
@@ -962,7 +1035,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
         } else if (typeof value === 'boolean') {
           displayValue = value ? "כן" : "לא";
         } else if (value === null || value === undefined || value === '') {
-          displayValue = "—"; 
+          displayValue = "—";
         }
         matchShareableCustomFields.push({ key, label: fieldDef.label, value: String(displayValue) });
       }
@@ -975,7 +1048,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
-            <User className="w-6 h-6 text-orange-600" />
+            <UserIcon className="w-6 h-6 text-orange-600" />
           </div>
           <div>
             <h3 className="font-bold text-orange-900 text-xl mb-1">
@@ -1004,12 +1077,12 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
         <div className="mt-4 pt-4 border-t border-orange-200">
           <h4 className="font-semibold text-orange-800 text-md mb-2">מידע נוסף מהמתנדב:</h4>
           <div className="space-y-1 text-sm">
-            {(() => {
+            {/* {(() => {
               console.log("[MatchCard - RequesterDashboard] START Rendering Shared Fields. Volunteer Data:", JSON.stringify(volunteer, null, 2));
               console.log("[MatchCard - RequesterDashboard] Using Volunteer Admin Config:", JSON.stringify(volunteerAdminConfig, null, 2));
               console.log("[MatchCard - RequesterDashboard] Shareable fields to render:", matchShareableCustomFields);
               return null; // Or <></>
-            })()}
+            })()} */}
             {matchShareableCustomFields.map(field => (
               <p key={field.key} className="text-orange-700">
                 <strong className="text-orange-800">{field.label}:</strong> {field.value}
@@ -1025,7 +1098,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
         <Button onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}>
           {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
         </Button>
-        {/* Removed Schedule Session button from Requester MatchCard */}
         {upcomingSessions.length > 0 && (
           <Button
             variant="outline"
@@ -1041,7 +1113,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
             onClick={() => setShowPastSessionsModal(true)}
             className="flex items-center gap-2"
           >
-            מפגשים שהסתיימו ({pastSessions.length})
+            מפגשים שהסתיימו ({pastSessionsCount})
           </Button>
         )}
         {completedSessions.length > 0 && (
@@ -1056,17 +1128,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
       </div>
 
       {/* Modals */}
-      {/* Removed SessionScheduler modal from Requester MatchCard */}
-      {/* {showScheduleModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <SessionScheduler
-              match={match}
-              onClose={() => setShowScheduleModal(false)}
-              handleScheduleSession={handleScheduleSession}
-            />
-          </div>
-        )} */}
-      {/* console.log("Rendering modal section, showUpcomingModal:", showUpcomingSessionsModal) */}
       {showUpcomingSessionsModal && (
         <SessionModal
           title="מפגשים מתוכננים"
@@ -1100,34 +1161,41 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
 function SessionModal({ title, sessions, onClose, readOnly = false, partnerName }) {
   const now = new Date();
 
-  // Helper to generate Google Calendar link
-  const generateGoogleCalendarLink = (session, partnerName) => {
-    const startTime = new Date(session.scheduledTime);
-    const endTime = new Date(startTime.getTime() + session.durationMinutes * 60 * 1000);
-
-    const formatDateTime = (date) => {
-      return date.toISOString().replace(/[-:]|\.\d{3}/g, '');
-    };
-
-    const title = encodeURIComponent(`מפגש תמיכה עם ${partnerName}`);
-    const dates = `${formatDateTime(startTime)}/${formatDateTime(endTime)}`;
-    const details = encodeURIComponent(session.notes || 'מפגש תמיכה שנקבע דרך המערכת');
-    let location = '';
-    if (session.location === 'video') location = encodeURIComponent('שיחת וידאו');
-    if (session.location === 'phone') location = encodeURIComponent('שיחת טלפון');
-    if (session.location === 'in_person') location = encodeURIComponent('פגישה פיזית');
-
-    return (
-      `https://www.google.com/calendar/render?action=TEMPLATE` +
-      `&text=${title}` +
-      `&dates=${dates}` +
-      `&details=${details}` +
-      `&location=${location}` +
-      `&sf=true` +
-      `&output=xml`
-    );
+  // Helper function to format session times in Hebrew
+  const formatSessionTime = (date) => {
+    if (!date) return "—";
+    return new Date(date).toLocaleString('he-IL', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
+  const getSessionStatusColor = (session) => {
+    if (session.status === 'completed') {
+      return 'bg-green-50 border-green-100';
+    }
+    if (session.scheduledTime < now && session.status !== 'completed') { // Corrected logic
+      return 'bg-orange-100 border-orange-200';
+    }
+    return 'bg-orange-50 border-orange-100';
+  };
+
+  const getLocationIcon = (location) => {
+    switch (location) {
+      case 'video':
+        return '🎥';
+      case 'phone':
+        return '📱';
+      case 'in_person':
+        return '🤝';
+      default:
+        return '📅';
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -1149,8 +1217,8 @@ function SessionModal({ title, sessions, onClose, readOnly = false, partnerName 
         ) : (
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
             {sessions.map(session => (
-              <div 
-                key={session.id} 
+              <div
+                key={session.id}
                 className={`p-3 rounded-md text-sm transition-colors ${session.status === 'completed' ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}
               >
                 <div className="font-medium text-orange-800 flex items-center justify-between">
@@ -1177,6 +1245,11 @@ function SessionModal({ title, sessions, onClose, readOnly = false, partnerName 
                 {session.notes && (
                   <div className="text-orange-500 mt-2 bg-white/50 p-2 rounded">
                     <strong>הערות:</strong> {session.notes}
+                  </div>
+                )}
+                 {session.status === 'completed' && session.sessionSummary && (
+                  <div className="mt-2 text-gray-600 bg-white/80 p-2 rounded border border-orange-100">
+                    <strong>סיכום המפגש:</strong> {session.sessionSummary}
                   </div>
                 )}
                 {!readOnly && session.scheduledTime > now && (
