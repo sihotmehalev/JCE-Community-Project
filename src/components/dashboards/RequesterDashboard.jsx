@@ -23,6 +23,7 @@ import { X } from "lucide-react";
 import ChatPanel from "../ui/ChatPanel";
 import CustomAlert from "../ui/CustomAlert";
 import { User } from "lucide-react";
+import { generateRandomId } from "../../utils/firebaseHelpers";
 
 /* ────────────────────────── helpers ────────────────────────── */
 
@@ -164,6 +165,12 @@ export default function RequesterDashboard() {
   const unsubChat = useRef(null);
   const unsubPendingRequests = useRef(null);
   /* -------- bootstrap requester profile -------- */
+
+  // Admin Chat Panel
+  const [showAdminChatPanel, setShowAdminChatPanel] = useState(false);
+  const [adminMessages, setAdminMessages] = useState([]);
+  const [adminNewMsg, setAdminNewMsg] = useState("");
+
   useEffect(() => {
     if (!authChecked || !user) return;
 
@@ -491,6 +498,7 @@ export default function RequesterDashboard() {
   };
 
   const openChat = (matchId) => {
+    setShowAdminChatPanel(false);
     setActiveMatchId(matchId);
     unsubChat.current?.();
     unsubChat.current = onSnapshot(
@@ -587,6 +595,62 @@ export default function RequesterDashboard() {
     }
   };
 
+  const openAdminChat = async () => {
+    if (unsubChat.current) closeChat();
+
+    setAdminMessages([]);
+    let convoId = "";
+    try {
+      const userDoc = await getDoc(doc(db, "Users", "Info", "Requesters", user.uid));
+      convoId = userDoc.data().conversationsWithAdminId;
+      if (!convoId) {
+        convoId = generateRandomId();
+        await updateDoc(doc(db, "Users", "Info", "Requesters", user.uid), {
+          conversationsWithAdminId: convoId,
+        });
+      }
+      const msgs = await getDocs(
+        query(
+          collection(db, "conversations", convoId, "messages"),
+          orderBy("timestamp")
+        )
+      );
+      setAdminMessages(msgs.docs.map((d) => ({ id: d.id, ...d.data() })));
+      
+    } catch (error) {
+      console.error("Error opening admin chat:", error);
+      setAlertMessage({message: "אירעה שגיאה בפתיחת הצ'אט. אנא נסה שוב", type: "error"});
+    }
+    setShowAdminChatPanel(true);
+    setAdminNewMsg("");
+  };
+
+  const closeAdminChat = () => {
+    setShowAdminChatPanel(false);
+    setAdminMessages([]);
+    setAdminNewMsg("");
+  };
+
+  const sendAdminMessage = async () => {
+    if (!adminNewMsg.trim()) return;
+    const userDoc = await getDoc(doc(db, "Users", "Info", "Requesters", user.uid));
+    const convoId = userDoc.data().conversationsWithAdminId;
+    if (!convoId) {
+      setAlertMessage({message: "אירעה שגיאה בשליחת ההודעה. אנא נסה שוב", type: "error"});
+      return;
+    }
+    await addDoc(
+      collection(db, "conversations", convoId, "messages"),
+      {
+        text: adminNewMsg.trim(),
+        senderId: user.uid,
+        timestamp: serverTimestamp(),
+      }
+    );
+    setAdminMessages(prev => [...prev, { text: adminNewMsg.trim(), senderId: user.uid, timestamp: serverTimestamp() }]);
+    setAdminNewMsg("");
+  };  
+
   return (
     <div className="p-6">
       {/* header + toggle */}
@@ -600,6 +664,13 @@ export default function RequesterDashboard() {
           onClick={() => window.location.href = '/profile'}
         >
           הפרופיל שלי
+        </Button>
+        <Button
+          variant="outline"
+          className="mr-2"
+          onClick={openAdminChat}
+        >
+           צאט עם מנהל
         </Button>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
@@ -679,6 +750,17 @@ export default function RequesterDashboard() {
         setNewMsg={setNewMsg}
         onSend={sendMessage}
         chatPartnerName={activeMatch?.volunteer?.fullName || 'שיחה'}
+      />
+
+        {/* Admin Chat Panel */}
+        <ChatPanel
+        isOpen={showAdminChatPanel}
+        onClose={closeAdminChat}
+        messages={adminMessages}
+        newMsg={adminNewMsg}
+        setNewMsg={setAdminNewMsg}
+        onSend={sendAdminMessage}
+        chatPartnerName={'מנהל'}
       />
 
       <CustomAlert
