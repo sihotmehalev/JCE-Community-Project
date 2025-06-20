@@ -3,6 +3,7 @@ import { DropdownSection } from './DropdownSection';
 import UnifiedAnalyticsBarChart from './UnifiedAnalyticsBarChart';
 
 export const AdminAnalyticsTab = () => {
+    console.log('AdminAnalyticsTab rendered');
     return (
         <div >
             <h3 className="font-semibold mb-4 text-orange-700">
