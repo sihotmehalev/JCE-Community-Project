@@ -14,14 +14,13 @@ import {
   query,
   where,
   orderBy,
-  serverTimestamp,
-  arrayUnion
+  serverTimestamp
 } from "firebase/firestore";
 import { Button } from "../ui/button";
 import EmergencyButton from "../EmergencyButton/EmergencyButton";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { Card } from "../ui/card";
-import { X, User, Calendar, Clock, MessageCircle, Plus, Sparkles } from "lucide-react"; // Sparkles might be unused now
+import { X, User, Sparkles } from "lucide-react"; // Sparkles might be unused now
 import ChatPanel from "../ui/ChatPanel";
 import CustomAlert from "../ui/CustomAlert";
 import LifeAdvice from "./LifeAdvice"; // Corrected import casing
@@ -105,7 +104,7 @@ export default function RequesterDashboard() {
   const [activeMatchId, setActiveMatchId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState("");
-  const [userData, setUserData] = useState(null);
+  const [, setUserData] = useState(null);
   const [requestLoading, setRequestLoading] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [activeTab, setActiveTab] = useState("available");

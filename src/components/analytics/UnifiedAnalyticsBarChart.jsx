@@ -120,31 +120,24 @@ export default function UnifiedAnalyticsBarChart() {
   useEffect(() => {
     let items = [];
     let dateField = 'createdAt';
-    let label = '';
     if (dataType === 'matches') {
       items = matches;
       dateField = 'startDate';
-      label = 'התאמות חדשות';
     } else if (dataType === 'sessions') {
       items = sessions;
       dateField = 'createdAt';
-      label = 'שיחות חדשות';
     } else if (dataType === 'requesters') {
       items = requesters;
       dateField = 'createdAt';
-      label = 'פונים חדשים';
     } else if (dataType === 'volunteers') {
       items = volunteers;
       dateField = 'createdAt';
-      label = 'מתנדבים חדשים';
     } else if (dataType === 'users') {
       items = [...requesters, ...volunteers];
       dateField = 'createdAt';
-      label = 'פונים ומתנדבים חדשים';
     } else if (dataType === 'events') {
       items = events;
       dateField = 'Event_added_time';
-      label = 'אירועים חדשים'; 
     }
     if (!items.length) {
       setChartData([]);

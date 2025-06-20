@@ -489,8 +489,8 @@ export default function AdminDashboard() {
       await batch.commit();
 
       /* ---- fire notifications & e-mails ---- */
-      const requester  = requesters .find(r => r.id === requestData.requesterId);
-      const volunteer  = volunteers .find(v => v.id === requestData.volunteerId);
+      const requester = requesters.find(r => r.id === requestData.requesterId);
+      const volunteer = volunteers.find(v => v.id === requestData.volunteerId);
 
       await createNotification(requester.id , `נוצרה עבורך התאמה חדשה עם ${volunteer?.fullName || "מתנדב/ת"}!`, "/requester-dashboard");
       await createNotification(volunteer.id , `נוצרה עבורך התאמה חדשה עם ${requester?.fullName  || "פונה"}!`,         "/volunteer-dashboard");

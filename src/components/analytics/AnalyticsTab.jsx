@@ -1,5 +1,4 @@
 import React from 'react';
-import { DropdownSection } from './DropdownSection';
 import UnifiedAnalyticsBarChart from './UnifiedAnalyticsBarChart';
 
 export const AdminAnalyticsTab = () => {
