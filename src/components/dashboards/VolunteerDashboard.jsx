@@ -15,13 +15,17 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  increment,
   arrayUnion,
+  getDocs
 } from "firebase/firestore";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import ChatPanel from "../ui/ChatPanel";
 import CustomAlert from "../ui/CustomAlert";
+import { generateRandomId } from "../../utils/firebaseHelpers";
+// Removed import SessionScheduler from "../modals/SessionScheduler"; 
 
 const fetchRequester = async (uid) => {
   if (!uid) {
@@ -102,7 +106,19 @@ export default function VolunteerDashboard() {
       setActiveTab("activeMatches");
     }
   }, [personal]);
+  /* listener refs */
+  const unsubDirect = useRef(null);
+  const unsubPool   = useRef(null);
+  const unsubMatch  = useRef(null);
+  const unsubAdminApproval = useRef(null);
+  const unsubChat   = useRef(null);
 
+    // Admin Chat Panel
+  const [showAdminChatPanel, setShowAdminChatPanel] = useState(false);
+  const [adminMessages, setAdminMessages] = useState([]);
+  const [adminNewMsg, setAdminNewMsg] = useState("");
+
+  /* -------- bootstrap volunteer profile -------- */
   useEffect(() => {
     if (!authChecked || !user) return;
     const volRef = doc(db, "Users", "Info", "Volunteers", user.uid);
@@ -146,33 +162,93 @@ export default function VolunteerDashboard() {
       setMatches(arr.filter(Boolean));
     });
 
-    if (personal) {
-      unsubDirect.current = onSnapshot(query(collection(db, "Requests"), where("volunteerId", "==", user.uid), where("status", "==", "waiting_for_first_approval")), async (snap) => {
-        const arr = await Promise.all(snap.docs.map(async d => {
-          const rqData = d.data();
-          if (rqData.declinedVolunteers?.includes(user.uid)) return null;
-          const rqUser = await fetchRequester(rqData.requesterId);
-          return (rqUser && rqUser.personal === true) ? { id: d.id, ...rqData, requester: rqUser } : null;
-        }));
-        setDirect(arr.filter(Boolean));
-      });
-      unsubAdminApproval.current = onSnapshot(query(collection(db, "Requests"), where("volunteerId", "==", user.uid), where("status", "==", "waiting_for_admin_approval")), async (snap) => {
-        const arr = await Promise.all(snap.docs.map(async d => {
-          const rqData = d.data();
-          const rqUser = await fetchRequester(rqData.requesterId);
-          return rqUser ? { id: d.id, ...rqData, requester: rqUser } : null;
-        }));
-        setAdminApprovalRequests(arr.filter(Boolean));
-      });
-      unsubPool.current = onSnapshot(query(collection(db, "Requests"), where("volunteerId", "==", null), where("status", "==", "waiting_for_first_approval")), async (snap) => {
-        const arr = await Promise.all(snap.docs.map(async d => {
-          const rqData = d.data();
-          if (rqData.declinedVolunteers?.includes(user.uid)) return null;
-          const rqUser = await fetchRequester(rqData.requesterId);
-          return (rqUser && rqUser.personal === false) ? { id: d.id, ...rqData, requester: rqUser } : null;
-        }));
-        setPool(arr.filter(Boolean));
-      });
+    // ---- personal-only sections ----
+    if (personal) {      // direct Requests
+      unsubDirect.current = onSnapshot(
+        query(
+          collection(db, "Requests"),
+          where("volunteerId", "==", user.uid),
+          where("status",      "==", "waiting_for_first_approval")
+        ),
+        async (snap) => {
+            const arr = [];
+          for (const d of snap.docs) {
+            const rqData = d.data();
+            
+            // Check if this volunteer is in the declined list
+            const declinedVolunteers = rqData.declinedVolunteers || [];
+            if (declinedVolunteers.includes(user.uid)) {
+              continue;
+            }
+
+            const rqUser = await fetchRequester(rqData.requesterId);
+            
+            if (rqUser && rqUser.personal === true) {
+              arr.push({ id: d.id, ...rqData, requester: rqUser });
+            } else {
+            }
+          }
+          
+          setDirect(arr);
+        }
+      );      // Requests waiting for admin approval (new section)
+      unsubAdminApproval.current = onSnapshot(
+        query(
+          collection(db, "Requests"),
+          where("volunteerId", "==", user.uid),
+          where("status",      "==", "waiting_for_admin_approval")
+        ),
+        async (snap) => {
+          console.log("[DEBUG] Admin approval requests snapshot received, docs count:", snap.docs.length);
+          console.log("[DEBUG] Admin approval requests raw data:", snap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+          const arr = [];
+          for (const d of snap.docs) {
+            const rqData = d.data();
+            console.log("[DEBUG] Processing admin approval request:", { id: d.id, ...rqData });
+
+            const rqUser = await fetchRequester(rqData.requesterId);
+            console.log("[DEBUG] Fetched requester for admin approval request:", rqUser);
+
+            // Assuming these requests also come from requesters with personal: false, or this filter is not needed here
+            if (rqUser) { // No personal filter needed here, as these are assigned requests
+              arr.push({ id: d.id, ...rqData, requester: rqUser });
+            } else {
+            }
+          }
+          
+          setAdminApprovalRequests(arr);
+        }
+      );      // open pool
+      unsubPool.current = onSnapshot(
+        query(
+          collection(db, "Requests"),
+          where("volunteerId", "==", null),
+          where("status",      "==", "waiting_for_first_approval")
+        ),
+        async (snap) => {
+          const arr = [];
+          for (const d of snap.docs) {
+            const rqData = d.data();
+            
+            // Check if this volunteer is in the declined list
+            const declinedVolunteers = rqData.declinedVolunteers || [];
+            if (declinedVolunteers.includes(user.uid)) {
+              continue;
+            }
+
+            const rqUser = await fetchRequester(rqData.requesterId);
+            console.log("[DEBUG] Fetched requester for pool request:", rqUser);
+
+            if (rqUser && rqUser.personal === false) {
+              arr.push({ id: d.id, ...rqData, requester: rqUser });
+            } 
+          }
+
+          console.log("[DEBUG] Final pool array:", arr);
+          setPool(arr);
+        }
+      );
     } else {
       unsubDirect.current?.(); unsubDirect.current = null; setDirect([]);
       unsubPool.current?.(); unsubPool.current = null; setPool([]);
@@ -206,22 +282,60 @@ export default function VolunteerDashboard() {
     try {
       if (action === "accept") {
         await updateDoc(ref, { status: "waiting_for_admin_approval" });
-        setAlertMessage({ message: "הבקשה התקבלה בהצלחה", type: "success" });
-        setDirect(direct.filter(r => r.id !== req.id));
-        setAdminApprovalRequests([...adminApprovalRequests, { ...req, status: "waiting_for_admin_approval" }]);
+        setAlertMessage({message: "הבקשה התקבלה בהצלחה", type: "success"});
+        
+        // Update local state to reflect this change immediately
+        const updatedDirect = direct.filter(r => r.id !== req.id);
+        setDirect(updatedDirect);
+
+        // Add to admin approval requests
+        const updatedAdminApproval = [...adminApprovalRequests, {...req, status: "waiting_for_admin_approval"}];
+        setAdminApprovalRequests(updatedAdminApproval);
+
       } else if (action === "decline") {
-        await updateDoc(ref, { declinedVolunteers: arrayUnion(user.uid), volunteerId: null, initiatedBy: null, });
-        setAlertMessage({ message: "הבקשה נדחתה בהצלחה", type: "success" });
-        setDirect(direct.filter(r => r.id !== req.id));
+        // Add current volunteer to the declinedVolunteers array but keep the status unchanged
+        await updateDoc(ref, {
+          declinedVolunteers: arrayUnion(user.uid),          volunteerId: null, // Remove as assigned volunteer
+          initiatedBy: null, // Clear initiation
+        });
+        setAlertMessage({message: "הבקשה נדחתה בהצלחה", type: "success"});
+        console.log("[DEBUG] Request declined successfully - added to declinedVolunteers");
+
+        // Update local state to remove the request from direct list
+        const updatedDirect = direct.filter(r => r.id !== req.id);
+        setDirect(updatedDirect);
+
       } else if (action === "take") {
-        await updateDoc(ref, { volunteerId: user.uid, initiatedBy: user.uid, status: "waiting_for_admin_approval", });
-        setAlertMessage({ message: "הבקשה נלקחה בהצלחה", type: "success" });
-        setPool(pool.filter(r => r.id !== req.id));
-        setAdminApprovalRequests([...adminApprovalRequests, { ...req, volunteerId: user.uid, initiatedBy: user.uid, status: "waiting_for_admin_approval" }]);
+        
+        await updateDoc(ref, {
+          volunteerId: user.uid,
+          initiatedBy: user.uid,          status:      "waiting_for_admin_approval",
+        });
+        setAlertMessage({message: "הבקשה נלקחה בהצלחה", type: "success"});
+        console.log("[DEBUG] Request taken successfully");
+
+        // Update local state
+        const updatedPool = pool.filter(r => r.id !== req.id);
+        setPool(updatedPool);
+
+        // Add to admin approval requests
+        const takenRequest = {...req, volunteerId: user.uid, initiatedBy: user.uid, status: "waiting_for_admin_approval"};
+        const updatedAdminApproval = [...adminApprovalRequests, takenRequest];
+        setAdminApprovalRequests(updatedAdminApproval);
+
       } else if (action === "withdraw") {
-        await updateDoc(ref, { declinedVolunteers: arrayUnion(user.uid), volunteerId: null, initiatedBy: null, status: "waiting_for_first_approval", });
-        setAlertMessage({ message: "הבקשה בוטלה בהצלחה", type: "success" });
-        setAdminApprovalRequests(adminApprovalRequests.filter(r => r.id !== req.id));
+        
+        await updateDoc(ref, {
+          declinedVolunteers: arrayUnion(user.uid), // Add current volunteer to declinedVolunteers
+          volunteerId: null, // Remove as assigned volunteer
+          initiatedBy: null, // Clear initiation
+          status:      "waiting_for_first_approval",        });
+        setAlertMessage({message: "הבקשה בוטלה בהצלחה", type: "success"});
+        console.log("[DEBUG] Request withdrawn successfully");
+
+        // Update local state
+        const updatedAdminApprovalRequests = adminApprovalRequests.filter(r => r.id !== req.id);
+        setAdminApprovalRequests(updatedAdminApprovalRequests);
       }
     } catch (error) {
       console.error("[DEBUG] Error in handleRequestAction:", error);
@@ -230,6 +344,7 @@ export default function VolunteerDashboard() {
   };
 
   const openChat = (matchId) => {
+    closeAdminChat();
     setActiveMatchId(matchId);
     unsubChat.current?.();
     unsubChat.current = onSnapshot(
@@ -282,9 +397,67 @@ export default function VolunteerDashboard() {
   };
 
   const closeScheduleModal = () => {
+    setShowAdminChatPanel(false);
     setSelectedMatch(null);
     setShowScheduleModal(false);
   };
+
+  const openAdminChat = async () => {
+    if (unsubChat.current) closeChat();
+
+    setAdminMessages([]);
+    let convoId = "";
+    try {
+      const userDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", user.uid));
+      convoId = userDoc.data().conversationsWithAdminId;
+      if (!convoId) {
+        convoId = generateRandomId();
+        await updateDoc(doc(db, "Users", "Info", "Volunteers", user.uid), {
+          conversationsWithAdminId: convoId,
+        });
+      }
+      const msgs = await getDocs(
+        query(
+          collection(db, "conversations", convoId, "messages"),
+          orderBy("timestamp")
+        )
+      );
+      setAdminMessages(msgs.docs.map((d) => ({ id: d.id, ...d.data() })));
+      
+    } catch (error) {
+      console.error("Error opening admin chat:", error);
+      setAlertMessage({message: "אירעה שגיאה בפתיחת הצ'אט. אנא נסה שוב", type: "error"});
+    }
+    setShowAdminChatPanel(true);
+    setAdminNewMsg("");
+  };
+
+  const closeAdminChat = () => {
+    setShowAdminChatPanel(false);
+    setAdminMessages([]);
+    setAdminNewMsg("");
+  };
+
+  const sendAdminMessage = async () => {
+    if (!adminNewMsg.trim()) return;
+    const userDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", user.uid));
+    const convoId = userDoc.data().conversationsWithAdminId;
+    if (!convoId) {
+      setAlertMessage({message: "אירעה שגיאה בשליחת ההודעה. אנא נסה שוב", type: "error"});
+      return;
+    }
+    await addDoc(
+      collection(db, "conversations", convoId, "messages"),
+      {
+        text: adminNewMsg.trim(),
+        senderId: user.uid,
+        timestamp: serverTimestamp(),
+      }
+    );
+    setAdminMessages(prev => [...prev, { text: adminNewMsg.trim(), senderId: user.uid, timestamp: serverTimestamp() }]);
+    setAdminNewMsg("");
+  };  
+
 
   const handleScheduleSession = async ({ match, scheduledTime, duration, location, notes, onSuccess, onError }) => {
     try {
@@ -316,6 +489,11 @@ export default function VolunteerDashboard() {
       );
       // --- END OF NOTIFICATION LOGIC ---
 
+      // Update the match with the session reference AND increment totalSessions
+      await updateDoc(doc(db, "Matches", match.id), {
+        totalSessions: increment(1) // Increment totalSessions by 1
+      });
+      setAlertMessage({message: "המפגש נקבע בהצלחה!", type: "success"});
       onSuccess?.();
       return true;
     } catch (error) {
@@ -347,9 +525,28 @@ export default function VolunteerDashboard() {
   return (
     <div className="p-6">
       <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-orange-800">שלום {userData?.fullName?.split(' ')[0] || ''} 👋</h1>
-        <Button variant="outline" className="mr-2" onClick={() => window.location.href = '/profile'}>הפרופיל שלי</Button>
+
+        <h1 className="text-2xl font-bold text-orange-800">
+          שלום {userData?.fullName?.split(' ')[0] || ''} 👋
+        </h1>
+        <Button
+          variant="outline"
+          className="mr-2"
+          onClick={() => window.location.href = '/profile'}
+        >
+          הפרופיל שלי
+        </Button>
+
+        <Button
+            variant="outline"
+            className="mr-2"
+            onClick={openAdminChat}
+        >
+            צאט עם מנהל
+        </Button>
         <div className="flex-1" />
+
+        {/* Availability Toggle */}
         <div className="flex items-center gap-2 ml-4">
           <span className="text-sm text-orange-700">זמין</span>
           <button onClick={toggleAvailability} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${isAvailable ? 'bg-green-600 border-green-400' : 'bg-gray-200 border-orange-400'}`}>
@@ -357,6 +554,7 @@ export default function VolunteerDashboard() {
           </button>
           <span className="text-sm text-orange-700">לא זמין</span>
         </div>
+        {/* Personal/Admin Toggle */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-orange-700">בחירה עצמית</span>
           <button onClick={flipPersonal} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${personal ? 'bg-orange-600 border-orange-400' : 'bg-gray-200 border-orange-400'}`}>
@@ -374,7 +572,7 @@ export default function VolunteerDashboard() {
               <button onClick={() => setActiveTab("adminApproval")} className={`flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "adminApproval" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>בקשות ממתינות לאישור מנהל ({adminApprovalRequests.length})</button>
             </>
           )}
-          <button onClick={() => setActiveTab("activeMatches")} className={`flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "activeMatches" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>שיבוצים פעילים ({matches.length})</button>
+          <button onClick={() => setActiveTab("activeMatches")} className={'flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "activeMatches" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>שיבוצים פעילים ({matches.length})</button>
         </div>
       </Card>
       <div className="mt-6">{renderTabContent()}</div>
@@ -386,9 +584,30 @@ export default function VolunteerDashboard() {
         setNewMsg={setNewMsg}
         onSend={sendMessage}
         chatPartnerName={matches.find(m => m.id === activeMatchId)?.requester?.fullName || 'שיחה'}
+      {/* Admin Chat Panel */}
+      <ChatPanel
+        isOpen={showAdminChatPanel}
+        onClose={closeAdminChat}
+        messages={adminMessages}
+        newMsg={adminNewMsg}
+        setNewMsg={setAdminNewMsg}
+        onSend={sendAdminMessage}
+        chatPartnerName={'מנהל'}
       />
-      {showScheduleModal && selectedMatch && (<SessionScheduler match={selectedMatch} onClose={closeScheduleModal} handleScheduleSession={handleScheduleSession} />)}
-      <CustomAlert message={alertMessage?.message} onClose={() => setAlertMessage(null)} type={alertMessage?.type} />
+
+      {/* Schedule Session Modal */}
+      {showScheduleModal && selectedMatch && (
+        <SessionScheduler
+          match={selectedMatch}
+          onClose={closeScheduleModal}
+          handleScheduleSession={handleScheduleSession}
+        />
+      )}
+      <CustomAlert
+        message={alertMessage?.message}
+        onClose={() => setAlertMessage(null)}
+        type={alertMessage?.type}
+      />
     </div>
   );
 }
@@ -406,10 +625,33 @@ function RequestCard({ req, variant, onAction }) {
   const { requester } = req;
   const formatList = (value) => {
     if (!value) return "—";
-    if (Array.isArray(value)) return value.filter(v => v !== "אחר").join(", ");
+    if (Array.isArray(value)) {
+      return value.filter(v => v !== "אחר").join(", ");
+    }
     return value;
   };
-  return (
+
+  const [requesterAdminConfig, setRequesterAdminConfig] = useState(null);
+
+  useEffect(() => {
+    const fetchRequesterConfig = async () => {
+      try {
+        const configDocRef = doc(db, "admin_form_configs", "requester_config");
+        const configSnap = await getDoc(configDocRef);
+        if (configSnap.exists()) {
+          setRequesterAdminConfig(configSnap.data());
+        } else {
+          setRequesterAdminConfig({ customFields: [] });
+        }
+      } catch (error) {
+        console.error("Error fetching requester admin config:", error);
+      }
+    }
+    fetchRequesterConfig(); // Call the fetch function
+  }, []); // Empty dependency array means this runs once on mount
+
+
+    return (
     <div className="bg-orange-100 border border-orange-100 rounded-lg py-4 px-6 text-orange-700">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -425,12 +667,78 @@ function RequestCard({ req, variant, onAction }) {
       </div>
       <div className="mb-4"><div className="bg-white/60 rounded-lg p-3 border border-orange-100"><h4 className="font-semibold text-orange-800 text-sm mb-1">סיבת הפנייה</h4><p className="text-orange-700 leading-relaxed">{requester?.reason ?? "—"}</p></div></div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="bg-white/60 rounded-lg p-3 border border-orange-100"><div className="flex items-center gap-2 mb-2"><Calendar className="w-4 h-4 text-orange-600" /><h4 className="font-semibold text-orange-800 text-sm">תדירות</h4></div><p className="text-orange-700 text-sm">{formatList(requester?.frequency)}</p></div>
-        <div className="bg-white/60 rounded-lg p-3 border border-orange-100"><div className="flex items-center gap-2 mb-2"><Clock className="w-4 h-4 text-orange-600" /><h4 className="font-semibold text-orange-800 text-sm">זמנים מועדפים</h4></div><p className="text-orange-700 text-sm">{formatList(requester?.preferredTimes)}</p></div>
-        <div className="bg-white/60 rounded-lg p-3 border border-orange-100"><div className="flex items-center gap-2 mb-2"><Phone className="w-4 h-4 text-orange-600" /><h4 className="font-semibold text-orange-800 text-sm">העדפת שיחה</h4></div><p className="text-orange-700 text-sm">{formatList(requester?.chatPref)}</p></div>
-        <div className="bg-white/60 rounded-lg p-3 border border-orange-100"><div className="flex items-center gap-2 mb-2"><Heart className="w-4 h-4 text-orange-600" /><h4 className="font-semibold text-orange-800 text-sm">העדפה למתנדב</h4></div><p className="text-orange-700 text-sm">{formatList(requester?.volunteerPrefs)}</p></div>
+        <div className="bg-white/60 rounded-lg p-3 border border-orange-100">
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar className="w-4 h-4 text-orange-600" />
+            <h4 className="font-semibold text-orange-800 text-sm">תדירות</h4>
+          </div>
+          <p className="text-orange-700 text-sm">
+            {formatList(requester?.frequency)}
+          </p>
+        </div>
+
+        <div className="bg-white/60 rounded-lg p-3 border border-orange-100">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="w-4 h-4 text-orange-600" />
+            <h4 className="font-semibold text-orange-800 text-sm">זמנים מועדפים</h4>
+          </div>
+          <p className="text-orange-700 text-sm">
+            {formatList(requester?.preferredTimes)}
+          </p>
+        </div>
+
+        <div className="bg-white/60 rounded-lg p-3 border border-orange-100">
+          <div className="flex items-center gap-2 mb-2">
+            <Phone className="w-4 h-4 text-orange-600" />
+            <h4 className="font-semibold text-orange-800 text-sm">העדפת שיחה</h4>
+          </div>
+        </div>
       </div>
-      {variant === "direct" ? <div className="flex gap-2 mt-4 pt-4 border-t border-orange-200"><Button onClick={() => onAction(req, "accept")}>אשר</Button><Button variant="outline" onClick={() => onAction(req, "decline")}>דחה</Button></div> : variant === "admin_approval" ? <div className="flex gap-2 mt-4 pt-4 border-t border-orange-200"><Button variant="destructive" onClick={() => onAction(req, "withdraw")}>בטל בקשה</Button></div> : <div className="mt-4 pt-4 border-t border-orange-200"><Button onClick={() => onAction(req, "take")}>קח פונה זה</Button></div>}
+
+      {/* Shared Custom Fields from Requester */}
+      {requesterAdminConfig && requesterAdminConfig.customFields && requesterAdminConfig.customFields.length > 0 && requester && (
+        <div className="mt-4 pt-4 border-t border-orange-200">
+          <h4 className="font-semibold text-orange-800 text-md mb-2">מידע נוסף מהפונה:</h4>
+          <div className="space-y-1 text-sm">
+            {Object.entries(requester).map(([key, value]) => {
+              const fieldDef = requesterAdminConfig.customFields.find(
+                (f) => f.name === key && f.shareWithPartner === true
+              );
+              if (fieldDef) {
+                let displayValue = value;
+                if (Array.isArray(value)) {
+                  displayValue = value.join(", ");
+                } else if (typeof value === 'boolean') {
+                  displayValue = value ? "כן" : "לא";
+                }
+                return (
+                  <p key={key} className="text-orange-700">
+                    <strong className="text-orange-800">{fieldDef.label}:</strong> {displayValue}
+                  </p>
+                );
+              }
+              return null;
+            })}
+          </div>
+        </div>
+      )}
+
+      {variant === "direct" ? (
+        <div className="flex gap-2 mt-4 pt-4 border-t border-orange-200">
+          <Button onClick={() => onAction(req, "accept")}>אשר</Button>
+          <Button variant="outline" onClick={() => onAction(req, "decline")}>
+            דחה
+          </Button>
+        </div>
+      ) : variant === "admin_approval" ? (
+        <div className="flex gap-2 mt-4 pt-4 border-t border-orange-200">
+          <Button variant="destructive" onClick={() => onAction(req, "withdraw")}>בטל בקשה</Button>
+        </div>
+      ) : (
+        <div className="mt-4 pt-4 border-t border-orange-200">
+          <Button onClick={() => onAction(req, "take")}>קח פונה זה</Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -443,6 +751,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
   const [showUpcomingSessionsModal, setShowUpcomingSessionsModal] = useState(false);
   const [showPastSessionsModal, setShowPastSessionsModal] = useState(false);
   const [showCompletedSessionsModal, setShowCompletedSessionsModal] = useState(false);
+  const [requesterAdminConfig, setRequesterAdminConfig] = useState(null); // State for requester's admin config
 
   useEffect(() => {
     const sessionsRef = collection(db, "Sessions");
@@ -451,6 +760,36 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
     });
   }, [match.id]);
 
+  // Fetch requester admin config when requester data is available
+  useEffect(() => {
+    const fetchRequesterConfig = async () => {
+      if (match?.requesterId) {
+        console.log('[MatchCard - VolunteerDashboard] Attempting to fetch requester_config for requesterId: ${match.requesterId}`);
+        try {
+          const configDocRef = doc(db, "admin_form_configs", "requester_config");
+          const configSnap = await getDoc(configDocRef);
+          if (configSnap.exists()) {
+            const configData = configSnap.data();
+            console.log("[MatchCard - VolunteerDashboard] Successfully fetched requester_config data:", JSON.stringify(configData, null, 2));
+            // Ensure customFields is an array
+            setRequesterAdminConfig({
+              ...configData,
+              customFields: Array.isArray(configData.customFields) ? configData.customFields : []
+            });
+          } else {
+            console.warn("[MatchCard - VolunteerDashboard] Requester admin config document not found at admin_form_configs/requester_config.");
+            setRequesterAdminConfig({ customFields: [] });
+          }
+        } catch (error) {
+          console.error("[MatchCard - VolunteerDashboard] Error fetching requester admin config:", error);
+          setRequesterAdminConfig({ customFields: [] });
+        }
+      }
+    };
+    fetchRequesterConfig();
+  }, [match?.requesterId]); // Depend on requesterId
+
+  // Split sessions into categories: upcoming, past (needing completion), and completed
   const now = new Date();
   const { upcomingSessions, pastSessions, completedSessions } = sessions.reduce((acc, session) => {
     if (session.status === 'completed') acc.completedSessions.push(session);
@@ -463,18 +802,395 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
 
   return (
     <div className="border border-orange-100 bg-orange-100 rounded-lg p-4">
-      <div className="flex items-start justify-between mb-4"><div className="flex items-center gap-3"><div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center"><User className="w-6 h-6 text-orange-600" /></div><div><h3 className="font-bold text-orange-900 text-xl mb-1">{requester?.fullName || "פונה ללא שם"}</h3><div className="flex items-center gap-4 text-sm text-orange-700"><span className="flex items-center gap-1"><span className="w-2 h-2 bg-orange-400 rounded-full"></span>גיל: {requester?.age ?? "—"}</span><span className="flex items-center gap-1"><span className="w-2 h-2 bg-orange-400 rounded-full"></span>מגדר: {requester?.gender ?? "—"}</span><span className="flex items-center gap-1"><span className="w-2 h-2 bg-orange-400 rounded-full"></span>טלפון: {requester?.phone ?? "—"}</span></div></div></div></div>
-      <div className="flex gap-2 flex-wrap">
-        <Button onClick={isChatOpen ? onCloseChat : onOpenChat}>{isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}</Button>
-        <Button variant="outline" onClick={() => setShowScheduleModal(true)} className="flex items-center gap-2"><Plus className="w-4 h-4" />קבע מפגש</Button>
-        {upcomingSessions.length > 0 && (<Button variant="outline" onClick={() => setShowUpcomingSessionsModal(true)} className="flex items-center gap-2">מפגשים מתוכננים ({upcomingSessions.length})</Button>)}
-        {pastSessionsNeedingCompletionCount > 0 && (<Button variant="outline" onClick={() => setShowPastSessionsModal(true)} className="flex items-center gap-2 border-orange-500 text-orange-600 hover:bg-orange-50">מפגשים להשלמה ({pastSessionsNeedingCompletionCount})</Button>)}
-        {completedSessions.length > 0 && (<Button variant="outline" onClick={() => setShowCompletedSessionsModal(true)} className="flex items-center gap-2">מפגשים שהושלמו ({completedSessions.length})</Button>)}
+      {/* Header Section */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
+            <User className="w-6 h-6 text-orange-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-orange-900 text-xl mb-1">
+              {requester?.fullName || "פונה ללא שם"}
+            </h3>
+            <div className="flex items-center gap-4 text-sm text-orange-700">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                גיל: {requester?.age ?? "—"}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                מגדר: {requester?.gender ?? "—"}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                טלפון: {requester?.phone ?? "—"}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
-      {showScheduleModal && (<div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"><SessionScheduler match={match} onClose={() => setShowScheduleModal(false)} handleScheduleSession={handleScheduleSession} /></div>)}
-      {showUpcomingSessionsModal && (<SessionModal title="מפגשים מתוכננים" sessions={upcomingSessions} onClose={() => setShowUpcomingSessionsModal(false)} />)}
-      {showPastSessionsModal && (<SessionModal title="מפגשים להשלמה" sessions={pastSessions} onClose={() => setShowPastSessionsModal(false)} showCompletionButton={true} />)}
-      {showCompletedSessionsModal && (<SessionModal title="מפגשים שהושלמו" sessions={completedSessions} onClose={() => setShowCompletedSessionsModal(false)} readOnly={true} />)}
+
+      {/* Shared Custom Fields from Requester */}
+      {requester && requesterAdminConfig && Array.isArray(requesterAdminConfig.customFields) && requesterAdminConfig.customFields.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-orange-200">
+          <h4 className="font-semibold text-orange-800 text-md mb-2">מידע נוסף מהפונה:</h4>
+          <div className="space-y-1 text-sm">
+            {(() => {
+              console.log("[MatchCard - VolunteerDashboard] START Rendering Shared Fields. Requester Data:", JSON.stringify(requester, null, 2));
+              console.log("[MatchCard - VolunteerDashboard] Using Requester Admin Config:", JSON.stringify(requesterAdminConfig, null, 2));
+              return null; // Or <></>
+            })()}
+            {Object.entries(requester).map(([key, value]) => {
+              // console.log(`[MatchCard - VolunteerDashboard] Processing requester field - Key: ${key}, Value: ${JSON.stringify(value)}`);
+
+              // Find the definition for this key in the admin config
+              const fieldDef = requesterAdminConfig.customFields.find(
+                (f) => f.name === key
+              );
+
+              if (fieldDef && fieldDef.shareWithPartner === true) {
+                console.log(`[MatchCard - VolunteerDashboard] --- RENDERING SHARED FIELD ---`);
+                console.log(`[MatchCard - VolunteerDashboard] Key: ${key}`);
+                console.log(`[MatchCard - VolunteerDashboard] Label from Config: ${fieldDef.label}`);
+                console.log(`[MatchCard - VolunteerDashboard] Value from Requester: ${JSON.stringify(value)}`);
+                console.log('[MatchCard - VolunteerDashboard] shareWithPartner flag: ${fieldDef.shareWithPartner}`);
+
+                let displayValue = value;
+                if (Array.isArray(value)) {
+                  displayValue = value.join(", ");
+                } else if (typeof value === 'boolean') {
+                  displayValue = value ? "כן" : "לא";
+                } else if (value === null || value === undefined || value === '') {
+                  displayValue = "—";
+                }
+                return (
+                  <p key={key} className="text-orange-700">
+                    <strong className="text-orange-800">{fieldDef.label}:</strong> {String(displayValue)}
+                  </p>
+                );
+              } else if (fieldDef) {
+                // console.log('[MatchCard - VolunteerDashboard] Field '${key}' found in config but shareWithPartner is NOT true (Value: ${fieldDef.shareWithPartner})`);
+              }
+              return null;
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Chat and Schedule Buttons */}
+      <div className="flex gap-2 flex-wrap">
+        <Button onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}>
+          {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setShowScheduleModal(true)}
+          className="flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          קבע מפגש
+        </Button>
+        {upcomingSessions.length > 0 && (
+          <Button
+            variant="outline"
+            onClick={() => setShowUpcomingSessionsModal(true)}
+            className="flex items-center gap-2"
+          >
+            מפגשים מתוכננים ({upcomingSessions.length})
+          </Button>
+        )}
+        {pastSessionsNeedingCompletionCount > 0 && (
+          <Button
+            variant="outline"
+            onClick={() => setShowPastSessionsModal(true)}
+            className="flex items-center gap-2 border-orange-500 text-orange-600 hover:bg-orange-50"
+          >
+            מפגשים להשלמה ({pastSessionsNeedingCompletionCount})
+          </Button>
+        )}
+        {completedSessions.length > 0 && (
+          <Button
+            variant="outline"
+            onClick={() => setShowCompletedSessionsModal(true)}
+            className="flex items-center gap-2"
+          >
+            מפגשים שהושלמו ({completedSessions.length})
+          </Button>
+        )}
+      </div>
+
+      {/* Modals */}
+      {showScheduleModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <SessionScheduler
+              match={match}
+              onClose={() => setShowScheduleModal(false)}
+              handleScheduleSession={handleScheduleSession}
+            />
+          </div>
+        )}
+      {showUpcomingSessionsModal && (
+        <SessionModal
+          title="מפגשים מתוכננים"
+          sessions={upcomingSessions}
+          onClose={() => setShowUpcomingSessionsModal(false)}
+          partnerName={requester?.fullName}
+        />
+      )}
+      {showPastSessionsModal && (
+        <SessionModal
+          title="מפגשים להשלמה"
+          sessions={pastSessions}
+          onClose={() => setShowPastSessionsModal(false)}
+          showCompletionButton={true}
+          partnerName={requester?.fullName}
+        />
+      )}
+      {showCompletedSessionsModal && (
+        <SessionModal
+          title="מפגשים שהושלמו"
+          sessions={completedSessions}
+          onClose={() => setShowCompletedSessionsModal(false)}
+          readOnly={true}
+          partnerName={requester?.fullName}
+        />
+      )}
+    </div>
+  );
+}
+
+function SessionModal({ title, sessions, onClose, showCompletionButton = false, readOnly = false, partnerName }) {
+  const [sessionToComplete, setSessionToComplete] = useState(null);
+  const now = new Date();
+
+  // Helper function to format session times in Hebrew
+  const formatSessionTime = (date) => {
+    if (!date) return "—";
+    return new Date(date).toLocaleString('he-IL', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Helper to generate Google Calendar link
+  const generateGoogleCalendarLink = (session, partnerName) => {
+    const startTime = new Date(session.scheduledTime);
+    const endTime = new Date(startTime.getTime() + session.durationMinutes * 60 * 1000);
+
+    const formatDateTime = (date) => {
+      return date.toISOString().replace(/[-:]|\.\d{3}/g, '');
+    };
+
+    const title = encodeURIComponent(`מפגש תמיכה עם ${partnerName}`);
+    const dates = `${formatDateTime(startTime)}/${formatDateTime(endTime)}`;
+    const details = encodeURIComponent(session.notes || 'מפגש תמיכה שנקבע דרך המערכת');
+    let location = '';
+    if (session.location === 'video') location = encodeURIComponent('שיחת וידאו');
+    if (session.location === 'phone') location = encodeURIComponent('שיחת טלפון');
+    if (session.location === 'in_person') location = encodeURIComponent('פגישה פיזית');
+
+    return (
+      `https://www.google.com/calendar/render?action=TEMPLATE` +
+      `&text=${title}` +
+      `&dates=${dates}` +
+      `&details=${details}` +
+      `&location=${location}` +
+      `&sf=true` +
+      `&output=xml`
+    );
+  };
+
+  const handleSessionCompletion = () => {
+    setSessionToComplete(null);
+  };
+
+  const getSessionStatusColor = (session) => {
+    if (session.status === 'completed') {
+      return 'bg-green-50 border-green-100';
+    }
+    if (session.scheduledTime < now && !session.status === 'completed') {
+      return 'bg-orange-100 border-orange-200';
+    }
+    return 'bg-orange-50 border-orange-100';
+  };
+
+  const getLocationIcon = (location) => {
+    switch (location) {
+      case 'video':
+        return '🎥';
+      case 'phone':
+        return '📱';
+      case 'in_person':
+        return '🤝';
+      default:
+        return '📅';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white p-4 rounded-lg border border-orange-200 max-w-md w-full">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-orange-800">{title}</h3>
+          <button 
+            onClick={onClose}
+            className="text-orange-400 hover:text-orange-600"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {sessions.length === 0 ? (
+          <p className="text-center text-orange-500 py-4">
+            אין מפגשים זמינים להצגה.
+          </p>
+        ) : (
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            {sessions.map(session => (
+              <div 
+                key={session.id} 
+                className={'p-3 rounded-md text-sm transition-colors ${getSessionStatusColor(session)}`}
+              >
+                <div className="font-medium text-orange-800 flex items-center justify-between">
+                  <span>{formatSessionTime(session.scheduledTime)}</span>
+                  {session.status === 'completed' && (
+                    <span className="text-green-600 text-xs bg-green-100 px-2 py-1 rounded-full">
+                      הושלם
+                    </span>
+                  )}
+                </div>
+                
+                <div className="text-orange-600 mt-1">
+                  {getLocationIcon(session.location)}{' '}
+                  {session.location === 'video' ? 'שיחת וידאו' :
+                   session.location === 'phone' ? 'שיחת טלפון' : 'פגישה פיזית'}
+                  {' • '}{session.durationMinutes} דקות
+                </div>
+
+                {session.notes && (
+                  <div className="text-orange-500 mt-2 bg-white/50 p-2 rounded">
+                    <strong>הערות:</strong> {session.notes}
+                  </div>
+                )}
+
+                {!readOnly && session.scheduledTime > now && (
+                  <a
+                    href={generateGoogleCalendarLink(session, partnerName)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-orange-100 hover:text-orange-900 h-9 px-4 py-2 border border-orange-200 bg-orange-50 text-orange-700"
+                  >
+                    🗓️ הוסף ליומן גוגל
+                  </a>
+                )}
+
+                {showCompletionButton && session.scheduledTime < now && session.status !== 'completed' && (
+                  <div className="mt-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setSessionToComplete(session)}
+                      className="w-full border-orange-400 text-orange-600 hover:bg-orange-50"
+                    >
+                      סמן כהושלם והוסף סיכום
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Session Completion Modal */}
+        {sessionToComplete && (
+          <SessionCompletionModal
+            session={sessionToComplete}
+            onClose={() => setSessionToComplete(null)}
+            onSubmit={handleSessionCompletion}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SessionCompletionModal({ session, onClose, onSubmit }) {
+  const [summary, setSummary] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const sessionRef = doc(db, "Sessions", session.id);
+      await updateDoc(sessionRef, {
+        status: "completed",
+        summary: summary,
+        completedAt: serverTimestamp(),
+      });
+      onSubmit(); // This will trigger handleSessionCompletion in the parent
+    } catch (err) {
+      console.error("Error completing session:", err);
+      setError("אירעה שגיאה בעדכון המפגש. אנא נסה שוב.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white p-6 rounded-lg border border-orange-200 shadow-lg max-w-md w-full">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold text-orange-800">סיכום מפגש</h3>
+          <button
+            onClick={onClose}
+            className="text-orange-400 hover:text-orange-600"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 text-red-600 p-2 rounded-md mb-4">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-orange-700 mb-1">
+              סיכום קצר של המפגש (יוצג למנהל בלבד)
+            </label>
+            <textarea
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              rows={4}
+              className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
+              placeholder="מה עלה במפגש? האם יש דברים שחשוב שהמנהל יידע?"
+              required
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
+            >
+              {isSubmitting ? 'מעדכן...' : 'שמור סיכום וסמן כהושלם'}
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+              ביטול
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
@@ -489,10 +1205,28 @@ function SessionScheduler({ match, onClose, handleScheduleSession }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!scheduledTime) { setError("נא לבחור זמן למפגש"); return; }
+
+    if (!scheduledTime) {
+      setError("נא לבחור זמן למפגש");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
-    await handleScheduleSession({ match, scheduledTime, duration, location, notes, onSuccess: () => onClose(), onError: (error) => { setError("אירעה שגיאה בקביעת המפגש. נא לנסות שוב."); console.error(error); } });
+    await handleScheduleSession({
+      match,
+      scheduledTime,
+      duration,
+      location,
+      notes,
+      onSuccess: () => {
+        onClose();
+      },
+      onError: (error) => {
+        setError("אירעה שגיאה בקביעת המפגש. נא לנסות שוב.");
+        console.error(error);
+      }
+    });
     setIsSubmitting(false);
   };
 
@@ -501,8 +1235,21 @@ function SessionScheduler({ match, onClose, handleScheduleSession }) {
 
   return (
     <div className="bg-white p-6 rounded-lg border border-orange-200 shadow-lg max-w-md w-full">
-      <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-semibold text-orange-800">קביעת מפגש חדש</h3><button onClick={onClose} className="text-orange-400 hover:text-orange-600"><X className="w-5 h-5" /></button></div>
-      {error && <div className="bg-red-50 text-red-600 p-2 rounded-md mb-4">{error}</div>}
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-semibold text-orange-800">קביעת מפגש חדש</h3>
+        <button
+          onClick={onClose}
+          className="text-orange-400 hover:text-orange-600"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 text-red-600 p-2 rounded-md mb-4">
+          {error}
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div><label className="block text-sm font-medium text-orange-700 mb-1"><Calendar className="inline-block w-4 h-4 ml-1" />תאריך ושעה</label><input type="datetime-local" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400" required /></div>
         <div><label className="block text-sm font-medium text-orange-700 mb-1"><Clock className="inline-block w-4 h-4 ml-1" />משך המפגש</label><select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400">{durationOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></div>
@@ -510,84 +1257,6 @@ function SessionScheduler({ match, onClose, handleScheduleSession }) {
         <div><label className="block text-sm font-medium text-orange-700 mb-1"><MessageCircle className="inline-block w-4 h-4 ml-1" />הערות למפגש</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="הערות או נושאים לדיון..." /></div>
         <div className="flex gap-2 pt-2"><Button type="submit" disabled={isSubmitting} className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}>{isSubmitting ? 'קובע מפגש...' : 'קבע מפגש'}</Button><Button type="button" variant="outline" onClick={onClose}>ביטול</Button></div>
       </form>
-    </div>
-  );
-}
-
-function SessionCompletionModal({ session, onClose, onSubmit }) {
-  const [summary, setSummary] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      await updateDoc(doc(db, "Sessions", session.id), { status: "completed", sessionSummary: summary, completedAt: serverTimestamp() });
-      onSubmit?.();
-      onClose();
-    } catch (error) {
-      console.error("Error completing session:", error);
-      setError("אירעה שגיאה בעדכון המפגש. נא לנסות שוב.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white p-4 rounded-lg border border-orange-200 max-w-md w-full">
-        <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-semibold text-orange-800">סיום מפגש</h3><button onClick={onClose} className="text-orange-400 hover:text-orange-600"><X className="w-5 h-5" /></button></div>
-        <div className="mb-4 p-3 bg-orange-50 rounded-lg"><p className="text-sm text-orange-700"><strong>מפגש:</strong> {new Date(session.scheduledTime).toLocaleString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p><p className="text-sm text-orange-700"><strong>משך:</strong> {session.durationMinutes} דקות</p></div>
-        {error && <div className="bg-red-50 text-red-600 p-2 rounded-md mb-4">{error}</div>}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div><label className="block text-sm font-medium text-orange-700 mb-1"><MessageCircle className="inline-block w-4 h-4 ml-1" />סיכום המפגш (לא חובה)</label><textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={4} className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="תאר בקצרה את מה שנעשה במפגש..." /></div>
-          <div className="flex gap-2 pt-2"><Button type="submit" disabled={isSubmitting} className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}>{isSubmitting ? 'מעדכן...' : 'סמן כהושלם'}</Button><Button type="button" variant="outline" onClick={onClose}>ביטול</Button></div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function SessionModal({ title, sessions, onClose, showCompletionButton = false, readOnly = false }) {
-  const [sessionToComplete, setSessionToComplete] = useState(null);
-  const now = new Date();
-  const formatSessionTime = (date) => date ? new Date(date).toLocaleString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "—";
-  const getSessionStatusColor = (session) => {
-    if (session.status === 'completed') return 'bg-green-50 border-green-100';
-    if (session.scheduledTime < now && session.status !== 'completed') return 'bg-orange-100 border-orange-200';
-    return 'bg-orange-50 border-orange-100';
-  };
-  const getLocationIcon = (location) => {
-    switch (location) {
-      case 'video': return '🎥';
-      case 'phone': return '📱';
-      case 'in_person': return '🤝';
-      default: return '📅';
-    }
-  };
-  const handleSessionCompletion = () => setSessionToComplete(null);
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white p-4 rounded-lg border border-orange-200 max-w-md w-full">
-        <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-semibold text-orange-800">{title}</h3><button onClick={onClose} className="text-orange-400 hover:text-orange-600"><X className="w-5 h-5" /></button></div>
-        {sessions.length === 0 ? <p className="text-center text-orange-500 py-4">אין מפגשים זמינים להצגה.</p> : (
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-            {sessions.map(session => (
-              <div key={session.id} className={`p-3 rounded-md text-sm transition-colors ${getSessionStatusColor(session)}`}>
-                <div className="font-medium text-orange-800 flex items-center justify-between"><span>{formatSessionTime(session.scheduledTime)}</span>{session.status === 'completed' && <span className="text-green-600 text-xs bg-green-100 px-2 py-1 rounded-full">הושלם</span>}</div>
-                <div className="text-orange-600 mt-1">{getLocationIcon(session.location)}{' '}{session.location === 'video' ? 'שיחת וידאו' : session.location === 'phone' ? 'שיחת טלפון' : 'פגישה פיזית'}{' • '}{session.durationMinutes} דקות</div>
-                {session.notes && <div className="mt-2 text-orange-500 bg-white/50 p-2 rounded"><strong>הערות:</strong> {session.notes}</div>}
-                {session.status === 'completed' && session.sessionSummary && <div className="mt-2 text-gray-600 bg-white/80 p-2 rounded border border-orange-100"><strong>סיכום המפגש:</strong> {session.sessionSummary}</div>}
-                {showCompletionButton && session.scheduledTime < now && session.status !== 'completed' && !readOnly && <div className="mt-2"><Button variant="outline" onClick={() => setSessionToComplete(session)} className="w-full border-orange-400 text-orange-600 hover:bg-orange-50">סמן כהושלם והוסף סיכום</Button></div>}
-              </div>
-            ))}
-          </div>
-        )}
-        {sessionToComplete && <SessionCompletionModal session={sessionToComplete} onClose={() => setSessionToComplete(null)} onSubmit={handleSessionCompletion} />}
-      </div>
     </div>
   );
 }

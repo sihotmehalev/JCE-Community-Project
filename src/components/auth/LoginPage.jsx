@@ -1,17 +1,19 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, deleteUser } from "firebase/auth";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../config/firebaseConfig";
 import { Card, CardContent } from "../ui/card";
 import { Eye, EyeOff } from 'lucide-react';
+import CustomAlert from "../ui/CustomAlert";
 
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
+export default function LoginPage() {  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertType, setAlertType] = useState("info");
   const navigate = useNavigate();
 
   const togglePasswordVisibility = () => {
@@ -41,6 +43,25 @@ export default function LoginPage() {
 
     return null;
   };
+  // Function to handle deletion of user credentials
+  const handleDeleteUserCredentials = async () => {
+    try {
+      // Get the current user
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        // Delete the user from authentication
+        await deleteUser(currentUser);
+        setAlertMessage("");
+        setMessage("");
+
+        // Redirect to homepage
+        navigate("/");
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      setMessage("שגיאה בהסרת החשבון: " + error.message);
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -51,7 +72,11 @@ export default function LoginPage() {
       const userInfo = await checkUserRole(uid);
 
       if (!userInfo) {
-        throw new Error("User record not found");
+        // Instead of throwing an error, show CustomAlert
+        setAlertMessage("לא נמצאו נתוני משתמש במערכת.");
+        setAlertType("error");
+        setLoading(false);
+        return; // Exit early to prevent further processing
       }
 
       const { role, data } = userInfo;
@@ -99,7 +124,6 @@ export default function LoginPage() {
     }
     setLoading(false);
   };
-
   return (
     <div className="flex items-center justify-center p-6">
       <Card className="w-[400px] bg-gradient-to-br from-white to-orange-50/80">
@@ -159,12 +183,32 @@ export default function LoginPage() {
           {message && <p className="mt-4 text-center text-sm text-orange-600">{message}</p>}
           <p className="mt-6 text-center text-sm text-orange-700">
             אין לך חשבון עדיין?{" "}
+            <br></br>
             <Link to="/register-requester" className="text-orange-600 hover:text-orange-700 underline font-medium">
-              לחץ כאן להרשמה
+              הרשמה כפונה
+            </Link>
+            <br></br>
+            <Link to="/register-volunteer" className="text-orange-600 hover:text-orange-700 underline font-medium">
+              הרשמה כמתנדב
             </Link>
           </p>
         </CardContent>
       </Card>
+      
+      {/* CustomAlert for user not found */}
+      {alertMessage && (
+        <CustomAlert 
+          message={alertMessage} 
+          type={alertType} 
+          onClose={() => {
+            if (alertType === "error") {
+              handleDeleteUserCredentials();
+            } else {
+              setAlertMessage("");
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -4,13 +4,14 @@ import { SafeSpace } from './SafeSpace';
 import { EmergencyContacts } from './EmergencyContacts';
 import { JournalEntry } from './JournalEntry';
 
-export default function EmergencyButton() {
+export default function EmergencyButton({ activeMatch }) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('safe-space');
 
   return (
     <>
-      {/* Emergency Button */}      <button
+      {/* Emergency Button */}      
+      <button
         onClick={() => setIsOpen(true)}
         className="fixed bottom-4 left-4 text-white rounded-full p-4 shadow-lg transition-all z-[999999]"
         aria-label="כפתור מצוקה"
@@ -53,7 +54,7 @@ export default function EmergencyButton() {
           {/* Content */}
           <div className="mt-4">
             {activeTab === 'safe-space' && <SafeSpace />}
-            {activeTab === 'contacts' && <EmergencyContacts />}
+            {activeTab === 'contacts' && <EmergencyContacts activeMatch={activeMatch} />}
             {activeTab === 'journal' && <JournalEntry />}
           </div>
         </div>

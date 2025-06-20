@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { Button } from "./button";
-import { auth } from "../../config/firebaseConfig";
 
-export default function ChatPanel({ isOpen, onClose, messages, newMsg, setNewMsg, onSend, chatPartnerName }) {
+export default function ChatPanel({ isOpen, onClose, messages, newMsg, setNewMsg, onSend, chatPartnerName, currentUserId }) {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -50,12 +49,12 @@ export default function ChatPanel({ isOpen, onClose, messages, newMsg, setNewMsg
               <div
                 key={m.id}
                 className={
-                  m.senderId === auth.currentUser.uid ? "text-right" : "text-left"
+                  m.senderId === currentUserId ? "text-right" : "text-left"
                 }
               >
                 <span
                   className={`inline-block rounded-lg px-3 py-1.5 text-sm my-1 max-w-[85%] ${
-                    m.senderId === auth.currentUser.uid
+                    m.senderId === currentUserId
                       ? "bg-orange-600 text-white"
                       : "bg-gray-100 border border-gray-200"
                   }`}
