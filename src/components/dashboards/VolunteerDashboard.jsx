@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { User, Calendar, Clock, MessageCircle, Plus, X, Phone, Heart } from "lucide-react";
+import { User, Calendar, Clock, MessageCircle, Plus, X, Phone } from "lucide-react";
 import { auth, db } from "../../config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import {

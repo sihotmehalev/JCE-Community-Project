@@ -118,29 +118,6 @@ export default function HomePage() {
     }
   ];
 
-  // Data for Testimonials (Placeholder) - Expanded
-  const testimonials = [
-    {
-      quote: "הקשר עם המתנדב/ת שינה את חיי. הרגשתי שמקשיבים לי באמת בפעם הראשונה מזה זמן רב, וזה נתן לי כוח.",
-      author: "אדם שנעזר"
-    },
-    {
-      quote: "ההתנדבות בפרויקט נותנת לי תחושת משמעות אדירה. הידיעה שאני עוזר/ת למישהו/י לעבור תקופה קשה עושה את כל ההבדל.",
-      author: "מתנדב/ת בפרויקט"
-    },
-    {
-      quote: "הפלטפורמה נוחה מאוד לשימוש וההתאמה הייתה מהירה ומדויקת. תודה על היוזמה המדהימה הזו ועל האנשים הנפלאים!",
-      author: "פונה מרוצה"
-    },
-    {
-      quote: "לא ידעתי למה לצפות, אבל השיחות פתחו לי צוהר לעולם חדש של הבנה עצמית וחוסן. ממליצ/ה בחום.",
-      author: "משתתפ/ת ותיק/ה"
-    },
-    {
-      quote: "כמתנדב, אני מרגיש שאני מקבל לא פחות ממה שאני נותן. זו חוויה מעשירה ומספקת מאוד.",
-      author: "מתנדב מסור"
-    }
-  ];
 
   // Data for "Join Our Community" section
   const communityItems = [
@@ -178,7 +155,6 @@ export default function HomePage() {
         className="text-center max-w-4xl mx-auto mb-16 border-b border-gray-200 pb-12"
       >
         <div className="flex items-center justify-center gap-4 sm:gap-6 mb-8">
-          <img src={headlineIconSrc} alt="שיחות מהלב אייקון" className="h-12 w-12 sm:h-16 sm:w-16" />
           <h1 className="text-4xl sm:text-6xl font-bold text-orange-800">
             שיחות מהלב
           </h1>
