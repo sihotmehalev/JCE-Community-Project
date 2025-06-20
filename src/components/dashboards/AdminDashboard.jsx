@@ -1003,44 +1003,184 @@ export default function AdminDashboard() {
       {activeTab === "users" && (
         <Card>
           <CardContent>
-            <h3 className="font-semibold mb-4 text-orange-700">כל המשתמשים</h3>
+            <h3 className="font-semibold mb-4 text-orange-700">כל המשתמשים במערכת </h3>
             <div className="mb-4">
-              <input type="text" placeholder="חיפוש..." value={userSearch} onChange={e => setUserSearch(e.target.value)} className="border rounded px-3 py-2 w-full" />
+              <input
+                type="text"
+                placeholder="חיפוש משתמש לפי שם או אימייל..."
+                value={userSearch}
+                onChange={e => setUserSearch(e.target.value)}
+                className="border rounded px-3 py-2 w-full"
+              />
             </div>
             <div className="flex gap-4 mb-4">
-              <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="border rounded p-2"><option value="all">כל התפקידים</option><option value="volunteer">מתנדב</option><option value="requester">פונה</option></select>
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border rounded p-2"><option value="all">כל הסטטוסים</option><option value="פעיל">פעיל</option><option value="לא פעיל">לא פעיל</option><option value="ממתין לאישור">ממתין</option><option value="נדחה">נדחה</option></select>
+              {/* Role Filter */}
+              <div className="flex flex-col">
+                <label htmlFor="roleFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי תפקיד:</label>
+                <select
+                  id="roleFilter"
+                  value={roleFilter}
+                  onChange={e => setRoleFilter(e.target.value)}
+                  className="border rounded px-3 py-2"
+                >
+                  <option value="all">כל התפקידים</option>
+                  <option value="volunteer">מתנדב</option>
+                  <option value="requester">פונה</option>
+                  <option value="admin-first">מנהל רמה 1</option>
+                  <option value="admin-second">מנהל רמה 2</option>
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div className="flex flex-col">
+                <label htmlFor="statusFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי סטטוס:</label>
+                <select
+                  id="statusFilter"
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  className="border rounded px-3 py-2"
+                >
+                  <option value="all">כל הסטטוסים</option>
+                  <option value="פעיל">פעיל</option>
+                  <option value="ממתין לאישור">ממתין לאישור</option>
+                  <option value="נדחה">נדחה</option>
+                  <option value="לא פעיל">לא פעיל</option>
+                </select>
+              </div>
+
+              {/* Personal Filter */}
+              <div className="flex flex-col">
+                <label htmlFor="personalFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי אישי:</label>
+                <select
+                  id="personalFilter"
+                  value={personalFilter}
+                  onChange={e => setPersonalFilter(e.target.value)}
+                  className="border rounded px-3 py-2"
+                >
+                  <option value="all">הכל</option>
+                  <option value="true">כן</option>
+                  <option value="false">לא</option>
+                </select>
+              </div>
+
+              {/* Active Matches Filter */}
+              <div className="flex flex-col">
+                <label htmlFor="activeMatchesFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי התאמות פעילות:</label>
+                <select
+                  id="activeMatchesFilter"
+                  value={activeMatchesFilter}
+                  onChange={e => setActiveMatchesFilter(e.target.value)}
+                  className="border rounded px-3 py-2"
+                >
+                  <option value="all">הכל</option>
+                  <option value="hasMatches">עם התאמות</option>
+                  <option value="noMatches">ללא התאמות</option>
+                </select>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-orange-50">
-                    <th className="border p-2 cursor-pointer" onClick={() => handleSort('fullName')}>שם</th>
-                    <th className="border p-2 cursor-pointer" onClick={() => handleSort('email')}>אימייל</th>
-                    <th className="border p-2 cursor-pointer" onClick={() => handleSort('role')}>תפקיד</th>
-                    <th className="border p-2 cursor-pointer" onClick={() => handleSort('derivedDisplayStatus')}>סטטוס</th>
-                    <th className="border p-2">צאט</th>
-                    <th className="border p-2">מחיקה</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('fullName')}>שם{sortColumn === 'fullName' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('email')}>אימייל{sortColumn === 'email' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('role')}>תפקיד{sortColumn === 'role' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('approved')}>סטטוס{sortColumn === 'approved' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('personal')}>אישי{sortColumn === 'personal' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('activeMatchIds')}>התאמות פעילות{sortColumn === 'activeMatchIds' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('lastAdminChat')}>צאטים{sortColumn === 'lastAdminChat' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="w-24 border border-orange-100 p-2 text-orange-800 cursor-pointer">מחיקת משתמש</th>
                   </tr>
                 </thead>
                 <tbody>
                   {currentUsers.map(u => (
-                    <tr key={u.id} className="hover:bg-orange-50/50">
+                    <tr key={`${u.id}-${u.role}`} className="hover:bg-orange-50/50">
                       <td className="border p-2"><HoverCard user={u} adminConfig={u.role === 'requester' ? requesterFormConfig : volunteerFormConfig}>{u.fullName}</HoverCard></td>
-                      <td className="border p-2">{u.email}</td>
-                      <td className="border p-2">{u.role === 'volunteer' ? 'מתנדב' : 'פונה'}</td>
-                      <td className="border p-2">{u.derivedDisplayStatus}</td>
-                      <td className="border p-2 text-center"><button onClick={() => openChat(u)} className="text-blue-600">פתח צ'אט</button></td>
-                      <td className="border p-2 text-center"><button onClick={() => { setSelectedUserForDelete(u); setshowDeleteUserModal(true); }} className="text-red-600">מחק</button></td>
+                      <td className="border border-orange-100 p-2 text-orange-700">{u.email}</td>
+                      <td className="border border-orange-100 p-2 text-orange-700">
+                        {u.role === 'volunteer' && 'מתנדב'}
+                        {u.role === 'requester' && 'פונה'}
+                        {u.role === 'admin-first' && 'מנהל רמה 1'}
+                        {u.role === 'admin-second' && 'מנהל רמה 2'}
+                      </td>
+                      <td className="border border-orange-100 p-2 text-center">
+                        {u.derivedDisplayStatus === "ממתין לאישור" && (
+                          <span className="text-red-600">ממתין לאישור</span>
+                        )}
+                        {u.derivedDisplayStatus === "פעיל" && (
+                          <span className="text-green-600">פעיל</span>
+                        )}
+                        {u.derivedDisplayStatus === "נדחה" && (
+                          <span className="text-gray-500">נדחה</span>
+                        )}
+                        {u.derivedDisplayStatus === "לא פעיל" && (
+                          <span className="text-red-600">לא פעיל</span>
+                        )}
+                      </td>
+                      <td className="border border-orange-100 p-2 text-center">
+                        {u.personal ? 'כן' : 'לא'}
+                      </td>
+                      <td className="border border-orange-100 p-2 text-center">
+                        {u.role === 'requester' 
+                          ? (u.activeMatchId ? <span className="text-green-600">כן</span> : <span className="text-red-600">לא</span>)
+                          : (u.activeMatchIds?.length || 0) === 0 
+                            ? <span className="text-red-600">0</span> 
+                            : <span className="text-green-600">{u.activeMatchIds?.length || 0}</span>
+                        }
+                      </td>
+                      <td className="border border-orange-100 p-2 text-center">
+                        <button
+                          className={`p-2 rounded-full focus:outline-none transition-colors duration-200 flex items-center justify-center mx-auto
+                            ${u.approved === "declined" ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "text-blue-600 hover:text-white hover:bg-blue-600"}
+                          `}
+                          disabled={u.approved === "declined"}
+                          onClick={() => openChat(u)}
+                          title="פתח צ'אט עם המשתמש"
+                        >
+                          {/* Envelope (letter) icon for chat */}
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="h-5 w-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                      </td>
+                      <td className="flex items-center justify-center border border-orange-100 p-2 text-center">                       
+                         <button
+                          className="p-2 rounded-full text-red-600 hover:text-white hover:bg-red-600 focus:outline-none transition-colors duration-200 flex items-center justify-center mx-auto"
+                          onClick={() => { 
+                            setshowDeleteUserModal(true);
+                            setShowSessionDetails(false);
+                            setSelectedUserForDelete(u);
+                          }}
+                          title="מחק משתמש"
+                         >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                         </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             <div className="flex justify-between items-center mt-4">
-              <Button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>הקודם</Button>
-              <span>עמוד {currentPage} מתוך {totalPages}</span>
-              <Button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>הבא</Button>
+              <Button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                variant="outline"
+              >
+                הקודם
+              </Button>
+              <span className="text-orange-700">
+                עמוד {currentPage} מתוך {totalPages}
+              </span>
+              <Button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                variant="outline"
+              >
+                הבא
+              </Button>
             </div>
           </CardContent>
         </Card>
