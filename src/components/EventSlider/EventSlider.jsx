@@ -1,3 +1,4 @@
+// EventSlider.jsx
 import { EventCard } from "../EventCard/EventCard";
 import { useState, useEffect } from "react";
 import { fetchEvents } from "../../providers/EventProvider";
@@ -29,7 +30,7 @@ export const EventSlider = () => {
             <div className="p-4 max-w-7xl mx-auto overflow-hidden">
                 <h2 className="text-3xl font-bold text-orange-800 mb-6 text-center">אירועים קרובים</h2>
                 <div className="flex justify-center">
-                    <div className="w-[600px]">
+                    <div className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:w-[600px]"> {/* Responsive width for single event */}
                         <EventCard event={events[0]} />
                     </div>
                 </div>
@@ -59,29 +60,42 @@ export const EventSlider = () => {
         const isPrev = index === getPreviousIndex();
         const isNext = index === getNextIndex();
 
+        // Responsive card container width
+        const cardContainerWidthClass = "w-full max-w-[300px] sm:max-w-[350px] md:max-w-[400px] lg:w-[450px]";
+
+        // Responsive translateX offsets (relative to the center of the slider)
+        // Mobile-first (default) values, then overridden for larger screens (lg:)
+        const currentTranslateXOffset = "0 lg:-translate-x-[200px]"; // Original PC value was -200px
+        const prevTranslateXOffset = "-translate-x-[100%] sm:-translate-x-[120%] md:-translate-x-[140%] lg:-translate-x-[600px]"; // Original PC value was -600px
+        const nextTranslateXOffset = "translate-x-[100%] sm:translate-x-[120%] md:translate-x-[140%] lg:translate-x-[200px]"; // Original PC value was 200px
+
+        // Rotation values (can be less aggressive on smaller screens)
+        const prevRotateY = "rotate-y-[-40deg] sm:rotate-y-[-45deg] lg:rotate-y-[-55deg]";
+        const nextRotateY = "rotate-y-[40deg] sm:rotate-y-[45deg] lg:rotate-y-[55deg]";
+
         let transformValue = '';
         let opacityValue = 'opacity-0';
         let zIndexValue = 'z-0';
         let scaleValue = 'scale-50';
-
+        
         if (isCurrent) {
-            transformValue = 'translate-x-[-200px] rotate-y-0';
+            transformValue = `${currentTranslateXOffset} rotate-y-0`; // Apply responsive offset
             opacityValue = 'opacity-100';
             zIndexValue = 'z-10';
             scaleValue = 'scale-100';
         } else if (isPrev) {
-            transformValue = '-translate-x-[600px] rotate-y-[-55deg]'; 
+            transformValue = `${prevTranslateXOffset} ${prevRotateY}`; // Apply responsive offset and rotation
             opacityValue = 'opacity-50';
             zIndexValue = 'z-0';
             scaleValue = 'scale-90';
         } else if (isNext) {
-            transformValue = 'translate-x-[200px] rotate-y-[55deg]'; 
+            transformValue = `${nextTranslateXOffset} ${nextRotateY}`; // Apply responsive offset and rotation
             opacityValue = 'opacity-50';
             zIndexValue = 'z-0';
             scaleValue = 'scale-90';
         }
 
-        return `absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] h-[400px] cursor-pointer backface-hidden transition-all duration-700 ease-in-out
+        return `absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ${cardContainerWidthClass} h-[400px] cursor-pointer backface-hidden transition-all duration-700 ease-in-out
                 ${opacityValue} transform ${scaleValue} ${transformValue} ${zIndexValue}`;
     };
 

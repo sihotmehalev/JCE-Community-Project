@@ -1,3 +1,4 @@
+// c:/Users/moti/Desktop/talksfromtheheart/18.6/JCE-Community-Project/src/components/dashboards/RequesterDashboard.jsx
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { auth, db } from "../../config/firebaseConfig";
@@ -260,6 +261,15 @@ export default function RequesterDashboard() {
     return () => unsubPendingRequests.current?.();
   }, [user]);
 
+  // Determine user status for display
+  const userStatus = activeMatch
+    ? "מותאם למתנדב"
+    : pendingRequests.length > 0
+    ? "ממתין לאישור"
+    : "ממתין להתאמה";
+
+  const statusColorClass = activeMatch ? "text-green-600" : "text-orange-600";
+
   const flipPersonal = async () => {
     if (!user) return;
     const newVal = !personal;
@@ -268,118 +278,88 @@ export default function RequesterDashboard() {
   };
   
   const requestVolunteer = async (volunteerId) => {
+    setRequestLoading(true);
     try {
-      setRequestLoading(true);
-
-      // First verify the volunteer is still available
+      // 1. Verify volunteer is still available
       const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", volunteerId));
-      if (!volunteerDoc.exists()) {
-        console.warn("[DEBUG] Volunteer not found:", volunteerId);
-        setAlertMessage({message: "המתנדב/ת לא נמצא/ה במערכת", type: "error"});
+      if (!volunteerDoc.exists() || !volunteerDoc.data().isAvailable || volunteerDoc.data().approved !== "true") {
+        setAlertMessage({ message: "המתנדב/ת אינו/ה זמין/ה כעת", type: "error" });
+        setRequestLoading(false);
         return;
       }
-
       const volunteerData = volunteerDoc.data();
 
-      if (!volunteerData.isAvailable || volunteerData.approved !== "true") { // Ensure approved is string "true"
-        console.warn("[DEBUG] Volunteer is unavailable or not approved");
-        setAlertMessage({message: "המתנדב/ת אינו/ה זמין/ה כעת", type: "error"});
-        return;
-      }
-
-      // Find the requester's existing request document
+      // 2. Find an existing request document for the user that can be reused
       const requestsRef = collection(db, "Requests");
-      const q = query(
-        requestsRef,
-        where("requesterId", "==", user.uid),
-        where("status", "==", "waiting_for_first_approval")
-      );
-
+      const q = query(requestsRef, where("requesterId", "==", user.uid), where("status", "==", "waiting_for_first_approval"));
       const snapshot = await getDocs(q);
 
+      const newStatus = volunteerData.personal === false 
+        ? "waiting_for_admin_approval" 
+        : "waiting_for_first_approval";
+
+      const requestPayload = {
+        volunteerId: volunteerId,
+        initiatedBy: user.uid,
+        status: newStatus,
+        updatedAt: serverTimestamp(),
+      };
+
       if (!snapshot.empty) {
-        const requestDoc = snapshot.docs[0];
-        const requestId = requestDoc.id;
-
-        // Determine the appropriate status based on volunteer's personal mode setting
-        const newStatus = volunteerData.personal === false ?
-        "waiting_for_admin_approval":
-        "waiting_for_first_approval";
-
-        // Update the existing request with the selected volunteer
-        await updateDoc(doc(db, "Requests", requestId), {
-          volunteerId: volunteerId,
-          initiatedBy: user.uid,
-          status: newStatus,
-          updatedAt: serverTimestamp(),
+        // Found an existing request to update
+        const requestDocRef = snapshot.docs[0].ref;
+        await updateDoc(requestDocRef, requestPayload);
+      } else {
+        // This case should ideally not happen if registration always creates a request.
+        // But as a fallback, we can create one.
+        console.warn("No existing 'waiting_for_first_approval' request found for user. This is unexpected. Creating a new one as a fallback.");
+        await addDoc(requestsRef, {
+          ...requestPayload,
+          requesterId: user.uid,
+          matchId: null,
+          reason: requestProfile.reason || "",
+          needs: requestProfile.needs || "",
+          createdAt: serverTimestamp(),
+          declinedVolunteers: [],
         });
-
-        // Update the local state to reflect this change
-        const updatedPendingRequests = [...pendingRequests];
-        const existingReqIndex = updatedPendingRequests.findIndex(req => req.id === requestId);
-
-        if (existingReqIndex >= 0) {
-          // Update existing request
-          updatedPendingRequests[existingReqIndex] = {
-            ...updatedPendingRequests[existingReqIndex],
-            volunteerId,
-            initiatedBy: user.uid,
-            status: newStatus
-          };
-        } else {
-          // Add as a new request to the pending list
-          updatedPendingRequests.push({
-            id: requestId,
-            requesterId: user.uid,
-            volunteerId,
-            initiatedBy: user.uid,
-            status: newStatus,
-            updatedAt: serverTimestamp(),
-          });
-          const updatedPendingRequests = [...pendingRequests];
-          const existingReqIndex = updatedPendingRequests.findIndex(req => req.id === requestId);
-          if (existingReqIndex >= 0) {
-            updatedPendingRequests[existingReqIndex] = { ...updatedPendingRequests[existingReqIndex], volunteerId, initiatedBy: user.uid, status: newStatus };
-          } else {
-            updatedPendingRequests.push({ id: requestId, requesterId: user.uid, volunteerId, initiatedBy: user.uid, status: newStatus, volunteer: volunteerData });
-          }
-          setPendingRequests(updatedPendingRequests);
-        }
-        setAlertMessage({message: "הבקשה נשלחה בהצלחה וממתינה לאישור", type: "success"});
-        }
-      } catch (error) {
-        console.error("Error requesting volunteer:", error);
-        setAlertMessage({message: "אירעה שגיאה בשליחת הבקשה. אנא נסה שוב", type: "error"});
-      } finally {
-        setRequestLoading(false);
       }
+
+      setAlertMessage({ message: "הבקשה נשלחה בהצלחה וממתינה לאישור", type: "success" });
+
+    } catch (error) {
+      console.error("Error requesting volunteer:", error);
+      setAlertMessage({ message: "אירעה שגיאה בשליחת הבקשה. אנא נסה שוב", type: "error" });
+    } finally {
+      setRequestLoading(false);
+    }
   };
 
   const cancelRequest = async (requestId) => {
-      try {
-        setRequestLoading(true);
-        const requestDoc = await getDoc(doc(db, "Requests", requestId));
-        if (!requestDoc.exists()) {
-          setAlertMessage({message: "הבקשה לא נמצאה במערכת", type: "error"});
-          return;
-        }
-        await updateDoc(doc(db, "Requests", requestId), { volunteerId: null, initiatedBy: null, updatedAt: serverTimestamp(), });
-        setAlertMessage({message: "הבקשה בוטלה בהצלחה", type: "success"});
-      } catch (error) {
-        console.error("Error canceling request:", error);
-        setAlertMessage({message: "אירעה שגיאה בביטול הבקשה. אנא נסה שוב", type: "error"});
-      } finally {
-        setRequestLoading(false);
+    setRequestLoading(true);
+    try {
+      const requestDocRef = doc(db, "Requests", requestId);
+      const requestDoc = await getDoc(requestDocRef);
+      
+      if (!requestDoc.exists()) {
+        setAlertMessage({ message: "הבקשה לא נמצאה במערכת", type: "error" });
+        return;
       }
-      // const volunteerId = requestDoc.data().volunteerId;
 
-      // Update the request to remove the volunteerId and initiatedBy fields
-      await updateDoc(doc(db, "Requests", requestId), {
+      // Reset the request to be available in the pool again
+      await updateDoc(requestDocRef, {
         volunteerId: null,
         initiatedBy: null,
+        status: "waiting_for_first_approval", // Reset status
         updatedAt: serverTimestamp(),
       });
-      setAlertMessage({message: "הבקשה בוטלה בהצלחה", type: "success"});
+
+      setAlertMessage({ message: "הבקשה בוטלה בהצלחה", type: "success" });
+    } catch (error) {
+      console.error("Error canceling request:", error);
+      setAlertMessage({ message: "אירעה שגיאה בביטול הבקשה. אנא נסה שוב", type: "error" });
+    } finally {
+      setRequestLoading(false);
+    }
   };
   
   const openChat = (matchId) => {
@@ -541,19 +521,22 @@ export default function RequesterDashboard() {
   };  
 
   return (
-    <div className="p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-orange-800 flex-grow">
-          שלום {requestProfile?.fullName?.split(' ')[0] || ''} 👋
+    <div className="p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-orange-800 flex-grow">
+          שלום {requestProfile && requestProfile.fullName ? requestProfile.fullName.split(' ')[0] : ''} 👋
         </h1>
+        <p className={`text-sm sm:text-base font-semibold ${statusColorClass} mb-2 sm:mb-0`}>
+          סטטוס: {userStatus}
+        </p>
         <Button
           variant="outline"
-          className="mr-2"
+          className="mr-0 sm:mr-2 w-full sm:w-auto"
           onClick={() => window.location.href = '/profile'}
         >
           הפרופיל שלי
         </Button>
-        <Button
+        <Button 
           variant="outline"
           className="mr-2"
           onClick={openAdminChat}
@@ -561,10 +544,10 @@ export default function RequesterDashboard() {
            צאט עם מנהל
         </Button>
         <div className="flex-1" />
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mt-2 sm:mt-0">
           <span className="text-sm text-orange-700">פנייה ישירה למתנדב</span>
           <button onClick={flipPersonal} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${personal ? 'bg-orange-600 border-orange-400' : 'bg-gray-200 border-orange-400'}`}>
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${personal ? '-translate-x-1' : '-translate-x-6'}`} />
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${personal ? 'translate-x-0.5' : '-translate-x-5'}`} />
           </button>
           <span className="text-sm text-orange-700">ללא העדפה</span>
         </div>
@@ -572,28 +555,28 @@ export default function RequesterDashboard() {
       <Card className="mb-6">
         <div className="flex border-b border-gray-200">
           {personal && (
-            <>
+            <div className="flex flex-wrap w-full sm:w-auto">
             <button
                 onClick={() => setActiveTab("available")}
                 className={`
-                  flex-1 p-4 text-center font-medium text-sm focus:outline-none
+                  flex-1 p-2 sm:p-4 text-center font-medium text-xs sm:text-sm focus:outline-none
                   ${activeTab === "available"
                     ? 'border-b-2 border-orange-500 text-orange-600'
                     : 'text-gray-500 hover:text-gray-700'
                   }
                 `}
               >
-                מתנדבים זמינים{!activeMatch && ` (${sortedVolunteers.length})`}
+                מתנדבים זמינים{!activeMatch && ` (${sortedVolunteers.length})`} 
               </button>
-              <button onClick={() => setActiveTab("pending")} className={`flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "pending" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>
+              <button onClick={() => setActiveTab("pending")} className={`flex-1 p-2 sm:p-4 text-center font-medium text-xs sm:text-sm focus:outline-none ${activeTab === "pending" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>
                 בקשות שממתינות לאישור מנהל ({adminApprovalRequests.length})
               </button>
-            </>
+            </div>
           )}
           <button onClick={() => setActiveTab("current")} className={`flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "current" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>
             השיבוץ הנוכחי שלי ({activeMatch ? 1 : 0})
           </button>
-          <button
+          <button 
             onClick={() => setActiveTab("lifeAdvice")}
             className={`
               flex-1 p-4 text-center font-medium text-sm focus:outline-none flex items-center justify-center gap-2
@@ -615,7 +598,7 @@ export default function RequesterDashboard() {
         {renderTabContent()}
       </div>
 
-      {/* Emergency Button */}
+      {/* Emergency Button - Ensure it's always visible */}
       <EmergencyButton activeMatch={activeMatch} />
 
       {/* Chat Panel - Now shown as a floating window */}
@@ -722,7 +705,7 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
   return (
     <div className="border border-orange-100 rounded-lg p-4 bg-orange-100">
       {isRecommended && (
-        <div className="mb-2 flex items-center gap-2">
+        <div className="mb-2 flex items-center gap-2 flex-wrap">
           <span className="text-green-600 text-sm font-medium bg-green-50 px-2 py-1 rounded-full border border-green-200">
             ⭐ מומלץ ({Math.round(compatibilityScore)}% התאמה)
           </span>
@@ -897,7 +880,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
             <h3 className="font-bold text-orange-900 text-xl mb-1">
               {volunteer?.fullName || "מתנדב/ת ללא שם"} {/* Changed to volunteer */}
             </h3>
-            <div className="flex items-center gap-4 text-sm text-orange-700">
+            <div className="flex flex-wrap items-center gap-4 text-sm text-orange-700">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
                 גיל: {volunteer?.age ?? "—"} {/* Changed to volunteer */}

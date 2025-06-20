@@ -1,3 +1,4 @@
+// EventCard.jsx
 import { format } from 'date-fns';
 
 const DEFAULT_IMAGE = '/images/event_default_image.jpg';
@@ -37,8 +38,8 @@ export const EventCard = ({ event }) => {
     };
 
     return (
-        <div className="flex justify-center items-center w-full">
-            <div className="w-[450px] rounded-xl overflow-hidden shadow-lg transform transition-transform duration-200 bg-gradient-to-br from-white to-orange-50">
+        <div className="flex justify-center items-center w-full h-full"> {/* Outer container for centering */}
+            <div className="w-full lg:w-[450px] rounded-xl overflow-hidden shadow-lg transform transition-transform duration-200 bg-gradient-to-br from-white to-orange-50">
                 <div className="relative h-36">
                     <img 
                         src={imageUrl}

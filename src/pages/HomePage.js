@@ -95,7 +95,7 @@ export default function HomePage() {
     {
       step: 1,
       title: "הרשמה קצרה ומאובטחת",
-      description: "מלאו טופס פשוט ודיסקרטי כדי שנוכל להבין את הצרכים שלכם או את רצונכם להתנדב. הפרטים שלכם שמורים.",
+      description: "מלאו טופס פשוט כדי שנוכל להבין את הצרכים שלכם או את רצונכם להתנדב. הפרטים שלכם שמורים.",
       icon: <FileText className="w-10 h-10 text-orange-600" /> // Was User (repeated from Feature Section)
     },
     {
@@ -225,6 +225,33 @@ export default function HomePage() {
         </motion.div>
       </motion.div>
 
+      {/* How It Works Section */}
+       <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={containerVariants}
+        className="mt-24 text-center max-w-6xl mx-auto"
+      >
+        <h2 className="text-3xl font-bold text-orange-800 mb-12">איך זה עובד? פשוט וקל</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {howItWorksSteps.map((step, index) => (
+            <motion.div key={index} variants={itemVariants} className="flex flex-col items-center text-center p-4 bg-orange-50/30 rounded-lg border border-orange-100 shadow-sm hover:shadow-md transition-shadow duration-300">
+              <div className="relative mb-6">
+                 <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center border-4 border-orange-200 shadow-md">
+                   {step.icon}
+                </div>
+                <span className="absolute -top-2 -right-2 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-lg font-bold border-2 border-white shadow-sm">
+                  {step.step}
+                </span>
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-orange-800">{step.title}</h3>
+              <p className="text-gray-700 leading-relaxed text-sm">{step.description}</p>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
+
       {/* Why Choose Us Section */}
       <motion.div
         initial="hidden"
@@ -249,33 +276,6 @@ export default function HomePage() {
                   <p className="text-sm text-gray-700 leading-relaxed">{item.description}</p>
                 </CardContent>
               </Card>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* How It Works Section */}
-       <motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.2 }}
-        variants={containerVariants}
-        className="mt-24 text-center max-w-6xl mx-auto"
-      >
-        <h2 className="text-3xl font-bold text-orange-800 mb-12">איך זה עובד? פשוט וקל</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {howItWorksSteps.map((step, index) => (
-            <motion.div key={index} variants={itemVariants} className="flex flex-col items-center text-center p-4 bg-orange-50/30 rounded-lg border border-orange-100 shadow-sm hover:shadow-md transition-shadow duration-300">
-              <div className="relative mb-6">
-                 <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center border-4 border-orange-200 shadow-md">
-                   {step.icon}
-                </div>
-                <span className="absolute -top-2 -right-2 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-lg font-bold border-2 border-white shadow-sm">
-                  {step.step}
-                </span>
-              </div>
-              <h3 className="text-xl font-semibold mb-3 text-orange-800">{step.title}</h3>
-              <p className="text-gray-700 leading-relaxed text-sm">{step.description}</p>
             </motion.div>
           ))}
         </div>

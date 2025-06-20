@@ -9,6 +9,7 @@ import RequesterDashboard from "../components/dashboards/RequesterDashboard";
 import VolunteerDashboard from "../components/dashboards/VolunteerDashboard";
 import AdminDashboard from "../components/dashboards/AdminDashboard";
 import AboutPage from "./AboutPage";
+import EventsPage from "./EventsPage";
 import ProfilePage from "./ProfilePage";
 import { auth, db } from "../config/firebaseConfig";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -170,6 +171,7 @@ function App() {
           <Route path="/register-volunteer" element={<RegisterVolunteerPage />} />
           <Route path="/register-requester" element={<RegisterRequesterPage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/events" element={<EventsPage />} />
 
           <Route
             path="/admin-dashboard"

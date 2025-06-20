@@ -1,3 +1,4 @@
+// LifeAdvice.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '../ui/button';
 import { getAILifeAdvice } from "../../utils/aiService";
@@ -127,7 +128,7 @@ export default function LifeAdvice({ userData, requesterFormConfig }) {
   }
 
   return (
-    <div className="p-6 md:p-8 bg-gradient-to-br from-orange-50 via-rose-50 to-amber-50 rounded-xl border border-orange-200 shadow-xl">
+    <div className="p-4 sm:p-6 md:p-8 bg-gradient-to-br from-orange-50 via-rose-50 to-amber-50 rounded-xl border border-orange-200 shadow-xl">
       <h2 className="text-3xl font-bold text-orange-800 mb-4 text-center">
         <span role="img" aria-label="heart sparkle" className="mr-2">💖</span>
         ייעוץ מהלב AI
@@ -176,7 +177,7 @@ export default function LifeAdvice({ userData, requesterFormConfig }) {
           ref={chatContainerRef} 
           className="mt-6 p-4 bg-white/80 backdrop-blur-sm rounded-xl border border-orange-100 shadow-lg max-h-[32rem] overflow-y-auto space-y-4 mb-6 custom-scrollbar"
         >
-          {conversationHistory.slice().reverse().map((msg, index) => ( // Reversed the map order
+          {conversationHistory.map((msg, index) => (
             <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[85%] md:max-w-[75%] px-4 py-3 rounded-2xl shadow-md ${
                 msg.role === 'user'
@@ -191,7 +192,7 @@ export default function LifeAdvice({ userData, requesterFormConfig }) {
       )}
 
       {/* Input for Custom Questions / Follow-ups */}
-      <div className="mt-4 flex flex-col gap-3 bg-white/70 backdrop-blur-sm p-6 rounded-lg shadow-md border border-orange-100">
+      <div className="mt-4 flex flex-col gap-3 bg-white/70 backdrop-blur-sm p-4 sm:p-6 rounded-lg shadow-md border border-orange-100">
         <label htmlFor="customQuestion" className="block text-lg font-semibold text-orange-700 text-center">
           {conversationHistory.length > 0 ? "יש לך שאלה נוספת או שאלת המשך?" : "או, שאל/י שאלה משלך:"}
         </label>
