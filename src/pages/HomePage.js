@@ -6,15 +6,21 @@ import { EventSlider } from "../components/EventSlider/EventSlider";
 import { 
   User, 
   Heart, 
-  Lightbulb, 
+  Bot,          
   MessageCircle, 
   Shield, 
   CalendarDays,
-  HelpingHand, // Corrected from Handshake
-  Users,      // For Community Section
-  Accessibility, // For Why Choose Us
-  TrendingUp,   // For Why Choose Us
-  CheckCircle // Fallback or general purpose
+  HelpingHand, 
+  Users,      
+  Hourglass,    
+  TrendingUp,   
+  CheckCircle,
+  // New icons for replacements:
+  FileText,       // For repeated User
+  ClipboardCheck, // For repeated HelpingHand
+  Sparkles,       // For repeated CalendarDays (in howItWorks)
+  Presentation,   // For repeated CalendarDays (in communityItems)
+  MessagesSquare  // For repeated MessageCircle
 } from "lucide-react";
 
 // Animation variants for staggered appearance
@@ -50,34 +56,35 @@ export default function HomePage() {
   const headlineIconSrc = "/icons/sihot_mehalev_icon.svg";
 
   // Data for the "Why Choose Us" section - Expanded
+  // Icons here are considered after Feature Section's User & CalendarDays
   const whyChooseUsItems = [
     {
-      icon: <Heart className="w-8 h-8 text-orange-600" />,
+      icon: <Heart className="w-8 h-8 text-orange-600" />, // New
       title: "תמיכה אנושית מהלב",
       description: "קשר אישי עם מתנדבים אמפתיים ומנוסים, שמקשיבים באמת ומעניקים תמיכה חמה ומכילה."
     },
     {
-      icon: <Shield className="w-8 h-8 text-orange-600" />,
+      icon: <Shield className="w-8 h-8 text-orange-600" />, // New
       title: "מרחב בטוח ומוגן",
       description: "סביבה דיסקרטית, מכבדת ותומכת, שבה תוכלו להיפתח בחופשיות ולשתף ללא חשש."
     },
     {
-      icon: <Lightbulb className="w-8 h-8 text-orange-600" />,
-      title: "כלים לצמיחה והתמודדות",
-      description: "קבלו תובנות, נקודות מבט חדשות ודרכים מעשיות להתמודדות עם אתגרי החיים השונים."
+      icon: <Hourglass className="w-8 h-8 text-orange-600" />, // New
+      title: "תהליך התאמה וסבלנות", 
+      description: "אנו משקיעים מאמץ למצוא את החיבור הנכון. תהליך ההתאמה עשוי לקחת זמן, אנו מעריכים את סבלנותכם." 
     },
     {
-      icon: <HelpingHand className="w-8 h-8 text-orange-600" />,
+      icon: <HelpingHand className="w-8 h-8 text-orange-600" />, // New
       title: "קהילה מחבקת",
       description: "הצטרפו לקהילה שמאמינה בכוחה של תמיכה הדדית, ערבות ואהבת חינם."
     },
     {
-      icon: <Accessibility className="w-8 h-8 text-orange-600" />,
-      title: "נגישות ונוחות",
-      description: "השירות ניתן מרחוק, בזמנים גמישים, ומאפשר קבלת תמיכה מכל מקום ובקלות."
+      icon: <Bot className="w-8 h-8 text-orange-600" />, // New
+      title: "צ'אט AI וכלים לצמיחה", 
+      description: "קבלו מענה ראשוני ותמיכה מיידית מצ'אט ה-AI שלנו, לצד תובנות וכלים מעשיים להתמודדות עם אתגרי החיים." 
     },
     {
-      icon: <TrendingUp className="w-8 h-8 text-orange-600" />,
+      icon: <TrendingUp className="w-8 h-8 text-orange-600" />, // New
       title: "התפתחות מתמדת",
       description: "אנו שואפים תמיד להשתפר, להרחיב את השירותים ולהעניק את התמיכה הטובה ביותר."
     }
@@ -89,25 +96,25 @@ export default function HomePage() {
       step: 1,
       title: "הרשמה קצרה ומאובטחת",
       description: "מלאו טופס פשוט ודיסקרטי כדי שנוכל להבין את הצרכים שלכם או את רצונכם להתנדב. הפרטים שלכם שמורים.",
-      icon: <User className="w-10 h-10 text-orange-600" />
+      icon: <FileText className="w-10 h-10 text-orange-600" /> // Was User (repeated from Feature Section)
     },
     {
       step: 2,
       title: "התאמה אישית וקפדנית",
       description: "המערכת או הצוות המסור שלנו יבחנו את פנייתכם וימצאו את ההתאמה הטובה ביותר עבורכם, בין אם כפונים או כמתנדבים.",
-      icon: <HelpingHand className="w-10 h-10 text-orange-600" />
+      icon: <ClipboardCheck className="w-10 h-10 text-orange-600" /> // Was HelpingHand (repeated from whyChooseUsItems)
     },
     {
       step: 3,
       title: "יצירת קשר ראשוני",
       description: "לאחר ההתאמה, תוכלו ליצור קשר עם השותף/ה שהותאם/הותאמה לכם ולהתחיל את מסע התמיכה והצמיחה המשותף.",
-      icon: <MessageCircle className="w-10 h-10 text-orange-600" />
+      icon: <MessageCircle className="w-10 h-10 text-orange-600" /> // New in this sequence
     },
     {
       step: 4,
       title: "מפגשים, תמיכה וצמיחה",
       description: "קיימו שיחות קבועות, קבעו מפגשים (במידת האפשר והרצון) והיעזרו במשאבים ובקהילה שלנו להמשך הדרך.",
-      icon: <CalendarDays className="w-10 h-10 text-orange-600" />
+      icon: <Sparkles className="w-10 h-10 text-orange-600" /> // Was CalendarDays (repeated from Feature Section)
     }
   ];
 
@@ -138,22 +145,22 @@ export default function HomePage() {
   // Data for "Join Our Community" section
   const communityItems = [
     {
-      icon: <Users className="w-10 h-10 text-orange-600" />,
+      icon: <Users className="w-10 h-10 text-orange-600" />, // New in this sequence
       title: "קהילה תומכת ומכילה",
       description: "מעבר לקשר האישי, 'שיחות מהלב' היא קהילה של אנשים שאכפת להם. אנו מאמינים בכוחו של הביחד."
     },
     {
-      icon: <CalendarDays className="w-10 h-10 text-orange-600" />,
+      icon: <Presentation className="w-10 h-10 text-orange-600" />, // Was CalendarDays (repeated)
       title: "אירועים וסדנאות",
       description: "אנו מארגנים מעת לעת מפגשים, סדנאות והרצאות (חלקם מוצגים למטה) להעשרה, למידה וחיבור קהילתי."
     },
     {
-      icon: <MessageCircle className="w-10 h-10 text-orange-600" />,
+      icon: <MessagesSquare className="w-10 h-10 text-orange-600" />, // Was MessageCircle (repeated)
       title: "מרחבי שיח נוספים",
       description: "בעתיד, אנו שואפים להרחיב את אפשרויות התמיכה והשיח בפלטפורמות נוספות ובקבוצות ייעודיות."
     },
      {
-      icon: <CheckCircle className="w-10 h-10 text-orange-600" />,
+      icon: <CheckCircle className="w-10 h-10 text-orange-600" />, // New in this sequence
       title: "התנדבות מגוונת",
       description: "מלבד שיחות אישיות, ישנן דרכים נוספות להתנדב ולתרום לפרויקט. כל עזרה מבורכת!"
     }
@@ -180,7 +187,7 @@ export default function HomePage() {
           ברוכים הבאים ל"שיחות מהלב" – מיזם חברתי המציע מרחב בטוח, אנונימי וללא עלות, להתחבר, להחלים ולצמוח.
         </p>
         <p className="text-lg sm:text-xl text-orange-700 mb-10 leading-relaxed">
-          בין אם אתם זקוקים לאוזן קשבת, תמיכה רגשית, או רוצים להעניק מעצמכם ולעזור לאחרים - אנחנו כאן בשבילכם, באהבה ובדאגה. בנוסף, לרשותכם 'יועץ מהלב AI', כלי ייחודי לקבלת תובנות והכוונה ראשונית.
+          בין אם אתם זקוקים לאוזן קשבת, תמיכה רגשית, או רוצים להעניק מעצמכם ולעזור לאחרים - אנחנו כאן בשבילכם, באהבה ובדאגה.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center">
           <Button
@@ -242,7 +249,7 @@ export default function HomePage() {
         </motion.div>
       </motion.div>
 
-      {/* Why Choose Us Section - MOVED UP */}
+      {/* Why Choose Us Section */}
       <motion.div
         initial="hidden"
         whileInView="visible"
@@ -250,9 +257,9 @@ export default function HomePage() {
         variants={containerVariants}
         className="mt-24 text-center max-w-6xl mx-auto"
       >
-        <h2 className="text-3xl font-bold text-orange-800 mb-4">למה לבחור ב"שיחות מהלב"?</h2>
+        <h2 className="text-3xl font-bold text-orange-800 mb-4">קצת עלינו ב"שיחות מהלב"</h2>
         <p className="text-lg text-orange-700 mb-12 max-w-3xl mx-auto leading-relaxed">
-          אנו מציעים יותר מסתם שיחה. אנו יוצרים חיבורים אנושיים משמעותיים, במטרה להעניק תמיכה אמיתית, כלים לצמיחה ותחושת שייכות.
+          אנו מציעים יותר מסתם שיחה. אנו יוצרים חיבורים אנושיים משמעותיים, ובנוסף, מספקים גישה לצ'אט AI פנימי לתמיכה ראשונית ומידע. כל זאת במטרה להעניק תמיכה אמיתית, כלים לצמיחה ותחושת שייכות.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {whyChooseUsItems.map((item, index) => (
@@ -271,7 +278,7 @@ export default function HomePage() {
         </div>
       </motion.div>
 
-      {/* How It Works Section - MOVED DOWN */}
+      {/* How It Works Section */}
        <motion.div
         initial="hidden"
         whileInView="visible"
@@ -293,36 +300,6 @@ export default function HomePage() {
               </div>
               <h3 className="text-xl font-semibold mb-3 text-orange-800">{step.title}</h3>
               <p className="text-gray-700 leading-relaxed text-sm">{step.description}</p>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Testimonial Section */}
-      <motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.2 }}
-        variants={containerVariants}
-        className="mt-24 text-center max-w-6xl mx-auto"
-      >
-        <h2 className="text-3xl font-bold text-orange-800 mb-4">מה אנשים אומרים עלינו?</h2>
-        <p className="text-lg text-orange-700 mb-12 max-w-3xl mx-auto leading-relaxed">
-          הסיפורים שלכם הם ההשראה שלנו. הנה כמה מילים מהלב של חברי הקהילה:
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {testimonials.map((testimonial, index) => (
-            <motion.div key={index} variants={itemVariants}>
-              <Card className="rounded-xl shadow-lg border border-gray-100 h-full flex flex-col justify-between bg-white hover:shadow-xl transition-shadow duration-300 relative"> {/* Added relative positioning for quotes */}
-                <CardContent className="p-6 pt-10 italic text-gray-700 leading-relaxed text-base"> {/* Added pt-10 for quote spacing */}
-                  <span className="text-4xl text-orange-300 absolute top-3 right-4 opacity-50">“</span> {/* Styled quote */}
-                  {testimonial.quote}
-                  <span className="text-4xl text-orange-300 absolute bottom-3 left-4 opacity-50 transform rotate-180">“</span> {/* Styled quote */}
-                </CardContent>
-                <div className="p-6 pt-2 text-right font-semibold text-orange-700">
-                  — {testimonial.author}
-                </div>
-              </Card>
             </motion.div>
           ))}
         </div>
@@ -364,41 +341,40 @@ export default function HomePage() {
           </Button>
       </motion.div>
 
-      {/* Secondary CTA Section */}
-       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.3 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-        className="mt-24 text-center max-w-3xl mx-auto p-10 bg-gradient-to-br from-orange-50 via-white to-orange-100 rounded-lg shadow-xl border border-orange-200"
-      >
-        <h2 className="text-2xl sm:text-3xl font-bold text-orange-800 mb-6">מוכנים לעשות את הצעד הראשון?</h2>
-         <p className="text-lg text-orange-700 mb-8 leading-relaxed">
-          בין אם אתם זקוקים לתמיכה או רוצים להעניק אותה, הצטרפו עוד היום לקהילת "שיחות מהלב". הדרך לשינוי מתחילה כאן.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center">
-           <Button
-            onClick={() => navigate("/register-requester")}
-            className="text-lg px-10 py-4 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-200 w-full sm:w-auto"
-          >
-            אני זקוק/ה לתמיכה
-          </Button>
-          <Button
-            onClick={() => navigate("/register-volunteer")}
-            variant="outline"
-            className="text-lg px-8 py-3 sm:py-4 rounded-xl w-full sm:w-auto border-2 hover:border-orange-500"
-          >
-            אני רוצה להתנדב
-          </Button>
-        </div>
-      </motion.div>
-
-
       {/* Event Slider Section */}
       <div className="mt-24 sm:mt-32">
-        <h2 className="text-3xl font-bold text-orange-800 mb-12 text-center">אירועים קרובים בקהילה</h2>
         <EventSlider/>
       </div>
+
+      {/* Testimonial Section - MOVED TO THE BOTTOM */}
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={containerVariants}
+        className="mt-24 text-center max-w-6xl mx-auto" 
+      >
+        <h2 className="text-3xl font-bold text-orange-800 mb-4">מה אנשים אומרים עלינו?</h2>
+        <p className="text-lg text-orange-700 mb-12 max-w-3xl mx-auto leading-relaxed">
+          הסיפורים שלכם הם ההשראה שלנו. הנה כמה מילים מהלב של חברי הקהילה:
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {testimonials.map((testimonial, index) => (
+            <motion.div key={index} variants={itemVariants}>
+              <Card className="rounded-xl shadow-lg border border-gray-100 h-full flex flex-col justify-between bg-white hover:shadow-xl transition-shadow duration-300 relative"> 
+                <CardContent className="p-6 pt-10 italic text-gray-700 leading-relaxed text-base"> 
+                  <span className="text-4xl text-orange-300 absolute top-3 right-4 opacity-50">“</span> 
+                  {testimonial.quote}
+                  <span className="text-4xl text-orange-300 absolute bottom-3 left-4 opacity-50 transform rotate-180">“</span> 
+                </CardContent>
+                <div className="p-6 pt-2 text-right font-semibold text-orange-700">
+                  — {testimonial.author}
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
     </div>
   );
 }
