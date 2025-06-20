@@ -769,7 +769,7 @@ export default function AdminDashboard() {
         <Button variant={activeTab === "EventCreation" ? "default" : "outline"} onClick={() => setActiveTab("EventCreation")} className="py-3 px-6 text-lg">יצירת אירוע</Button>
         <Button variant={activeTab === "EventList" ? "default" : "outline"} onClick={() => setActiveTab("EventList")} className="py-3 px-6 text-lg">רשימת אירועים</Button>
         <Button variant={activeTab === "formCustomization" ? "default" : "outline"} onClick={() => setActiveTab("formCustomization")} className="py-3 px-6 text-lg">שינוי תנאי הרשמה</Button>
-        <Button variant={activeTab === "analytics" ? "default" : "outline"} onClick={() => { setActiveTab("analytics"); console.log("Analytics tab clicked"); }} className="py-3 px-6 text-lg">סטטיסטיקה</Button>
+        <Button variant={activeTab === "analytics" ? "default" : "outline"} onClick={() => { setActiveTab("analytics"); }} className="py-3 px-6 text-lg">סטטיסטיקה</Button>
       </div>
 
       {/* Volunteers Awaiting Approval */}
