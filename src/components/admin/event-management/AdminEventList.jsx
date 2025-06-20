@@ -1,3 +1,4 @@
+// c/Users/moti/Desktop/talksfromtheheart/18.6/JCE-Community-Project/src/components/admin/event-management/AdminEventList.jsx
 import { useState, useEffect } from 'react';
 import { collection, updateDoc, doc, query, orderBy, deleteDoc, onSnapshot, Timestamp, where, getDocs, writeBatch, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../config/firebaseConfig';
@@ -331,31 +332,31 @@ export const AdminEventList = () => {
                         <table className="w-full text-sm border-collapse">
                             <thead>
                                 <tr className="bg-orange-50">
-                                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer text-right" onClick={() => handleSort('name')}>שם האירוע {sortColumn === 'name' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}</th>
-                                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer text-right" onClick={() => handleSort('scheduled_time')}>תאריך {sortColumn === 'scheduled_time' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}</th>
-                                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer text-right" onClick={() => handleSort('location')}>מיקום {sortColumn === 'location' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}</th>
-                                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer text-right" onClick={() => handleSort('Contact_info')}>טלפון {sortColumn === 'Contact_info' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}</th>
-                                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer text-right" onClick={() => handleSort('mail')}>דוא"ל {sortColumn === 'mail' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}</th>
-                                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer text-right" onClick={() => handleSort('status')}>סטטוס {sortColumn === 'status' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}</th>
-                                    <th className="border border-orange-100 p-2 text-orange-800 text-center">עריכה</th>
-                                    <th className="border border-orange-100 p-2 text-orange-800 text-center">מחיקת אירוע</th>
+                                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer text-right" onClick={() => handleSort('name')}>שם האירוע {sortColumn === 'name' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}</th>
+                                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer text-right hidden md:table-cell" onClick={() => handleSort('scheduled_time')}>תאריך {sortColumn === 'scheduled_time' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}</th>
+                                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer text-right hidden lg:table-cell" onClick={() => handleSort('location')}>מיקום {sortColumn === 'location' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}</th>
+                                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer text-right hidden lg:table-cell" onClick={() => handleSort('Contact_info')}>טלפון {sortColumn === 'Contact_info' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}</th>
+                                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer text-right hidden lg:table-cell" onClick={() => handleSort('mail')}>דוא"ל {sortColumn === 'mail' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}</th>
+                                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer text-right" onClick={() => handleSort('status')}>סטטוס {sortColumn === 'status' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}</th>
+                                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 text-center">עריכה</th>
+                                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 text-center">מחיקה</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredAndSortedEvents.map((event) => (
                                     <tr key={event.id} className="hover:bg-orange-50/50">
-                                        <td className="border border-orange-100 p-2 text-orange-700">{event.name}</td>
-                                        <td className="border border-orange-100 p-2 text-orange-700">{formatDate(event.scheduled_time)}</td>
-                                        <td className="border border-orange-100 p-2 text-orange-700">{event.location}</td>
-                                        <td className="border border-orange-100 p-2 text-orange-700">{event.Contact_info && (<a href={`tel:${event.Contact_info}`} className="text-blue-600 hover:text-blue-800">{event.Contact_info}</a>)}</td>
-                                        <td className="border border-orange-100 p-2 text-orange-700"><a href={`mailto:${event.mail}`} className="text-blue-600 hover:text-blue-800">{event.mail}</a></td>
-                                        <td className="border border-orange-100 p-2 text-right"><span className={`px-2 py-1 rounded-full text-sm ${event.status === 'scheduled' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{event.status === 'scheduled' ? 'מתוכנן' : 'מבוטל'}</span></td>
-                                        <td className="border border-orange-100 p-2 text-center">
+                                        <td className="border border-orange-100 p-1 sm:p-2 text-orange-700">{event.name}</td>
+                                        <td className="border border-orange-100 p-1 sm:p-2 text-orange-700 hidden md:table-cell">{formatDate(event.scheduled_time)}</td>
+                                        <td className="border border-orange-100 p-1 sm:p-2 text-orange-700 hidden lg:table-cell">{event.location}</td>
+                                        <td className="border border-orange-100 p-1 sm:p-2 text-orange-700 hidden lg:table-cell">{event.Contact_info && (<a href={`tel:${event.Contact_info}`} className="text-blue-600 hover:text-blue-800">{event.Contact_info}</a>)}</td>
+                                        <td className="border border-orange-100 p-1 sm:p-2 text-orange-700 hidden lg:table-cell"><a href={`mailto:${event.mail}`} className="text-blue-600 hover:text-blue-800">{event.mail}</a></td>
+                                        <td className="border border-orange-100 p-1 sm:p-2 text-right"><span className={`px-2 py-1 rounded-full text-xs sm:text-sm ${event.status === 'scheduled' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{event.status === 'scheduled' ? 'מתוכנן' : 'מבוטל'}</span></td>
+                                        <td className="border border-orange-100 p-1 sm:p-2 text-center">
                                             <button onClick={() => openEditModal(event)} className="p-2 rounded-full text-blue-600 hover:text-white hover:bg-blue-600 focus:outline-none transition-colors duration-200 inline-flex items-center justify-center" title="ערוך אירוע">
                                                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                                             </button>
                                         </td>
-                                        <td className="border border-orange-100 p-2 text-center">
+                                        <td className="border border-orange-100 p-1 sm:p-2 text-center">
                                             <button onClick={() => deleteEvent(event.id)} className="p-2 rounded-full text-red-600 hover:text-white hover:bg-red-600 focus:outline-none transition-colors duration-200 inline-flex items-center justify-center" title="מחק אירוע">
                                                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                             </button>

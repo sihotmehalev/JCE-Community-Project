@@ -1,3 +1,4 @@
+// c/Users/moti/Desktop/talksfromtheheart/18.6/JCE-Community-Project/src/components/dashboards/AdminDashboard.jsx
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { db } from "../../config/firebaseConfig";
 import {
@@ -744,17 +745,17 @@ export default function AdminDashboard() {
     }
   };
 
-  const renderCustomFieldsList = (roleType, fieldsConfig) => (
+  const renderCustomFieldsList = (roleType, fieldsConfig) => ( // flex-col sm:flex-row sm:items-center
     fieldsConfig.customFields.map(field => (
-      <div key={field.name} className="flex justify-between items-center p-3 border rounded-md mb-2 bg-gray-50 shadow-sm">
-         <div className="flex-grow flex items-center">
+      <div key={field.name} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 border rounded-md mb-2 bg-gray-50 shadow-sm">
+         <div className="flex-grow flex flex-wrap items-center mb-2 sm:mb-0">
           <span className="font-medium text-gray-700">{field.label}</span>
           <span className="text-xs text-gray-500 ml-2">({field.name})</span>
           <span className="text-xs text-gray-500 ml-2">- {field.type}</span>
           {field.required && <span className="text-red-500 text-xs ml-1">*חובה</span>}
           {field.shareWithPartner && <span className="text-xs text-blue-500 ml-2 bg-blue-100 px-1.5 py-0.5 rounded-full border border-blue-200">משותף</span>}
         </div>
-        <div className="flex-shrink-0 flex gap-2">
+        <div className="flex-shrink-0 flex gap-2 self-end sm:self-center">
           <Button variant="outline" size="sm" onClick={() => openFieldEditorModal(roleType, field)} className="text-blue-600 border-blue-300 hover:bg-blue-50">ערוך</Button>
           <Button variant="destructive" size="sm" onClick={() => handleDeleteCustomField(roleType, field.name)} className="bg-red-500 hover:bg-red-600 text-white">מחק</Button>
         </div>
@@ -803,18 +804,18 @@ export default function AdminDashboard() {
     return <LoadingSpinner />;
   }
   return (
-    <div className="p-6 space-y-6 mt-[-2rem]">
-      <h2 className="text-3xl font-bold text-orange-800 text-center">לוח ניהול</h2>
+    <div className="p-4 sm:p-6 space-y-6 mt-[-1rem] sm:mt-[-2rem]">
+      <h2 className="text-2xl sm:text-3xl font-bold text-orange-800 text-center">לוח ניהול</h2>
       <div className="flex gap-2 mb-4 justify-center flex-wrap">
-        <Button variant={activeTab === "volunteers" ? "default" : "outline"} onClick={() => setActiveTab("volunteers")} className="py-3 px-6 text-lg">מתנדבים לאישור ({volunteers.filter(v => v.approved === "pending").length})</Button>
-        <Button variant={activeTab === "approvals" ? "default" : "outline"} onClick={() => setActiveTab("approvals")} className="py-3 px-6 text-lg">התאמות ממתינות לאישור ({pendingRequests.length})</Button>
-        <Button variant={activeTab === "matching" ? "default" : "outline"} onClick={() => setActiveTab("matching")} className="py-3 px-6 text-lg">התאמה כללית ({requesters.filter(req => !req.activeMatchId).length})</Button>
-        <Button variant={activeTab === "matches" ? "default" : "outline"} onClick={() => setActiveTab("matches")} className="py-3 px-6 text-lg">פיקוח התאמות ({activeMatches.length})</Button>
-        <Button variant={activeTab === "users" ? "default" : "outline"} onClick={() => setActiveTab("users")} className="py-3 px-6 text-lg">כל המשתמשים ({allUsers.length})</Button>
-        <Button variant={activeTab === "EventCreation" ? "default" : "outline"} onClick={() => setActiveTab("EventCreation")} className="py-3 px-6 text-lg">יצירת אירוע</Button>
-        <Button variant={activeTab === "EventList" ? "default" : "outline"} onClick={() => setActiveTab("EventList")} className="py-3 px-6 text-lg">רשימת אירועים</Button>
-        <Button variant={activeTab === "formCustomization" ? "default" : "outline"} onClick={() => setActiveTab("formCustomization")} className="py-3 px-6 text-lg">שינוי תנאי הרשמה</Button>
-        <Button variant={activeTab === "analytics" ? "default" : "outline"} onClick={() => { setActiveTab("analytics"); }} className="py-3 px-6 text-lg">סטטיסטיקה</Button>
+        <Button variant={activeTab === "volunteers" ? "default" : "outline"} onClick={() => setActiveTab("volunteers")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">מתנדבים לאישור ({volunteers.filter(v => v.approved === "pending").length})</Button>
+        <Button variant={activeTab === "approvals" ? "default" : "outline"} onClick={() => setActiveTab("approvals")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">התאמות ממתינות לאישור ({pendingRequests.length})</Button>
+        <Button variant={activeTab === "matching" ? "default" : "outline"} onClick={() => setActiveTab("matching")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">התאמה כללית ({requesters.filter(req => !req.activeMatchId).length})</Button>
+        <Button variant={activeTab === "matches" ? "default" : "outline"} onClick={() => setActiveTab("matches")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">פיקוח התאמות ({activeMatches.length})</Button>
+        <Button variant={activeTab === "users" ? "default" : "outline"} onClick={() => setActiveTab("users")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">כל המשתמשים ({allUsers.length})</Button>
+        <Button variant={activeTab === "EventCreation" ? "default" : "outline"} onClick={() => setActiveTab("EventCreation")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">יצירת אירוע</Button>
+        <Button variant={activeTab === "EventList" ? "default" : "outline"} onClick={() => setActiveTab("EventList")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">רשימת אירועים</Button>
+        <Button variant={activeTab === "formCustomization" ? "default" : "outline"} onClick={() => setActiveTab("formCustomization")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">שינוי תנאי הרשמה</Button>
+        <Button variant={activeTab === "analytics" ? "default" : "outline"} onClick={() => { setActiveTab("analytics"); }} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">סטטיסטיקה</Button>
       </div>
       {activeTab === "volunteers" && (
         <Card>
@@ -823,9 +824,9 @@ export default function AdminDashboard() {
             {filteredVolunteers.length === 0 ? <p className="text-orange-600/80">אין מתנדבים בהמתנה.</p> : (
               <div className="space-y-2">
                 {currentVolunteers.map(v => (
-                <div key={v.id} className="flex justify-between items-start bg-orange-50/50 p-3 rounded border border-orange-100">
+                <div key={v.id} className="flex flex-col md:flex-row md:justify-between md:items-start bg-orange-50/50 p-3 rounded border border-orange-100">
                   <div className="flex-grow">
-                    <div className="grid grid-cols-2 gap-x-8 w-full">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 w-full">
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-2">פרטי מתנדב</h4>
                         <p className="text-sm text-orange-600"><strong>שם:</strong> {v.fullName}</p>
@@ -847,7 +848,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-row md:flex-col gap-2 mt-4 md:mt-0 md:ml-4 flex-shrink-0">
                     <Button variant="outline" onClick={() => approveVolunteer(v.id)}>אשר מתנדב</Button>
                     <Button variant="outline" onClick={() => declineVolunteer(v.id)}>דחה מתנדב</Button>
                   </div>
@@ -870,8 +871,8 @@ export default function AdminDashboard() {
             {filteredPendingRequests.length === 0 ? <p className="text-orange-600/80">אין התאמות ממתינות.</p> : (
               <div className="space-y-4">
                 {currentApprovals.map(request => (
-                  <div key={request.id} className="flex justify-between items-start border rounded p-4 bg-orange-50/50">
-                    <div className="grid grid-cols-2 gap-x-8 flex-grow">
+                  <div key={request.id} className="flex flex-col md:flex-row md:justify-between md:items-start border rounded p-4 bg-orange-50/50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 flex-grow">
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-2">פרטי הפונה</h4>
                         <p className="text-sm text-orange-600"><strong>שם:</strong> {getRequesterDisplayName(request.requesterInfo)}</p>
@@ -890,7 +891,7 @@ export default function AdminDashboard() {
                         {renderCustomFieldsForAdmin(request.volunteerInfo, volunteerFormConfig, "מידע מותאם אישית (מתנדב):")}
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-row md:flex-col gap-2 mt-4 md:mt-0 md:ml-4 flex-shrink-0">
                       <Button variant="outline" onClick={() => approveRequest(request.id, request)}>אשר התאמה</Button>
                       <Button variant="outline" onClick={() => declineRequest(request.id)}>דחה התאמה</Button>
                     </div>
@@ -909,10 +910,10 @@ export default function AdminDashboard() {
       {activeTab === "matching" && (
         <Card className="mt-[-2rem]">
           <CardContent>
-            <h3 className="font-semibold mb-4 text-orange-700">שיוך פונים למתנדבים</h3>
-            <div className="flex flex-grow gap-8">
+            <h3 className="font-semibold mb-4 text-orange-700 text-center md:text-right">שיוך פונים למתנדבים</h3>
+            <div className="flex flex-col lg:flex-row flex-grow gap-4">
               {/* Requester Info Panel */}
-              <div className="w-1/4 border rounded p-4 bg-gray-50/50 h-[510px] overflow-y-scroll">
+              <div className="w-full lg:w-1/4 border rounded p-4 bg-gray-50/50 h-auto lg:h-[510px] overflow-y-auto">
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי פונה</h3>
                 {selectedRequester && requesters.find(r => r.id === selectedRequester) ? (
                   <div className="space-y-2 text-base">
@@ -925,10 +926,10 @@ export default function AdminDashboard() {
               </div>
 
               {/* Requesters List */}
-              <div className="w-1/4 border rounded p-4 bg-orange-50/50">
+              <div className="w-full lg:w-1/4 border rounded p-4 bg-orange-50/50">
                 <input type="text" placeholder="חיפוש פונה..." value={requesterSearch} onChange={e => setRequesterSearch(e.target.value)} className="border rounded px-2 py-1 w-full mb-2" />
                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
-                <ul className="space-y-2 h-[400px] overflow-y-scroll">
+                <ul className="space-y-2 h-[250px] lg:h-[400px] overflow-y-scroll">
                   {requesters.filter(r => !r.activeMatchId
                    && (r.fullName?.toLowerCase().includes(requesterSearch.toLowerCase())
                   || r.email?.toLowerCase().includes(requesterSearch.toLowerCase()))
@@ -942,10 +943,10 @@ export default function AdminDashboard() {
               </div>
 
               {/* Volunteers List */}
-              <div className="w-1/4 border rounded p-4 bg-orange-50/50">
+              <div className="w-full lg:w-1/4 border rounded p-4 bg-orange-50/50">
                 <input type="text" placeholder="חיפוש מתנדב..." value={volunteerSearch} onChange={e => setVolunteerSearch(e.target.value)} className="border rounded px-2 py-1 w-full mb-2" />
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
-                <ul className="space-y-2 h-[400px] overflow-y-scroll">
+                <ul className="space-y-2 h-[250px] lg:h-[400px] overflow-y-scroll">
                   {volunteers.filter(v => v.approved === "true" && (v.isAvailable || v.isAvaliable) && !v.personal && (v.fullName?.toLowerCase().includes(volunteerSearch.toLowerCase()) || v.email?.toLowerCase().includes(volunteerSearch.toLowerCase()))).map(v => (
                     <li key={v.id} className={`p-2 rounded shadow cursor-pointer ${selectedVolunteer === v.id ? 'border-2 border-orange-500' : 'bg-white'} ${!selectedRequester ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => selectedRequester && setSelectedVolunteer(selectedVolunteer === v.id ? null : v.id)}>
                       <strong className="text-orange-800">{v.fullName}</strong>
@@ -955,7 +956,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Volunteer Info Panel */}
-              <div className="w-1/4 border rounded p-4 bg-gray-50/50 h-[510px] overflow-y-scroll">
+              <div className="w-full lg:w-1/4 border rounded p-4 bg-gray-50/50 h-auto lg:h-[510px] overflow-y-auto">
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי מתנדב</h3>
                 {selectedVolunteer && volunteers.find(v => v.id === selectedVolunteer) ? (
                   <div className="space-y-2 text-base">
@@ -967,9 +968,9 @@ export default function AdminDashboard() {
                 ) : <p className="text-gray-500">בחר מתנדב כדי לראות פרטים.</p>}
               </div>
             </div>
-            <div className="mt-4 flex justify-center gap-2 w-full">
-              <Button onClick={() => { if (selectedRequester && selectedVolunteer) { createManualMatch(selectedRequester, selectedVolunteer); setSelectedRequester(null); setSelectedVolunteer(null); } }} disabled={!selectedRequester || !selectedVolunteer} className="py-3 px-6 text-lg">צור התאמה</Button>
-              <Button variant="outline" disabled={!selectedRequester} onClick={() => { const req = requesters.find(r => r.id === selectedRequester); if(req) { setSelectedRequestForAI({ ...req, requesterInfo: req }); setShowAISuggestions(true); } }} className="py-3 px-6 text-lg">הצעות AI</Button>
+            <div className="mt-4 flex flex-col sm:flex-row justify-center gap-2 w-full">
+              <Button onClick={() => { if (selectedRequester && selectedVolunteer) { createManualMatch(selectedRequester, selectedVolunteer); setSelectedRequester(null); setSelectedVolunteer(null); } }} disabled={!selectedRequester || !selectedVolunteer} className="py-2 px-4 text-base sm:py-3 sm:px-6 sm:text-lg">צור התאמה</Button>
+              <Button variant="outline" disabled={!selectedRequester} onClick={() => { const req = requesters.find(r => r.id === selectedRequester); if(req) { setSelectedRequestForAI({ ...req, requesterInfo: req }); setShowAISuggestions(true); } }} className="py-2 px-4 text-base sm:py-3 sm:px-6 sm:text-lg">הצעות AI</Button>
             </div>
           </CardContent>
         </Card>
@@ -1190,10 +1191,10 @@ export default function AdminDashboard() {
                 placeholder="חיפוש משתמש לפי שם או אימייל..."
                 value={userSearch}
                 onChange={e => setUserSearch(e.target.value)}
-                className="border rounded px-3 py-2 w-full"
+                className="border rounded px-3 py-2 w-full mb-4"
               />
             </div>
-            <div className="flex gap-4 mb-4">
+            <div className="flex flex-col sm:flex-row gap-4 mb-4">
               {/* Role Filter */}
               <div className="flex flex-col">
                 <label htmlFor="roleFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי תפקיד:</label>
@@ -1262,28 +1263,28 @@ export default function AdminDashboard() {
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-orange-50">
-                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('fullName')}>שם{sortColumn === 'fullName' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('email')}>אימייל{sortColumn === 'email' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('role')}>תפקיד{sortColumn === 'role' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('approved')}>סטטוס{sortColumn === 'approved' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('personal')}>אישי{sortColumn === 'personal' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('activeMatchIds')}>התאמות פעילות{sortColumn === 'activeMatchIds' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                    <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('lastAdminChat')}>צאטים{sortColumn === 'lastAdminChat' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                    <th className="w-24 border border-orange-100 p-2 text-orange-800 cursor-pointer">מחיקת משתמש</th>
+                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('fullName')}>שם{sortColumn === 'fullName' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer hidden md:table-cell" onClick={() => handleSort('email')}>אימייל{sortColumn === 'email' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('role')}>תפקיד{sortColumn === 'role' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('approved')}>סטטוס{sortColumn === 'approved' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer hidden sm:table-cell" onClick={() => handleSort('personal')}>אישי{sortColumn === 'personal' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer hidden sm:table-cell" onClick={() => handleSort('activeMatchIds')}>התאמות{sortColumn === 'activeMatchIds' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer">צ'אט</th>
+                    <th className="w-24 border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer">מחיקה</th>
                   </tr>
                 </thead>
                 <tbody>
                   {currentUsers.map(u => (
                     <tr key={`${u.id}-${u.role}`} className="hover:bg-orange-50/50">
                       <td className="border p-2"><HoverCard user={u} adminConfig={u.role === 'requester' ? requesterFormConfig : volunteerFormConfig}>{u.fullName}</HoverCard></td>
-                      <td className="border border-orange-100 p-2 text-orange-700">{u.email}</td>
-                      <td className="border border-orange-100 p-2 text-orange-700">
+                      <td className="border border-orange-100 p-1 sm:p-2 text-orange-700 hidden md:table-cell">{u.email}</td>
+                      <td className="border border-orange-100 p-1 sm:p-2 text-orange-700">
                         {u.role === 'volunteer' && 'מתנדב'}
                         {u.role === 'requester' && 'פונה'}
                         {u.role === 'admin-first' && 'מנהל רמה 1'}
                         {u.role === 'admin-second' && 'מנהל רמה 2'}
                       </td>
-                      <td className="border border-orange-100 p-2 text-center">
+                      <td className="border border-orange-100 p-1 sm:p-2 text-center">
                         {u.derivedDisplayStatus === "ממתין לאישור" && (
                           <span className="text-red-600">ממתין לאישור</span>
                         )}
@@ -1297,10 +1298,10 @@ export default function AdminDashboard() {
                           <span className="text-red-600">לא פעיל</span>
                         )}
                       </td>
-                      <td className="border border-orange-100 p-2 text-center">
+                      <td className="border border-orange-100 p-1 sm:p-2 text-center hidden sm:table-cell">
                         {u.personal ? 'כן' : 'לא'}
                       </td>
-                      <td className="border border-orange-100 p-2 text-center">
+                      <td className="border border-orange-100 p-1 sm:p-2 text-center hidden sm:table-cell">
                         {u.role === 'requester' 
                           ? (u.activeMatchId ? <span className="text-green-600">כן</span> : <span className="text-red-600">לא</span>)
                           : (u.activeMatchIds?.length || 0) === 0 
@@ -1308,7 +1309,7 @@ export default function AdminDashboard() {
                             : <span className="text-green-600">{u.activeMatchIds?.length || 0}</span>
                         }
                       </td>
-                      <td className="border border-orange-100 p-2 text-center">
+                      <td className="border border-orange-100 p-1 sm:p-2 text-center">
                         <button
                           className={`p-2 rounded-full focus:outline-none transition-colors duration-200 flex items-center justify-center mx-auto
                             ${u.approved === "declined" ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "text-blue-600 hover:text-white hover:bg-blue-600"}
@@ -1323,7 +1324,7 @@ export default function AdminDashboard() {
                           </svg>
                         </button>
                       </td>
-                      <td className="flex items-center justify-center border border-orange-100 p-2 text-center">                       
+                      <td className="border border-orange-100 p-1 sm:p-2 text-center">                       
                          <button
                           className="p-2 rounded-full text-red-600 hover:text-white hover:bg-red-600 focus:outline-none transition-colors duration-200 flex items-center justify-center mx-auto"
                           onClick={() => { 

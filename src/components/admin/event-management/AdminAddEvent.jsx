@@ -1,3 +1,4 @@
+// c/Users/moti/Desktop/talksfromtheheart/18.6/JCE-Community-Project/src/components/admin/event-management/AdminAddEvent.jsx
 import React, { useState } from 'react';
 import { collection, addDoc, Timestamp, getDocs, writeBatch, serverTimestamp, doc, query } from 'firebase/firestore';
 import { db } from '../../../config/firebaseConfig';
@@ -164,8 +165,8 @@ const AdminAddEvent = ({ onEventAdded }) => {
             <CardContent>
                 <h3 className="font-semibold mb-4 text-orange-700">יצירת אירוע חדש</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="flex gap-4 items-center">
-                        <div className="flex flex-col w-1/5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-start">
+                        <div className="flex flex-col w-full">
                             <label className="block font-medium text-gray-700 text-right">שם האירוע <span className="text-red-500">*</span></label>
                             <input
                                 type="text"
@@ -182,7 +183,7 @@ const AdminAddEvent = ({ onEventAdded }) => {
                             )}
                         </div>
 
-                        <div className="flex flex-col w-1/5">
+                        <div className="flex flex-col w-full">
                             <label className="block font-medium text-gray-700 text-right">מיקום <span className="text-red-500">*</span></label>
                             <input
                                 type="text"
@@ -198,7 +199,7 @@ const AdminAddEvent = ({ onEventAdded }) => {
                                 <p className="text-red-500 text-sm mt-1 text-right">{validationErrors.location}</p>
                             )}
                         </div>
-                        <div className="flex flex-col w-1/5">
+                        <div className="flex flex-col w-full">
                             <label className="block font-medium text-gray-700 text-right">פרטי התקשרות <span className="text-red-500">*</span></label>
                             <input
                                 type="tel"
@@ -215,7 +216,7 @@ const AdminAddEvent = ({ onEventAdded }) => {
                                 <p className="text-red-500 text-sm mt-1 text-right">{validationErrors.Contact_info}</p>
                             )}
                         </div>
-                        <div className="flex flex-col w-1/5">
+                        <div className="flex flex-col w-full">
                             <label className="block font-medium text-gray-700 text-right">דוא"ל <span className="text-red-500">*</span></label>
                             <input
                                 type="email"
@@ -232,7 +233,7 @@ const AdminAddEvent = ({ onEventAdded }) => {
                                 <p className="text-red-500 text-sm mt-1 text-right">{validationErrors.mail}</p>
                             )}
                         </div>
-                        <div className="flex flex-col w-1/5">
+                        <div className="flex flex-col w-full">
                             <label className="block font-medium text-gray-700 text-right">תאריך ושעה <span className="text-red-500">*</span></label>
                             <input
                                 type="datetime-local"
