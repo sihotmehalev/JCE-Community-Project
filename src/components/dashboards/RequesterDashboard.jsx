@@ -20,10 +20,11 @@ import { Button } from "../ui/button";
 import EmergencyButton from "../EmergencyButton/EmergencyButton";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { Card } from "../ui/card";
-import { X, User, Phone, Heart } from "lucide-react";
+import { X, User, Calendar, Clock, MessageCircle, Plus, Sparkles } from "lucide-react"; // Sparkles might be unused now
 import ChatPanel from "../ui/ChatPanel";
 import CustomAlert from "../ui/CustomAlert";
-import { generateRandomId } from "../../utils/firebaseHelpers";
+import LifeAdvice from "./LifeAdvice"; // Corrected import casing
+
 
 
 const fetchVolunteer = async (uid) => {
@@ -44,6 +45,7 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
     const match = timeSlot.match(/^([^(]+)/);
     return match ? match[1].trim() : timeSlot;
   };
+
   if (requesterProfile.frequency && (volunteer.availableDays || volunteer.frequency)) {
     maxScore += 3;
     const requesterFreqs = Array.isArray(requesterProfile.frequency) ? requesterProfile.frequency : [requesterProfile.frequency];
@@ -58,12 +60,13 @@ const calculateCompatibilityScore = (requesterProfile, volunteer) => {
   }
   if (requesterProfile.preferredTimes && volunteer.availableHours) {
     maxScore += 4;
+
     const requesterTimes = Array.isArray(requesterProfile.preferredTimes) ? requesterProfile.preferredTimes : [requesterProfile.preferredTimes];
     const validTimes = requesterTimes.filter(t => t !== "אחר");
     const volunteerPeriods = volunteer.availableHours.map(extractTimePeriod);
     const matchingPeriods = validTimes.filter(rt => volunteerPeriods.some(vp => vp === rt));
     if (matchingPeriods.length >= 2) score += 4;
-    else if (matchingPeriods.length === 1) score += 2;
+
   }
   return maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
 };
@@ -91,7 +94,6 @@ export default function RequesterDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [requestProfile, setRequestProfile] = useState({});
-  const [personal, setPersonal] = useState(true);
   const [availableVolunteers, setAvailableVolunteers] = useState([]);
   const [sortedVolunteers, setSortedVolunteers] = useState([]);
   const [adminApprovalRequests, setAdminApprovalRequests] = useState([]);
@@ -105,8 +107,26 @@ export default function RequesterDashboard() {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [activeTab, setActiveTab] = useState("available");
   const [alertMessage, setAlertMessage] = useState(null);
-  const [declinedVolunteers, setDeclinedVolunteers] = useState([]);
+  const [requesterFormConfig, setRequesterFormConfig] = useState({
+    hideNoteField: false, // Initialize with default structure
+    customFields: []
+  }); // For LifeAdvice
 
+  // Set the appropriate first tab when switching modes
+  useEffect(() => {
+    // If AI advice tab is active, don't change it when 'personal' toggles
+    if (activeTab === "lifeAdvice") return;
+
+    if (personal) {
+      setActiveTab("available");
+    } else {
+      // If not personal, default to 'current' match tab
+      setActiveTab("current");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personal]); // Only re-run when 'personal' changes
+
+  /* listener refs */
   const unsubVolunteers = useRef(null);
   const unsubAdminApproval = useRef(null);
   const unsubMatch = useRef(null);
@@ -178,7 +198,6 @@ export default function RequesterDashboard() {
       setSortedVolunteers([]);
     }
   }, [availableVolunteers, requestProfile, declinedVolunteers]);
-  
   useEffect(() => {
     if (loading || !user) return;
 
@@ -248,7 +267,7 @@ export default function RequesterDashboard() {
   const requestVolunteer = async (volunteerId) => {
     try {
       setRequestLoading(true);
-      
+
       // First verify the volunteer is still available
       const volunteerDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", volunteerId));
       if (!volunteerDoc.exists()) {
@@ -256,10 +275,10 @@ export default function RequesterDashboard() {
         setAlertMessage({message: "המתנדב/ת לא נמצא/ה במערכת", type: "error"});
         return;
       }
-      
+
       const volunteerData = volunteerDoc.data();
-      
-      if (!volunteerData.isAvailable || !volunteerData.approved) {
+
+      if (!volunteerData.isAvailable || volunteerData.approved !== "true") { // Ensure approved is string "true"
         console.warn("[DEBUG] Volunteer is unavailable or not approved");
         setAlertMessage({message: "המתנדב/ת אינו/ה זמין/ה כעת", type: "error"});
         return;
@@ -272,15 +291,15 @@ export default function RequesterDashboard() {
         where("requesterId", "==", user.uid),
         where("status", "==", "waiting_for_first_approval")
       );
-      
+
       const snapshot = await getDocs(q);
-      
+
       if (!snapshot.empty) {
         const requestDoc = snapshot.docs[0];
         const requestId = requestDoc.id;
-        
+
         // Determine the appropriate status based on volunteer's personal mode setting
-        const newStatus = volunteerData.personal === false ? 
+        const newStatus = volunteerData.personal === false ?
         "waiting_for_admin_approval":
         "waiting_for_first_approval";
 
@@ -291,11 +310,11 @@ export default function RequesterDashboard() {
           status: newStatus,
           updatedAt: serverTimestamp(),
         });
-        
+
         // Update the local state to reflect this change
         const updatedPendingRequests = [...pendingRequests];
         const existingReqIndex = updatedPendingRequests.findIndex(req => req.id === requestId);
-        
+
         if (existingReqIndex >= 0) {
           // Update existing request
           updatedPendingRequests[existingReqIndex] = {
@@ -403,7 +422,6 @@ export default function RequesterDashboard() {
   if (!authChecked || loading) {
     return <LoadingSpinner />;
   }
-  
   const renderTabContent = () => {
     switch (activeTab) {
       case "available":
@@ -451,6 +469,13 @@ export default function RequesterDashboard() {
             )}
           </div>
         );
+      case "lifeAdvice": // New case for LifeAdvice tab
+        // Ensure both requestProfile and requesterFormConfig are loaded before rendering
+        if (!requestProfile || Object.keys(requestProfile).length === 0 || !requesterFormConfig) {
+           return <LoadingSpinner />;
+        }
+        // Pass requestProfile as userData and the fetched config
+        return requestProfile ? <LifeAdvice userData={requestProfile} requesterFormConfig={requesterFormConfig} /> : <LoadingSpinner />;
       default:
         return null;
     }
@@ -515,8 +540,8 @@ export default function RequesterDashboard() {
   return (
     <div className="p-6">
       <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-orange-800">
-          שלום {userData?.fullName?.split(' ')[0] || ''} 👋
+        <h1 className="text-2xl font-bold text-orange-800 flex-grow">
+          שלום {requestProfile?.fullName?.split(' ')[0] || ''} 👋
         </h1>
         <Button
           variant="outline"
@@ -544,7 +569,7 @@ export default function RequesterDashboard() {
       <Card className="mb-6">
         <div className="flex border-b border-gray-200">
           {personal && (
-            <>              
+            <>
             <button
                 onClick={() => setActiveTab("available")}
                 className={`
@@ -565,10 +590,25 @@ export default function RequesterDashboard() {
           <button onClick={() => setActiveTab("current")} className={`flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "current" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>
             השיבוץ הנוכחי שלי ({activeMatch ? 1 : 0})
           </button>
+          <button
+            onClick={() => setActiveTab("lifeAdvice")}
+            className={`
+              flex-1 p-4 text-center font-medium text-sm focus:outline-none flex items-center justify-center gap-2
+              ${activeTab === "lifeAdvice"
+                ? 'bg-gradient-to-r from-orange-400 via-red-400 to-purple-500 text-white shadow-inner'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-orange-50/50'
+              }
+              transition-all duration-200 ease-in-out
+            `}
+          >
+            <Sparkles className={`w-4 h-4 ${activeTab === "lifeAdvice" ? 'text-white' : 'text-purple-500'}`} />
+            ייעוץ מהלב AI
+          </button>
         </div>
       </Card>
 
-      {/* Tab Content */}      <div className="mt-6">
+      {/* Tab Content */}
+      <div className="mt-6">
         {renderTabContent()}
       </div>
 
@@ -620,19 +660,19 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
 
   useEffect(() => {
     const fetchVolunteerConfig = async () => {
-      console.log(`[VolunteerCard] Attempting to fetch volunteer_config for volunteerId: ${volunteer.id}`);
+      // console.log(`[VolunteerCard] Attempting to fetch volunteer_config for volunteerId: ${volunteer.id}`);
       try {
         const configDocRef = doc(db, "admin_form_configs", "volunteer_config");
         const configSnap = await getDoc(configDocRef);
         if (configSnap.exists()) {
           const configData = configSnap.data();
-          console.log("[VolunteerCard] Successfully fetched volunteer_config data:", JSON.stringify(configData, null, 2));
+          // console.log("[VolunteerCard] Successfully fetched volunteer_config data:", JSON.stringify(configData, null, 2));
           setVolunteerAdminConfig({
             ...configData,
             customFields: Array.isArray(configData.customFields) ? configData.customFields : []
           });
         } else {
-          console.warn("[VolunteerCard] Volunteer admin config document not found at admin_form_configs/volunteer_config.");
+          // console.warn("[VolunteerCard] Volunteer admin config document not found at admin_form_configs/volunteer_config.");
           setVolunteerAdminConfig({ customFields: [] });
         }
       } catch (error) {
@@ -650,8 +690,9 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
   const isPending = !!pendingRequest;
   const hasAnyPendingRequest = pendingRequests.length > 0;
   const showOtherVolunteers = !hasAnyPendingRequest || isPending;
+
   const shouldShowButton = showOtherVolunteers || isPending;
-  
+
   // Determine if there are any shareable custom fields to display
   let shareableCustomFields = [];
   if (volunteer && volunteerAdminConfig && Array.isArray(volunteerAdminConfig.customFields) && volunteerAdminConfig.customFields.length > 0) {
@@ -666,16 +707,17 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
         } else if (typeof value === 'boolean') {
           displayValue = value ? "כן" : "לא";
         } else if (value === null || value === undefined || value === '') {
-          displayValue = "—"; 
+          displayValue = "—";
         }
         shareableCustomFields.push({ key, label: fieldDef.label, value: String(displayValue) });
       }
     });
   }
 
-  console.log(`Volunteer ${volunteer.id}: isPending=${isPending}, hasAnyPending=${hasAnyPendingRequest}, shouldShow=${shouldShowButton}`);
+  // console.log(`Volunteer ${volunteer.id}: isPending=${isPending}, hasAnyPending=${hasAnyPendingRequest}, shouldShow=${shouldShowButton}`);
 
-  return (    <div className="border border-orange-100 rounded-lg p-4 bg-orange-100">
+  return (
+    <div className="border border-orange-100 rounded-lg p-4 bg-orange-100">
       {isRecommended && (
         <div className="mb-2 flex items-center gap-2">
           <span className="text-green-600 text-sm font-medium bg-green-50 px-2 py-1 rounded-full border border-green-200">
@@ -686,11 +728,11 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
         <p className="font-semibold text-lg mb-1 text-orange-800">
         {volunteer.fullName || "מתנדב/ת"}
       </p>
-      
+
       <p className="text-sm mb-2 text-orange-700">
         תחום: {volunteer.profession ?? "—"}
       </p>
-      
+
       <p className="text-sm mb-2 text-orange-700">
         ניסיון: {volunteer.experience ?? "—"}
       </p>
@@ -701,7 +743,7 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
           שעות זמינות: {formatList(volunteer.availableHours)}
         </p>
       )}
-      
+
       {volunteer.availableDays && (
         <p className="text-sm mb-2 text-orange-700">
           ימים זמינים: {formatList(volunteer.availableDays)}
@@ -719,12 +761,12 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
         <div className="mt-4 pt-4 border-t border-orange-200">
           <h4 className="font-semibold text-orange-800 text-md mb-2">מידע נוסף מהמתנדב:</h4>
           <div className="space-y-1 text-sm">
-            {(() => {
+            {/* {(() => {
               console.log("[VolunteerCard] START Rendering Shared Fields. Volunteer Data:", JSON.stringify(volunteer, null, 2));
               console.log("[VolunteerCard] Using Volunteer Admin Config:", JSON.stringify(volunteerAdminConfig, null, 2));
               console.log("[VolunteerCard] Shareable fields to render:", shareableCustomFields);
-              return null; 
-            })()}
+              return null;
+            })()} */}
             {shareableCustomFields.map(field => (
               <p key={field.key} className="text-orange-700">
                 <strong className="text-orange-800">{field.label}:</strong> {field.value}
@@ -767,7 +809,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
   const [showUpcomingSessionsModal, setShowUpcomingSessionsModal] = useState(false);
   const [showPastSessionsModal, setShowPastSessionsModal] = useState(false);
   const [showCompletedSessionsModal, setShowCompletedSessionsModal] = useState(false);
-  const [volunteerAdminConfig, setVolunteerAdminConfig] = useState(null); 
+  const [volunteerAdminConfig, setVolunteerAdminConfig] = useState(null);
 
   useEffect(() => {
     const sessionsRef = collection(db, "Sessions");
@@ -781,27 +823,27 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
   useEffect(() => {
     const fetchVolunteerConfig = async () => {
       if (match?.volunteerId) {
-        console.log(`[MatchCard - RequesterDashboard] Attempting to fetch volunteer_config for volunteerId: ${match.volunteerId}`);
+        // console.log(`[MatchCard - RequesterDashboard] Attempting to fetch volunteer_config for volunteerId: ${match.volunteerId}`);
         try {
           const configDocRef = doc(db, "admin_form_configs", "volunteer_config");
           const configSnap = await getDoc(configDocRef);
           if (configSnap.exists()) {
             const configData = configSnap.data();
-            console.log("[MatchCard - RequesterDashboard] Successfully fetched volunteer_config data:", JSON.stringify(configData, null, 2));
+            // console.log("[MatchCard - RequesterDashboard] Successfully fetched volunteer_config data:", JSON.stringify(configData, null, 2));
             setVolunteerAdminConfig({
               ...configData,
               customFields: Array.isArray(configData.customFields) ? configData.customFields : []
             });
           } else {
-            console.warn("[MatchCard - RequesterDashboard] Volunteer admin config document not found at admin_form_configs/volunteer_config.");
-            setVolunteerAdminConfig({ customFields: [] }); 
+            // console.warn("[MatchCard - RequesterDashboard] Volunteer admin config document not found at admin_form_configs/volunteer_config.");
+            setVolunteerAdminConfig({ customFields: [] });
           }
         } catch (error) {
           console.error("[MatchCard - RequesterDashboard] Error fetching volunteer admin config:", error);
-          setVolunteerAdminConfig({ customFields: [] }); 
+          setVolunteerAdminConfig({ customFields: [] });
         }
       } else {
-        console.log("[MatchCard - RequesterDashboard] No volunteerId in match, cannot fetch config.");
+        // console.log("[MatchCard - RequesterDashboard] No volunteerId in match, cannot fetch config.");
         setVolunteerAdminConfig({ customFields: [] });
       }
     };
@@ -834,7 +876,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
         } else if (typeof value === 'boolean') {
           displayValue = value ? "כן" : "לא";
         } else if (value === null || value === undefined || value === '') {
-          displayValue = "—"; 
+          displayValue = "—";
         }
         matchShareableCustomFields.push({ key, label: fieldDef.label, value: String(displayValue) });
       }
@@ -846,7 +888,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
-            <User className="w-6 h-6 text-orange-600" />
+            <UserIcon className="w-6 h-6 text-orange-600" />
           </div>
           <div>
             <h3 className="font-bold text-orange-900 text-xl mb-1">
@@ -875,12 +917,12 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
         <div className="mt-4 pt-4 border-t border-orange-200">
           <h4 className="font-semibold text-orange-800 text-md mb-2">מידע נוסף מהמתנדב:</h4>
           <div className="space-y-1 text-sm">
-            {(() => {
+            {/* {(() => {
               console.log("[MatchCard - RequesterDashboard] START Rendering Shared Fields. Volunteer Data:", JSON.stringify(volunteer, null, 2));
               console.log("[MatchCard - RequesterDashboard] Using Volunteer Admin Config:", JSON.stringify(volunteerAdminConfig, null, 2));
               console.log("[MatchCard - RequesterDashboard] Shareable fields to render:", matchShareableCustomFields);
               return null; // Or <></>
-            })()}
+            })()} */}
             {matchShareableCustomFields.map(field => (
               <p key={field.key} className="text-orange-700">
                 <strong className="text-orange-800">{field.label}:</strong> {field.value}
@@ -896,7 +938,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
         <Button onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}>
           {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
         </Button>
-        {/* Removed Schedule Session button from Requester MatchCard */}
         {upcomingSessions.length > 0 && (
           <Button
             variant="outline"
@@ -912,7 +953,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
             onClick={() => setShowPastSessionsModal(true)}
             className="flex items-center gap-2"
           >
-            מפגשים שהסתיימו ({pastSessions.length})
+            מפגשים שהסתיימו ({pastSessionsCount})
           </Button>
         )}
         {completedSessions.length > 0 && (
@@ -927,17 +968,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
       </div>
 
       {/* Modals */}
-      {/* Removed SessionScheduler modal from Requester MatchCard */}
-      {/* {showScheduleModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <SessionScheduler
-              match={match}
-              onClose={() => setShowScheduleModal(false)}
-              handleScheduleSession={handleScheduleSession}
-            />
-          </div>
-        )} */}
-      {/* console.log("Rendering modal section, showUpcomingModal:", showUpcomingSessionsModal) */}
       {showUpcomingSessionsModal && (
         <SessionModal
           title="מפגשים מתוכננים"
@@ -971,34 +1001,41 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
 function SessionModal({ title, sessions, onClose, readOnly = false, partnerName }) {
   const now = new Date();
 
-  // Helper to generate Google Calendar link
-  const generateGoogleCalendarLink = (session, partnerName) => {
-    const startTime = new Date(session.scheduledTime);
-    const endTime = new Date(startTime.getTime() + session.durationMinutes * 60 * 1000);
-
-    const formatDateTime = (date) => {
-      return date.toISOString().replace(/[-:]|\.\d{3}/g, '');
-    };
-
-    const title = encodeURIComponent(`מפגש תמיכה עם ${partnerName}`);
-    const dates = `${formatDateTime(startTime)}/${formatDateTime(endTime)}`;
-    const details = encodeURIComponent(session.notes || 'מפגש תמיכה שנקבע דרך המערכת');
-    let location = '';
-    if (session.location === 'video') location = encodeURIComponent('שיחת וידאו');
-    if (session.location === 'phone') location = encodeURIComponent('שיחת טלפון');
-    if (session.location === 'in_person') location = encodeURIComponent('פגישה פיזית');
-
-    return (
-      `https://www.google.com/calendar/render?action=TEMPLATE` +
-      `&text=${title}` +
-      `&dates=${dates}` +
-      `&details=${details}` +
-      `&location=${location}` +
-      `&sf=true` +
-      `&output=xml`
-    );
+  // Helper function to format session times in Hebrew
+  const formatSessionTime = (date) => {
+    if (!date) return "—";
+    return new Date(date).toLocaleString('he-IL', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
+  const getSessionStatusColor = (session) => {
+    if (session.status === 'completed') {
+      return 'bg-green-50 border-green-100';
+    }
+    if (session.scheduledTime < now && session.status !== 'completed') { // Corrected logic
+      return 'bg-orange-100 border-orange-200';
+    }
+    return 'bg-orange-50 border-orange-100';
+  };
+
+  const getLocationIcon = (location) => {
+    switch (location) {
+      case 'video':
+        return '🎥';
+      case 'phone':
+        return '📱';
+      case 'in_person':
+        return '🤝';
+      default:
+        return '📅';
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -1020,8 +1057,8 @@ function SessionModal({ title, sessions, onClose, readOnly = false, partnerName 
         ) : (
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
             {sessions.map(session => (
-              <div 
-                key={session.id} 
+              <div
+                key={session.id}
                 className={`p-3 rounded-md text-sm transition-colors ${session.status === 'completed' ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}
               >
                 <div className="font-medium text-orange-800 flex items-center justify-between">
@@ -1048,6 +1085,11 @@ function SessionModal({ title, sessions, onClose, readOnly = false, partnerName 
                 {session.notes && (
                   <div className="text-orange-500 mt-2 bg-white/50 p-2 rounded">
                     <strong>הערות:</strong> {session.notes}
+                  </div>
+                )}
+                 {session.status === 'completed' && session.sessionSummary && (
+                  <div className="mt-2 text-gray-600 bg-white/80 p-2 rounded border border-orange-100">
+                    <strong>סיכום המפגש:</strong> {session.sessionSummary}
                   </div>
                 )}
                 {!readOnly && session.scheduledTime > now && (
