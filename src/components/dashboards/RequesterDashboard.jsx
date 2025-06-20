@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { auth, db } from "../../config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -14,20 +15,18 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  arrayUnion
 } from "firebase/firestore";
 import { Button } from "../ui/button";
 import EmergencyButton from "../EmergencyButton/EmergencyButton";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { Card } from "../ui/card";
-import { X } from "lucide-react";
+import { X, User, Phone, Heart } from "lucide-react";
 import ChatPanel from "../ui/ChatPanel";
-import CustomAlert from "../ui/CustomAlert";
-import { User } from "lucide-react";
+import CustomAlert from "../ui/CustomAlert";;
 import { generateRandomId } from "../../utils/firebaseHelpers";
 
-/* ────────────────────────── helpers ────────────────────────── */
 
-// one-shot fetch of a volunteer's public profile
 const fetchVolunteer = async (uid) => {
   if (!uid) {
     console.warn("[DEBUG-FETCH] fetchVolunteer called with invalid UID. Returning null.");
@@ -39,75 +38,37 @@ const fetchVolunteer = async (uid) => {
   return snap.exists() ? { id: uid, ...snap.data() } : null;
 };
 
-// Calculate compatibility score between requester and volunteer preferences
 const calculateCompatibilityScore = (requesterProfile, volunteer) => {
   let score = 0;
   let maxScore = 0;
-
-  // Helper to extract time period from volunteer time slots
   const extractTimePeriod = (timeSlot) => {
-    // Extract just the period name before the parentheses
     const match = timeSlot.match(/^([^(]+)/);
     return match ? match[1].trim() : timeSlot;
   };
-  
-  // Check frequency and days compatibility
   if (requesterProfile.frequency && (volunteer.availableDays || volunteer.frequency)) {
     maxScore += 3;
-    
-    const requesterFreqs = Array.isArray(requesterProfile.frequency)
-      ? requesterProfile.frequency
-      : [requesterProfile.frequency];
-    
-    // Filter out "אחר" from requester frequencies
+    const requesterFreqs = Array.isArray(requesterProfile.frequency) ? requesterProfile.frequency : [requesterProfile.frequency];
     const validFreqs = requesterFreqs.filter(f => f !== "אחר");
-    
-    
     if (validFreqs.length > 0) {
       const volunteerDaysCount = volunteer.availableDays?.length || 0;
-      
-      // Score based on whether volunteer has enough available days
       validFreqs.forEach(freq => {
         if (freq === "פעם בשבוע" && volunteerDaysCount >= 1) score += 1.5;
         if (freq === "פעמיים בשבוע" && volunteerDaysCount >= 2) score += 1.5;
       });
     }
   }
-
-  // Check preferred times compatibility
   if (requesterProfile.preferredTimes && volunteer.availableHours) {
     maxScore += 4;
-    
-    const requesterTimes = Array.isArray(requesterProfile.preferredTimes)
-      ? requesterProfile.preferredTimes
-      : [requesterProfile.preferredTimes];
-    
-    // Filter out "אחר" from requester times
+    const requesterTimes = Array.isArray(requesterProfile.preferredTimes) ? requesterProfile.preferredTimes : [requesterProfile.preferredTimes];
     const validTimes = requesterTimes.filter(t => t !== "אחר");
-    
-    // Extract just the time period names from volunteer hours
     const volunteerPeriods = volunteer.availableHours.map(extractTimePeriod);
-    
-    
-    // Count matching time periods
-    const matchingPeriods = validTimes.filter(rt => 
-      volunteerPeriods.some(vp => vp === rt)
-    );
-    
-    // Award points based on number of matching periods
-    // 1 match = 2 points, 2+ matches = 4 points
-    if (matchingPeriods.length >= 2) {
-      score += 4;
-    } else if (matchingPeriods.length === 1) {
-      score += 2;
-    }
+    const matchingPeriods = validTimes.filter(rt => volunteerPeriods.some(vp => vp === rt));
+    if (matchingPeriods.length >= 2) score += 4;
+    else if (matchingPeriods.length === 1) score += 2;
   }
-
-  const finalScore = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
-  return finalScore;
+  return maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
 };
 
-// Sort volunteers by compatibility
 const sortVolunteersByCompatibility = (volunteers, requesterProfile) => {
   return volunteers.map(volunteer => ({
     ...volunteer,
@@ -115,10 +76,8 @@ const sortVolunteersByCompatibility = (volunteers, requesterProfile) => {
   })).sort((a, b) => b.compatibilityScore - a.compatibilityScore);
 };
 
-/* ────────────────────────── main component ────────────────────────── */
-
 export default function RequesterDashboard() {
-  /* -------- auth gate -------- */
+  const [searchParams] = useSearchParams();
   const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState(null);
 
@@ -131,34 +90,24 @@ export default function RequesterDashboard() {
     return unsub;
   }, []);
 
-  /* -------- UI state -------- */
   const [loading, setLoading] = useState(true);
   const [requestProfile, setRequestProfile] = useState({});
-  const [personal, setPersonal] = useState(true); // true = פנייה ישירה למתנדב, false = ללא העדפה  
+  const [personal, setPersonal] = useState(true);
   const [availableVolunteers, setAvailableVolunteers] = useState([]);
   const [sortedVolunteers, setSortedVolunteers] = useState([]);
   const [adminApprovalRequests, setAdminApprovalRequests] = useState([]);
-  // eslint-disable-next-line no-unused-vars
   const [matches, setMatches] = useState([]);
   const [activeMatch, setActiveMatch] = useState(null);
   const [activeMatchId, setActiveMatchId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState("");
-  const [userData, setUserData] = useState(null);  const [requestLoading, setRequestLoading] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [requestLoading, setRequestLoading] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [activeTab, setActiveTab] = useState("available");
   const [alertMessage, setAlertMessage] = useState(null);
+  const [declinedVolunteers, setDeclinedVolunteers] = useState([]);
 
-  // Set the appropriate first tab when switching modes
-  useEffect(() => {
-    if (personal) {
-      setActiveTab("available");
-    } else {
-      setActiveTab("current");
-    }
-  }, [personal]);
-
-  /* listener refs */
   const unsubVolunteers = useRef(null);
   const unsubAdminApproval = useRef(null);
   const unsubMatch = useRef(null);
@@ -171,151 +120,97 @@ export default function RequesterDashboard() {
   const [adminMessages, setAdminMessages] = useState([]);
   const [adminNewMsg, setAdminNewMsg] = useState("");
 
+
+  useEffect(() => {
+    if (personal) setActiveTab("available");
+    else setActiveTab("current");
+  }, [personal]);
+
   useEffect(() => {
     if (!authChecked || !user) return;
-
     const reqRef = doc(db, "Users", "Info", "Requesters", user.uid);
-
-    const unsubReq = onSnapshot(
-      reqRef,
-      async (snap) => {
-        const data = snap.data();
+    const unsubReq = onSnapshot(reqRef, (snap) => {
+      const data = snap.data();
+      if(data) {
         setRequestProfile(data);
         setPersonal(data.personal ?? true);
         setUserData(data);
-        setLoading(false);
-      },
-      (err) => {
-        console.error("[DEBUG ERROR] Requester doc error:", err);
-        setLoading(false);
       }
-    );
-
+      setLoading(false);
+    }, (err) => {
+      console.error("[DEBUG ERROR] Requester doc error:", err);
+      setLoading(false);
+    });
     return () => unsubReq();
   }, [authChecked, user]);
-  /* -------- fetch declined volunteers list from request -------- */
-  const [declinedVolunteers, setDeclinedVolunteers] = useState([]);
+  
+  // This new effect will check the URL for `chatWith` and open the chat
+  useEffect(() => {
+    const chatWithMatchId = searchParams.get("chatWith");
+    if (chatWithMatchId && matches.length > 0) {
+      const matchExists = matches.some(m => m.id === chatWithMatchId);
+      if (matchExists && activeMatchId !== chatWithMatchId) {
+        openChat(chatWithMatchId);
+      }
+    }
+  }, [searchParams, matches]);
 
-  // Fetch the request document to get the declinedVolunteers list
   useEffect(() => {
     if (!user) return;
-    
     const fetchDeclinedVolunteers = async () => {
       try {
-        // Query for the requester's request
-        const requestsRef = collection(db, "Requests");
-        const q = query(
-          requestsRef,
-          where("requesterId", "==", user.uid),
-          where("status", "==", "waiting_for_first_approval")
-        );
-        
+        const q = query(collection(db, "Requests"), where("requesterId", "==", user.uid), where("status", "==", "waiting_for_first_approval"));
         const snapshot = await getDocs(q);
-        
-        if (!snapshot.empty) {
-          // Get the first request document (there should only be one per requester)
-          const requestDoc = snapshot.docs[0];
-          const requestData = requestDoc.data();
-          
-          // Extract declinedVolunteers array or use empty array if it doesn't exist
-          const declined = requestData.declinedVolunteers || [];
-          setDeclinedVolunteers(declined);
-        } else {
-          setDeclinedVolunteers([]);
-        }
+        if (!snapshot.empty) setDeclinedVolunteers(snapshot.docs[0].data().declinedVolunteers || []);
+        else setDeclinedVolunteers([]);
       } catch (error) {
         console.error("Error fetching declined volunteers:", error);
       }
     };
-    
     fetchDeclinedVolunteers();
-  }, [user, pendingRequests]); // Re-fetch when pendingRequests changes
+  }, [user, pendingRequests]);
   
-  /* -------- sort volunteers when data changes -------- */
   useEffect(() => {
     if (availableVolunteers.length > 0 && requestProfile) {
-      // Filter out any volunteers that are in the declinedVolunteers list
-      const filteredVolunteers = availableVolunteers.filter(
-        volunteer => !declinedVolunteers.includes(volunteer.id)
-      );
-      
+      const filteredVolunteers = availableVolunteers.filter(v => !declinedVolunteers.includes(v.id));
       const sorted = sortVolunteersByCompatibility(filteredVolunteers, requestProfile);
       setSortedVolunteers(sorted);
     } else {
       setSortedVolunteers([]);
     }
   }, [availableVolunteers, requestProfile, declinedVolunteers]);
-
-  /* -------- attach / detach listeners based on mode -------- */  
+  
   useEffect(() => {
     if (loading || !user) return;
 
-
-    // ---- active matches (always) ----
     unsubMatch.current?.();
-    unsubMatch.current = onSnapshot(
-      query(
-        collection(db, "Matches"),
-        where("requesterId", "==", user.uid),
-        where("status", "==", "active")
-      ),
-      async (snap) => {
-        const arr = [];
-        for (const d of snap.docs) {
-          const m = d.data();
-          const vol = await fetchVolunteer(m.volunteerId);
-          if (vol) {
-            arr.push({ id: d.id, ...m, volunteer: vol });
-          } else {
-            console.warn("[DEBUG] Failed to fetch volunteer for match:", m);
-          }
-        }        
-        setActiveMatch(arr.length > 0 ? arr[0] : null); // Keep existing activeMatch behavior
-        setMatches(arr);
-      }
-    );
+    unsubMatch.current = onSnapshot(query(collection(db, "Matches"), where("requesterId", "==", user.uid), where("status", "==", "active")), async (snap) => {
+      const arr = await Promise.all(snap.docs.map(async d => {
+        const m = d.data();
+        const vol = await fetchVolunteer(m.volunteerId);
+        return vol ? { id: d.id, ...m, volunteer: vol } : null;
+      }));
+      const validMatches = arr.filter(Boolean);
+      setActiveMatch(validMatches.length > 0 ? validMatches[0] : null);
+      setMatches(validMatches);
+    });
 
-    // Clear any existing listeners
     unsubVolunteers.current?.();
     unsubAdminApproval.current?.();
 
     if (personal) {
-      // available volunteers
-      unsubVolunteers.current = onSnapshot(
-        query(
-          collection(db, "Users", "Info", "Volunteers"),
-          where("approved", "==", "true"),
-          where("isAvailable", "==", true)
-        ),
-        (snap) => {
-          setAvailableVolunteers(
-            snap.docs.map(d => ({ id: d.id, ...d.data() }))
-          );
-        }
-      );
-
-      // show requests waiting for admin approval
-      unsubAdminApproval.current = onSnapshot(
-        query(
-          collection(db, "Requests"),
-          where("requesterId", "==", user.uid),
-          where("status", "==", "waiting_for_admin_approval")
-        ),
-        async (snap) => {
-          const arr = [];
-          for (const d of snap.docs) {
-            const rqData = d.data();
-            const volunteer = await fetchVolunteer(rqData.volunteerId);
-            if (volunteer) {
-              arr.push({ id: d.id, ...rqData, volunteer: volunteer });
-            }
-          }
-          setAdminApprovalRequests(arr);
-        }
-      );
-    }
-    else {
-      // When not in personal mode, clear the states
+      unsubVolunteers.current = onSnapshot(query(collection(db, "Users", "Info", "Volunteers"), where("approved", "==", "true"), where("isAvailable", "==", true)), (snap) => {
+        setAvailableVolunteers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+      unsubAdminApproval.current = onSnapshot(query(collection(db, "Requests"), where("requesterId", "==", user.uid), where("status", "==", "waiting_for_admin_approval")), async (snap) => {
+        const arr = await Promise.all(snap.docs.map(async d => {
+          const rqData = d.data();
+          const volunteer = await fetchVolunteer(rqData.volunteerId);
+          return volunteer ? { id: d.id, ...rqData, volunteer } : null;
+        }));
+        setAdminApprovalRequests(arr.filter(Boolean));
+      });
+    } else {
       setAvailableVolunteers([]);
       setAdminApprovalRequests([]);
     }
@@ -327,54 +222,30 @@ export default function RequesterDashboard() {
     };
   }, [personal, loading, user]);
 
-  /* -------- listen for pending requests -------- */
   useEffect(() => {
-    if (!user) return;    unsubPendingRequests.current = onSnapshot(
-      query(
-        collection(db, "Requests"),
-        where("requesterId", "==", user.uid),
-        where("status", "in", ["waiting_for_first_approval", "waiting_for_admin_approval"])
-      ),
-      async (snap) => {
-        
-        // Look for the waiting_for_first_approval request to get declinedVolunteers
-        const firstApprovalRequest = snap.docs.find(d => d.data().status === "waiting_for_first_approval");
-        if (firstApprovalRequest) {
-          const data = firstApprovalRequest.data();
-          // Update declined volunteers list
-          setDeclinedVolunteers(data.declinedVolunteers || []);
-        }
-        
-        const requests = await Promise.all(snap.docs.map(async (d) => {
-          const data = d.data();
-          if (data.volunteerId) {
-            const volunteer = await fetchVolunteer(data.volunteerId);
-            return { id: d.id, ...data, volunteer };
-          }
-          return { id: d.id, ...data };
-        }));
-        
-        // Filter out requests that don't have a volunteerId
-        const requestsWithVolunteer = requests.filter(req => req.volunteerId);
-        
-        setPendingRequests(requestsWithVolunteer);
+    if (!user) return;
+    unsubPendingRequests.current = onSnapshot(query(collection(db, "Requests"), where("requesterId", "==", user.uid), where("status", "in", ["waiting_for_first_approval", "waiting_for_admin_approval"])), async (snap) => {
+      const firstApprovalRequest = snap.docs.find(d => d.data().status === "waiting_for_first_approval");
+      if (firstApprovalRequest) {
+        setDeclinedVolunteers(firstApprovalRequest.data().declinedVolunteers || []);
       }
-    );
-
+      const requests = await Promise.all(snap.docs.map(async (d) => {
+        const data = d.data();
+        const volunteer = data.volunteerId ? await fetchVolunteer(data.volunteerId) : null;
+        return { id: d.id, ...data, volunteer };
+      }));
+      setPendingRequests(requests.filter(req => req.volunteerId));
+    });
     return () => unsubPendingRequests.current?.();
   }, [user]);
 
-  /* -------- handlers -------- */
   const flipPersonal = async () => {
     if (!user) return;
     const newVal = !personal;
-    setPersonal(newVal); // optimistic
-    await setDoc(
-      doc(db, "Users", "Info", "Requesters", user.uid),
-      { personal: newVal },
-      { merge: true }
-    );
-  };  
+    setPersonal(newVal);
+    await setDoc(doc(db, "Users", "Info", "Requesters", user.uid), { personal: newVal }, { merge: true });
+  };
+  
   const requestVolunteer = async (volunteerId) => {
     try {
       setRequestLoading(true);
@@ -442,33 +313,42 @@ export default function RequesterDashboard() {
             volunteerId,
             initiatedBy: user.uid,
             status: newStatus,
-            volunteer: volunteerData
+            updatedAt: serverTimestamp(),
           });
+          const updatedPendingRequests = [...pendingRequests];
+          const existingReqIndex = updatedPendingRequests.findIndex(req => req.id === requestId);
+          if (existingReqIndex >= 0) {
+            updatedPendingRequests[existingReqIndex] = { ...updatedPendingRequests[existingReqIndex], volunteerId, initiatedBy: user.uid, status: newStatus };
+          } else {
+            updatedPendingRequests.push({ id: requestId, requesterId: user.uid, volunteerId, initiatedBy: user.uid, status: newStatus, volunteer: volunteerData });
+          }
+          setPendingRequests(updatedPendingRequests);
         }
-        
-        setPendingRequests(updatedPendingRequests);
+        setAlertMessage({message: "הבקשה נשלחה בהצלחה וממתינה לאישור", type: "success"});
+      } catch (error) {
+        console.error("Error requesting volunteer:", error);
+        setAlertMessage({message: "אירעה שגיאה בשליחת הבקשה. אנא נסה שוב", type: "error"});
+      } finally {
+        setRequestLoading(false);
       }
-      
-      setAlertMessage({message: "הבקשה נשלחה בהצלחה וממתינה לאישור", type: "success"});
-    } catch (error) {
-      console.error("Error requesting volunteer:", error);
-      setAlertMessage({message: "אירעה שגיאה בשליחת הבקשה. אנא נסה שוב", type: "error"});
-    } finally {
-      setRequestLoading(false);
-    }
   };
+
   const cancelRequest = async (requestId) => {
-    try {
-      setRequestLoading(true);
-      
-      // Find the request to extract current data before updating
-      const requestDoc = await getDoc(doc(db, "Requests", requestId));
-      if (!requestDoc.exists()) {
-        setAlertMessage({message: "הבקשה לא נמצאה במערכת", type: "error"});
-        return;
+      try {
+        setRequestLoading(true);
+        const requestDoc = await getDoc(doc(db, "Requests", requestId));
+        if (!requestDoc.exists()) {
+          setAlertMessage({message: "הבקשה לא נמצאה במערכת", type: "error"});
+          return;
+        }
+        await updateDoc(doc(db, "Requests", requestId), { volunteerId: null, initiatedBy: null, updatedAt: serverTimestamp(), });
+        setAlertMessage({message: "הבקשה בוטלה בהצלחה", type: "success"});
+      } catch (error) {
+        console.error("Error canceling request:", error);
+        setAlertMessage({message: "אירעה שגיאה בביטול הבקשה. אנא נסה שוב", type: "error"});
+      } finally {
+        setRequestLoading(false);
       }
-      
-      
       // const volunteerId = requestDoc.data().volunteerId;
 
       // Update the request to remove the volunteerId and initiatedBy fields
@@ -496,16 +376,13 @@ export default function RequesterDashboard() {
       setRequestLoading(false);
     }
   };
-
+  
   const openChat = (matchId) => {
     closeAdminChat();
     setActiveMatchId(matchId);
     unsubChat.current?.();
     unsubChat.current = onSnapshot(
-      query(
-        collection(db, "conversations", matchId, "messages"),
-        orderBy("timestamp")
-      ),
+      query(collection(db, "conversations", matchId, "messages"), orderBy("createdAt", "asc")),
       (snap) => setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
   };
@@ -518,22 +395,33 @@ export default function RequesterDashboard() {
   };
 
   const sendMessage = async () => {
-    if (!newMsg.trim() || !activeMatch) return;
-    await addDoc(
-      collection(db, "conversations", activeMatch.id, "messages"),
-      {
-        text: newMsg.trim(),
-        senderId: user.uid,
-        timestamp: serverTimestamp(),
+    if (!newMsg.trim() || !activeMatch || !user) return;
+    try {
+      await addDoc(
+        collection(db, "conversations", activeMatch.id, "messages"),
+        { text: newMsg.trim(), senderId: user.uid, createdAt: serverTimestamp() }
+      );
+      if (activeMatch.volunteerId) {
+        await addDoc(collection(db, "notifications"), {
+          userId: activeMatch.volunteerId,
+          message: `הודעה חדשה מ־${requestProfile?.fullName || "פונה"}`,
+          link: `/volunteer-dashboard?chatWith=${activeMatch.id}`,
+          createdAt: serverTimestamp(),
+          read: false,
+        });
       }
-    );
-    setNewMsg("");
+      setNewMsg("");
+    } catch (error) {
+      console.error("Error sending message or notification:", error);
+      setAlertMessage({ message: "שגיאה בשליחת ההודעה", type: "error" });
+    }
   };
 
-  /* -------- render -------- */
   if (!authChecked || loading) {
     return <LoadingSpinner />;
-  }  const renderTabContent = () => {
+  }
+  
+  const renderTabContent = () => {
     switch (activeTab) {
       case "available":
         return personal ? (
@@ -542,7 +430,8 @@ export default function RequesterDashboard() {
               <div className="bg-orange-100 border border-orange-200 rounded-lg p-4 text-orange-700 text-center">
                 <p className="font-medium">יש לך כבר שיבוץ פעיל עם מתנדב/ת. אין אפשרות לפנות למתנדבים נוספים.</p>
               </div>
-            ) : sortedVolunteers.length > 0 ? (              sortedVolunteers.map((vol) => (
+            ) : sortedVolunteers.length > 0 ? (
+              sortedVolunteers.map((vol) => (
                 <VolunteerCard
                   key={vol.id}
                   volunteer={vol}
@@ -559,37 +448,26 @@ export default function RequesterDashboard() {
             )}
           </div>
         ) : null;
-
       case "pending":
         return (
           <div className="space-y-4">
             {adminApprovalRequests.length > 0 ? (
-              adminApprovalRequests.map((r) => (
-                <AdminApprovalCard
-                  key={r.id}
-                  request={r}
-                />
-              ))
+              adminApprovalRequests.map((r) => <AdminApprovalCard key={r.id} request={r} />)
             ) : (
               <Empty text="אין בקשות הממתינות לאישור" />
             )}
           </div>
-        );      case "current":
+        );
+      case "current":
         return (
           <div className="space-y-4">
             {activeMatch ? (
-              <MatchCard
-                match={activeMatch}
-                onOpenChat={openChat}
-                onCloseChat={closeChat}
-                activeMatchId={activeMatchId}
-              />
+              <MatchCard match={activeMatch} onOpenChat={openChat} onCloseChat={closeChat} activeMatchId={activeMatchId} />
             ) : (
               <Empty text="אין שיבוץ נוכחי" />
             )}
           </div>
         );
-
       default:
         return null;
     }
@@ -653,7 +531,6 @@ export default function RequesterDashboard() {
 
   return (
     <div className="p-6">
-      {/* header + toggle */}
       <div className="flex items-center gap-3 mb-6">
         <h1 className="text-2xl font-bold text-orange-800">
           שלום {userData?.fullName?.split(' ')[0] || ''} 👋
@@ -675,21 +552,12 @@ export default function RequesterDashboard() {
         <div className="flex-1" />
         <div className="flex items-center gap-2">
           <span className="text-sm text-orange-700">פנייה ישירה למתנדב</span>
-          <button
-            onClick={flipPersonal}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${
-              personal ? 'bg-orange-600 border-orange-400' : 'bg-gray-200 border-orange-400'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${
-                personal ? '-translate-x-1' : '-translate-x-6'
-              }`}
-            />
+          <button onClick={flipPersonal} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${personal ? 'bg-orange-600 border-orange-400' : 'bg-gray-200 border-orange-400'}`}>
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${personal ? '-translate-x-1' : '-translate-x-6'}`} />
           </button>
           <span className="text-sm text-orange-700">ללא העדפה</span>
         </div>
-      </div>      {/* Tabs */}
+      </div>
       <Card className="mb-6">
         <div className="flex border-b border-gray-200">
           {personal && (
@@ -706,29 +574,12 @@ export default function RequesterDashboard() {
               >
                 מתנדבים זמינים{!activeMatch && ` (${sortedVolunteers.length})`}
               </button>
-              <button
-                onClick={() => setActiveTab("pending")}
-                className={`
-                  flex-1 p-4 text-center font-medium text-sm focus:outline-none
-                  ${activeTab === "pending"
-                    ? 'border-b-2 border-orange-500 text-orange-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                  }
-                `}
-              >
+              <button onClick={() => setActiveTab("pending")} className={`flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "pending" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>
                 בקשות שממתינות לאישור מנהל ({adminApprovalRequests.length})
               </button>
             </>
-          )}          <button
-            onClick={() => setActiveTab("current")}
-            className={`
-              flex-1 p-4 text-center font-medium text-sm focus:outline-none
-              ${activeTab === "current"
-                ? 'border-b-2 border-orange-500 text-orange-600'
-                : 'text-gray-500 hover:text-gray-700'
-              }
-            `}
-          >
+          )}
+          <button onClick={() => setActiveTab("current")} className={`flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "current" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>
             השיבוץ הנוכחי שלי ({activeMatch ? 1 : 0})
           </button>
         </div>
@@ -743,7 +594,7 @@ export default function RequesterDashboard() {
 
       {/* Chat Panel - Now shown as a floating window */}
       <ChatPanel
-        isOpen={!!unsubChat.current && !!activeMatch}
+        isOpen={!!activeMatchId && !!activeMatch}
         onClose={closeChat}
         messages={messages}
         newMsg={newMsg}
@@ -772,23 +623,16 @@ export default function RequesterDashboard() {
   );
 }
 
-/* ────────────────────────── presentational helpers ───────────────────────── */
-
 const Empty = ({ text }) => (
-  <p className="bg-orange-100 border border-orange-100 rounded-lg py-4 px-6 text-orange-700">
-    {text}
-  </p>
+  <p className="bg-orange-100 border border-orange-100 rounded-lg py-4 px-6 text-orange-700">{text}</p>
 );
 
 function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore, requestLoading, pendingRequests, cancelRequest }) {
   const formatList = (list) => {
     if (!list) return "—";
-    if (Array.isArray(list)) {
-      return list.join(", ");
-    }
+    if (Array.isArray(list)) return list.join(", ");
     return list;
   };
-
   const [volunteerAdminConfig, setVolunteerAdminConfig] = useState(null);
 
   useEffect(() => {
@@ -821,12 +665,8 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
   // Check if there's a pending request for this volunteer
   const pendingRequest = pendingRequests.find(req => req.volunteerId === volunteer.id);
   const isPending = !!pendingRequest;
-  // const isWaitingForAdmin = pendingRequest?.status === "waiting_for_admin_approval"; // Commented out as it's not used
-  // Check if there's any pending request to any volunteer (to hide buttons for other volunteers)
   const hasAnyPendingRequest = pendingRequests.length > 0;
   const showOtherVolunteers = !hasAnyPendingRequest || isPending;
-  
-  // Don't show the button if this is not the pending volunteer and there's another pending request
   const shouldShowButton = showOtherVolunteers || isPending;
   
   // Determine if there are any shareable custom fields to display
@@ -910,22 +750,13 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
           </div>
         </div>
       )}
-      
-      {shouldShowButton && (
+            {shouldShowButton && (
         isPending ? (
-          <Button 
-            onClick={() => cancelRequest(pendingRequest.id)}
-            className={requestLoading ? 'opacity-50 cursor-not-allowed bg-red-600 hover:bg-red-700' : 'bg-red-600 hover:bg-red-700'}
-            disabled={requestLoading}
-          >
+          <Button onClick={() => cancelRequest(pendingRequest.id)} className={requestLoading ? 'opacity-50 cursor-not-allowed bg-red-600 hover:bg-red-700' : 'bg-red-600 hover:bg-red-700'} disabled={requestLoading}>
             {requestLoading ? 'מבטל בקשה...' : 'בטל בקשה'}
           </Button>
         ) : (
-          <Button 
-            onClick={onRequest}
-            className={requestLoading ? 'opacity-50 cursor-not-allowed' : ''}
-            disabled={requestLoading}
-          >
+          <Button onClick={onRequest} className={requestLoading ? 'opacity-50 cursor-not-allowed' : ''} disabled={requestLoading}>
             {requestLoading ? 'שולח בקשה...' : 'פנה למתנדב/ת'}
           </Button>
         )
@@ -938,18 +769,10 @@ function AdminApprovalCard({ request }) {
   const { volunteer } = request;
   return (
     <div className="border border-orange-100 bg-orange-100 rounded-lg p-4">
-      <p className="font-semibold text-orange-800 text-lg mb-1">
-        {volunteer?.fullName || "מתנדב/ת"}
-      </p>
-      <p className="text-orange-700 text-sm mb-2">
-        תחום: {volunteer?.profession ?? "—"}
-      </p>
-      <p className="text-orange-700 mb-3">
-        ניסיון: {volunteer?.experience ?? "—"}
-      </p>
-      <p className="text-orange-600 text-sm font-medium">
-        ממתין לאישור מנהל
-      </p>
+      <p className="font-semibold text-orange-800 text-lg mb-1">{volunteer?.fullName || "מתנדב/ת"}</p>
+      <p className="text-orange-700 text-sm mb-2">תחום: {volunteer?.profession ?? "—"}</p>
+      <p className="text-orange-700 mb-3">ניסיון: {volunteer?.experience ?? "—"}</p>
+      <p className="text-orange-600 text-sm font-medium">ממתין לאישור מנהל</p>
     </div>
   );
 }
@@ -965,21 +788,10 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
 
   useEffect(() => {
     const sessionsRef = collection(db, "Sessions");
-    return onSnapshot(
-      query(
-        sessionsRef,
-        where("matchId", "==", match.id),
-        orderBy("scheduledTime", "asc")
-      ),
-      (snapshot) => {
-        const sessionData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          scheduledTime: doc.data().scheduledTime?.toDate()
-        }));
-        setSessions(sessionData);
-      }
-    );
+    const unsub = onSnapshot(query(sessionsRef, where("matchId", "==", match.id), orderBy("scheduledTime", "asc")), (snapshot) => {
+      setSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), scheduledTime: doc.data().scheduledTime?.toDate() })));
+    });
+    return unsub;
   }, [match.id]);
 
   // Fetch volunteer admin config when volunteer data is available
@@ -1017,17 +829,12 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
   // Split sessions into categories: upcoming, past, and completed
   const now = new Date();
   const { upcomingSessions, pastSessions, completedSessions } = sessions.reduce((acc, session) => {
-    if (session.status === 'completed') {
-      acc.completedSessions.push(session);
-    } else if (session.scheduledTime > now) {
-      acc.upcomingSessions.push(session);
-    } else {
-      acc.pastSessions.push(session);
-    }
+    if (session.status === 'completed') acc.completedSessions.push(session);
+    else if (session.scheduledTime > now) acc.upcomingSessions.push(session);
+    else acc.pastSessions.push(session);
     return acc;
   }, { upcomingSessions: [], pastSessions: [], completedSessions: [] });
 
-  // Get the count of past sessions
   const pastSessionsCount = pastSessions.length;
 
   // Determine if there are any shareable custom fields to display for the MatchCard
@@ -1053,7 +860,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
 
   return (
     <div className="border border-orange-100 bg-orange-100 rounded-lg p-4">
-    {/* Header Section */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
@@ -1233,7 +1039,7 @@ function SessionModal({ title, sessions, onClose, readOnly = false, partnerName 
             {sessions.map(session => (
               <div 
                 key={session.id} 
-                className={`p-3 rounded-md text-sm transition-colors ${session.status === 'completed' ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}
+                className={'p-3 rounded-md text-sm transition-colors ${session.status === 'completed' ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}
               >
                 <div className="font-medium text-orange-800 flex items-center justify-between">
                   <span>{new Date(session.scheduledTime).toLocaleString('he-IL', {

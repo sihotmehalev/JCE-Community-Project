@@ -1,41 +1,54 @@
-// AdminDashboard.jsx - Full Implementation
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { db } from "../../config/firebaseConfig";
-import { 
-  collection, 
-  getDocs, 
-  updateDoc, 
-  doc, 
-  setDoc, 
-  writeBatch, 
-  query, 
-  where, 
-  getDoc, 
+import {
+  collection,
+  getDocs,
+  updateDoc,
+  doc,
+  setDoc,
+  writeBatch,
+  query,
+  where,
+  getDoc,
   arrayUnion,
   increment,
   deleteDoc,
+  addDoc,
+  serverTimestamp,
   onSnapshot,
   orderBy,
-  limit,
-  addDoc,
-  setDoc as setFirestoreDoc // Alias setDoc to avoid conflict
+  limit
 } from "firebase/firestore";
-import emailjs from 'emailjs-com'; // Import emailjs
+import emailjs from "emailjs-com";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { HoverCard } from "../ui/HoverCard";
-import AISuggestionModal from '../modals/AISuggestionModal';
+import AISuggestionModal from "../modals/AISuggestionModal";
 import { generateRandomId } from "../../utils/firebaseHelpers";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import EventCreation from "../admin/event-management/AdminAddEvent";
-import { AdminEventList } from '../admin/event-management/AdminEventList'
+import { AdminEventList } from "../admin/event-management/AdminEventList";
 import CustomAlert from "../ui/CustomAlert";
-import { CancelMatchModal } from '.././ui/CancelMatchModal';
-import { DeleteUserModal } from '.././ui/DeleteUserModal'
+import { CancelMatchModal } from "../ui/CancelMatchModal";
+import { DeleteUserModal } from "../ui/DeleteUserModal";
 import ChatPanel from "../ui/ChatPanel";
-import { serverTimestamp } from "firebase/firestore";
-import CustomFieldEditor from '../admin/CustomFieldEditor';
-import { AdminAnalyticsTab } from '../analytics/AnalyticsTab';
+import CustomFieldEditor from "../admin/CustomFieldEditor";
+import { AdminAnalyticsTab } from "../analytics/AnalyticsTab";
+
+const createNotification = async (userId, message, link) => {
+  if (!userId) return;
+  try {
+    await addDoc(collection(db, "notifications"), {
+      userId,
+      message,
+      link,
+      createdAt: serverTimestamp(),
+      read: false
+    });
+  } catch (err) {
+    console.error("Error creating notification:", err);
+  }
+};
 
 // Helper function to render custom fields for admin view
 const renderCustomFieldsForAdmin = (user, config, title = "מידע נוסף:") => {
@@ -88,9 +101,7 @@ const getRequesterDisplayName = (requester) => {
   return fullName;
 };
 
-
 export default function AdminDashboard() {
-  // State Management
   const [selectedRequester, setSelectedRequester] = useState(null);
   const [selectedVolunteer, setSelectedVolunteer] = useState(null);
   
@@ -104,8 +115,6 @@ export default function AdminDashboard() {
   const [requesters, setRequesters] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // New States
   const [pendingRequests, setPendingRequests] = useState([]);
   const [showAISuggestions, setShowAISuggestions] = useState(false);
   const [selectedRequestForAI, setSelectedRequestForAI] = useState(null);
@@ -113,7 +122,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("approvals");
   const [userSearch, setUserSearch] = useState("");
   const [sortColumn, setSortColumn] = useState(null);
-  const [sortOrder, setSortOrder] = useState("asc"); // 'asc' or 'desc'
+  const [sortOrder, setSortOrder] = useState("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [volunteerCurrentPage, setVolunteerCurrentPage] = useState(1);
   const [approvalCurrentPage, setApprovalCurrentPage] = useState(1);
@@ -128,12 +137,16 @@ export default function AdminDashboard() {
   const [activeMatchesFilter, setActiveMatchesFilter] = useState("all");
   const [activeMatches, setActiveMatches] = useState([]);
   const [activeMatchSearch, setActiveMatchSearch] = useState("");
+
+  const [activeMatchCurrentPage, setActiveMatchCurrentPage] = useState(1);
+
   const [matchRequesterFilter] = useState("all");
   const [matchVolunteerFilter] = useState("all");
   const [matchSortColumn, setMatchSortColumn] = useState(null);
   const [matchSortOrder, setMatchSortOrder] = useState("asc");
 
   // Session details states
+
   const [showSessionDetails, setShowSessionDetails] = useState(false);
   const [selectedMatchForDetails, setSelectedMatchForDetails] = useState(null);
   const [matchSessions, setMatchSessions] = useState([]);
@@ -144,7 +157,6 @@ export default function AdminDashboard() {
   const [hoveredVolunteer, setHoveredVolunteer] = useState(null);
   const requesterHoverTimeoutRef = useRef(null);
   const volunteerHoverTimeoutRef = useRef(null);
-
   // Session summary states
   const [selectedSessionForView, setSelectedSessionForView] = useState(null);
   const [alertMessage, setAlertMessage] = useState(null);
@@ -169,7 +181,6 @@ export default function AdminDashboard() {
   const [editingField, setEditingField] = useState(null);
   const [editingRoleType, setEditingRoleType] = useState(null);
 
-  // Listen for last chat messages
   useEffect(() => {
     const fetchLastMessages = async () => {
       const timestamps = {};
@@ -344,6 +355,7 @@ export default function AdminDashboard() {
         setVolunteerFormConfig({ customFields: configData.customFields || [] });
       }));
 
+
     } catch (error) {
       console.error("Error setting up listeners:", error);
       setAlertMessage({ message: "שגיאה בטעינת המידע", type: "error" });
@@ -446,11 +458,12 @@ export default function AdminDashboard() {
     try {
       const batch = writeBatch(db);
       const matchId = generateRandomId();
-      
+
+      /* ---- create the match ---- */
       batch.set(doc(db, "Matches", matchId), {
         volunteerId: requestData.volunteerId,
         requesterId: requestData.requesterId,
-        requestId: requestId,
+        requestId,
         status: "active",
         startDate: new Date(),
         endDate: null,
@@ -458,50 +471,75 @@ export default function AdminDashboard() {
         totalSessions: 0,
         notes: ""
       });
-      batch.update(doc(db, "Requests", requestId), { status: "matched", matchId: matchId, matchedAt: new Date() });
-      batch.update(doc(db, "Users", "Info", "Volunteers", requestData.volunteerId), { activeMatchIds: arrayUnion(matchId) });
-      batch.update(doc(db, "Users", "Info", "Requesters", requestData.requesterId), { activeMatchId: matchId });
+
+      /* ---- update the request ---- */
+      batch.update(doc(db, "Requests", requestId), {
+        status: "matched",
+        matchId,
+        matchedAt: new Date()
+      });
+
+      /* ---- update the users ---- */
+      batch.update(
+        doc(db, "Users", "Info", "Volunteers", requestData.volunteerId),
+        { activeMatchIds: arrayUnion(matchId) }
+      );
+      batch.update(
+        doc(db, "Users", "Info", "Requesters", requestData.requesterId),
+        { activeMatchId: matchId }
+      );
 
       await batch.commit();
-      setAlertMessage({ message: "הבקשה אושרה והתאמה נוצרה בהצלחה!", type: "success" });
 
-      const requester = requesters.find(r => r.id === requestData.requesterId);
-      const matchedVolunteer = volunteers.find(v => v.id === requestData.volunteerId);
-      if (requester && matchedVolunteer) {
-        sendMatchConfirmationEmail(requester.fullName, matchedVolunteer.fullName, requester.email);
-        sendMatchConfirmationEmail(matchedVolunteer.fullName, requester.fullName, matchedVolunteer.email);
+      /* ---- fire notifications & e-mails ---- */
+      const requester  = requesters .find(r => r.id === requestData.requesterId);
+      const volunteer  = volunteers .find(v => v.id === requestData.volunteerId);
+
+      await createNotification(requester.id , `נוצרה עבורך התאמה חדשה עם ${volunteer?.fullName || "מתנדב/ת"}!`, "/requester-dashboard");
+      await createNotification(volunteer.id , `נוצרה עבורך התאמה חדשה עם ${requester?.fullName  || "פונה"}!`,         "/volunteer-dashboard");
+
+      if (requester && volunteer) {
+        sendMatchConfirmationEmail(requester.fullName,  volunteer.fullName,  requester.email);
+        sendMatchConfirmationEmail(volunteer.fullName,  requester.fullName,  volunteer.email);
       }
-    } catch (error) {
-      console.error("Error approving request:", error);
+
+      setAlertMessage({ message: "הבקשה אושרה והתאמה נוצרה בהצלחה!", type: "success" });
+    } catch (err) {
+      console.error("Error approving request:", err);
       setAlertMessage({ message: "שגיאה באישור הבקשה", type: "error" });
     }
   };
 
+
   const declineRequest = async (requestId) => {
     try {
       const requestRef = doc(db, "Requests", requestId);
-      const requestSnap = await getDoc(requestRef);
-      const requestData = requestSnap.data();
+      const { volunteerId, requesterId } = (await getDoc(requestRef)).data();
 
       await updateDoc(requestRef, {
         status: "waiting_for_first_approval",
-        declinedVolunteers: arrayUnion(requestData.volunteerId),
-        declinedAt: new Date()
+        declinedVolunteers: arrayUnion(volunteerId),
+        declinedAt: new Date(),
+        volunteerId: null,
+        matchId: null,
+        matchedAt: null
       });
-      
-      setAlertMessage({ message: "הבקשה נדחתה.", type: "info" });
 
-      const requester = requesters.find(r => r.id === requestData.requesterId);
-      const declinedVolunteer = volunteers.find(v => v.id === requestData.volunteerId);
-      if (requester && declinedVolunteer) {
-        sendMatchDeclineEmail(requester.fullName, declinedVolunteer.fullName, requester.email);
-        sendMatchDeclineEmail(declinedVolunteer.fullName, requester.fullName, declinedVolunteer.email);
+      /* optional – e-mail notification */
+      const requester = requesters.find(r => r.id === requesterId);
+      const volunteer = volunteers.find(v => v.id === volunteerId);
+      if (requester && volunteer) {
+        sendMatchDeclineEmail(requester.fullName, volunteer.fullName, requester.email);
+        sendMatchDeclineEmail(volunteer.fullName, requester.fullName, volunteer.email);
       }
-    } catch (error) {
-      console.error("Error declining request:", error);
+
+      setAlertMessage({ message: "הבקשה נדחתה.", type: "info" });
+    } catch (err) {
+      console.error("Error declining request:", err);
       setAlertMessage({ message: "שגיאה בדחיית הבקשה", type: "error" });
     }
   };
+
 
   const createManualMatch = async (requesterId, volunteerId, requestId = null) => {
     try {
@@ -526,8 +564,20 @@ export default function AdminDashboard() {
       batch.set(doc(db, "Matches", matchId), { volunteerId, requesterId, requestId: finalRequestId, status: "active", startDate: new Date(), endDate: null, meetingFrequency: "weekly", totalSessions: 0, notes: "Manual match by admin" });
       batch.update(doc(db, "Users", "Info", "Volunteers", volunteerId), { activeMatchIds: arrayUnion(matchId) });
       batch.update(doc(db, "Users", "Info", "Requesters", requesterId), { activeMatchId: matchId });
-
       await batch.commit();
+
+      const requester = requesters.find(r => r.id === requesterId);
+      await createNotification(
+        requesterId,
+        `נוצרה עבורך התאמה חדשה עם ${volunteer?.fullName || 'מתנדב/ת'}!`,
+        "/requester-dashboard"
+      );
+      await createNotification(
+        volunteerId,
+        `נוצרה עבורך התאמה חדשה עם ${requester?.fullName || 'פונה'}!`,
+        "/volunteer-dashboard"
+      );
+
       setAlertMessage({ message: "התאמה נוצרה בהצלחה!", type: "success" });
 
       const requester = requesters.find(r => r.id === requesterId);
@@ -754,12 +804,9 @@ export default function AdminDashboard() {
   if (loading || loadingFormConfig) {
     return <LoadingSpinner />;
   }
-
   return (
     <div className="p-6 space-y-6 mt-[-2rem]">
       <h2 className="text-3xl font-bold text-orange-800 text-center">לוח ניהול</h2>
-
-      {/* Tab Navigation */}
       <div className="flex gap-2 mb-4 justify-center flex-wrap">
         <Button variant={activeTab === "volunteers" ? "default" : "outline"} onClick={() => setActiveTab("volunteers")} className="py-3 px-6 text-lg">מתנדבים לאישור ({volunteers.filter(v => v.approved === "pending").length})</Button>
         <Button variant={activeTab === "approvals" ? "default" : "outline"} onClick={() => setActiveTab("approvals")} className="py-3 px-6 text-lg">התאמות ממתינות לאישור ({pendingRequests.length})</Button>
@@ -771,8 +818,6 @@ export default function AdminDashboard() {
         <Button variant={activeTab === "formCustomization" ? "default" : "outline"} onClick={() => setActiveTab("formCustomization")} className="py-3 px-6 text-lg">שינוי תנאי הרשמה</Button>
         <Button variant={activeTab === "analytics" ? "default" : "outline"} onClick={() => { setActiveTab("analytics"); }} className="py-3 px-6 text-lg">סטטיסטיקה</Button>
       </div>
-
-      {/* Volunteers Awaiting Approval */}
       {activeTab === "volunteers" && (
         <Card>
           <CardContent>
@@ -820,8 +865,6 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       )}
-
-      {/* Pending Approval Requests */}
       {activeTab === "approvals" && (
         <Card>
           <CardContent>
@@ -865,8 +908,6 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       )}
-
-      {/* General Matching */}
       {activeTab === "matching" && (
         <Card className="mt-[-2rem]">
           <CardContent>
@@ -890,11 +931,16 @@ export default function AdminDashboard() {
                 <input type="text" placeholder="חיפוש פונה..." value={requesterSearch} onChange={e => setRequesterSearch(e.target.value)} className="border rounded px-2 py-1 w-full mb-2" />
                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
                 <ul className="space-y-2 h-[400px] overflow-y-scroll">
-                  {requesters.filter(r => !r.activeMatchId && (r.fullName?.toLowerCase().includes(requesterSearch.toLowerCase()) || r.email?.toLowerCase().includes(requesterSearch.toLowerCase()))).map(req => (
-                    <li key={req.id} className={`p-2 rounded shadow cursor-pointer ${selectedRequester === req.id ? 'border-2 border-orange-500' : 'bg-white'}`} onClick={() => setSelectedRequester(selectedRequester === req.id ? null : req.id)}>
+                  {requesters.filter(r => !r.activeMatchId
+                   && (r.fullName?.toLowerCase().includes(requesterSearch.toLowerCase())
+                  || r.email?.toLowerCase().includes(requesterSearch.toLowerCase()))
+                   )
+                    .map(req => (
+                    <li key={req.id} className={'p-2 rounded shadow cursor-pointer ${selectedRequester === req.id ? 'border-2 border-orange-500' : 'bg-white'}`} onClick={() => setSelectedRequester(selectedRequester === req.id ? null : req.id)}>
                       <strong className="text-orange-800">{req.fullName}</strong>
                     </li>
-                  ))}
+                  ))
+                  }
                 </ul>
               </div>
 
@@ -904,7 +950,7 @@ export default function AdminDashboard() {
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
                 <ul className="space-y-2 h-[400px] overflow-y-scroll">
                   {volunteers.filter(v => v.approved === "true" && (v.isAvailable || v.isAvaliable) && !v.personal && (v.fullName?.toLowerCase().includes(volunteerSearch.toLowerCase()) || v.email?.toLowerCase().includes(volunteerSearch.toLowerCase()))).map(v => (
-                    <li key={v.id} className={`p-2 rounded shadow cursor-pointer ${selectedVolunteer === v.id ? 'border-2 border-orange-500' : 'bg-white'} ${!selectedRequester ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => selectedRequester && setSelectedVolunteer(selectedVolunteer === v.id ? null : v.id)}>
+                    <li key={v.id} className={'p-2 rounded shadow cursor-pointer ${selectedVolunteer === v.id ? 'border-2 border-orange-500' : 'bg-white'} ${!selectedRequester ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => selectedRequester && setSelectedVolunteer(selectedVolunteer === v.id ? null : v.id)}>
                       <strong className="text-orange-800">{v.fullName}</strong>
                     </li>
                   ))}
@@ -931,8 +977,6 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       )}
-
-      {/* Matches Supervision Table */}
       {activeTab === "matches" && (
         <Card>
           <CardContent>

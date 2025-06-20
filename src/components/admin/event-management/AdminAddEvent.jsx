@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, getDocs, writeBatch, serverTimestamp, doc, query } from 'firebase/firestore';
 import { db } from '../../../config/firebaseConfig';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
@@ -25,44 +25,25 @@ const AdminAddEvent = ({ onEventAdded }) => {
         switch (field) {
             case 'mail':
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!value.trim()) {
-                    errors.mail = 'מייל הוא שדה חובה';
-                } else if (!emailRegex.test(value)) {
-                    errors.mail = 'כתובת מייל לא תקינה';
-                }
+                if (!value.trim()) errors.mail = 'מייל הוא שדה חובה';
+                else if (!emailRegex.test(value)) errors.mail = 'כתובת מייל לא תקינה';
                 break;
-                
             case 'Contact_info':
                 const phoneRegex = /^\d{3}(?:-)?(?:\d{4})(?:-)?(?:\d{3})$/;
-                if (!value.trim()) {
-                    errors.Contact_info = 'טלפון הוא שדה חובה';
-                } else if (!phoneRegex.test(value.replace(/\s/g, ''))) {
-                    errors.Contact_info = 'מספר טלפון לא תקין';
-                }
+                if (!value.trim()) errors.Contact_info = 'טלפון הוא שדה חובה';
+                else if (!phoneRegex.test(value.replace(/\s/g, ''))) errors.Contact_info = 'מספר טלפון לא תקין';
                 break;
-                
             case 'name':
-                if (!value.trim()) {
-                    errors.name = 'שם האירוע הוא שדה חובה';
-                } else if (value.trim().length < 2) {
-                    errors.name = 'שם האירוע חייב להכיל לפחות 2 תווים';
-                }
+                if (!value.trim()) errors.name = 'שם האירוע הוא שדה חובה';
+                else if (value.trim().length < 2) errors.name = 'שם האירוע חייב להכיל לפחות 2 תווים';
                 break;
-
             case 'location':
-                if (!value.trim()) {
-                    errors.location = 'מיקום הוא שדה חובה';
-                } else if (value.trim().length < 2) {
-                    errors.location = 'מיקום חייב להכיל לפחות 2 תווים';
-                }
+                if (!value.trim()) errors.location = 'מיקום הוא שדה חובה';
+                else if (value.trim().length < 2) errors.location = 'מיקום חייב להכיל לפחות 2 תווים';
                 break;
-
             case 'description':
-                if (!value.trim()) {
-                    errors.description = 'תיאור הוא שדה חובה';
-                } else if (value.trim().length < 5) {
-                    errors.description = 'תיאור חייב להכיל לפחות 5 תווים';
-                }
+                if (!value.trim()) errors.description = 'תיאור הוא שדה חובה';
+                else if (value.trim().length < 5) errors.description = 'תיאור חייב להכיל לפחות 5 תווים';
                 break;
             default:
                 break;
@@ -118,8 +99,46 @@ const AdminAddEvent = ({ onEventAdded }) => {
                 setAlertMessage({ message: 'יש לבחור זמן עתידי לאירוע', type: 'error' });
                 return;
             }
+            
             await addDoc(collection(db, "Events"), eventData);
-            setAlertMessage({ message: 'אירוע נוצר בהצלחה!', type: 'success' });
+            
+            const batch = writeBatch(db);
+            const volunteersQuery = query(collection(db, "Users", "Info", "Volunteers"));
+            const requestersQuery = query(collection(db, "Users", "Info", "Requesters"));
+            
+            const [volunteersSnapshot, requestersSnapshot] = await Promise.all([
+                getDocs(volunteersQuery),
+                getDocs(requestersQuery)
+            ]);
+
+            const notificationMessage = `אירוע חדש: ${eventData.name}`;
+            const notificationLink = '/'; // Corrected link to homepage
+
+            volunteersSnapshot.forEach(userDoc => {
+                const notificationRef = doc(collection(db, "notifications"));
+                batch.set(notificationRef, {
+                    userId: userDoc.id,
+                    message: notificationMessage,
+                    link: notificationLink,
+                    createdAt: serverTimestamp(),
+                    read: false
+                });
+            });
+
+            requestersSnapshot.forEach(userDoc => {
+                const notificationRef = doc(collection(db, "notifications"));
+                batch.set(notificationRef, {
+                    userId: userDoc.id,
+                    message: notificationMessage,
+                    link: notificationLink,
+                    createdAt: serverTimestamp(),
+                    read: false
+                });
+            });
+
+            await batch.commit();
+
+            setAlertMessage({ message: 'אירוע נוצר ונוטיפיקציות נשלחו בהצלחה!', type: 'success' });
             
             setFormData({
                 name: '',
@@ -135,7 +154,7 @@ const AdminAddEvent = ({ onEventAdded }) => {
                 onEventAdded();
             }
         } catch (error) {
-            console.error("Error creating event:", error);
+            console.error("Error creating event or notifications:", error);
             setAlertMessage({ message: 'שגיאה ביצירת האירוע', type: 'error' });
         }
     };
