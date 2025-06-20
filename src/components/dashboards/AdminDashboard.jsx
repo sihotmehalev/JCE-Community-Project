@@ -936,63 +936,199 @@ export default function AdminDashboard() {
           <CardContent>
             <h3 className="font-semibold mb-4 text-orange-700">פיקוח התאמות פעילות</h3>
             {showSessionDetails ? (
-              <div>
-                <Button onClick={() => { setShowSessionDetails(false); setSelectedMatchForDetails(null); }}>חזור לרשימת ההתאמות</Button>
-                <h4 className="text-xl font-semibold text-orange-800">פירוט פגישות</h4>
-                {loadingSessions ? <LoadingSpinner /> : !matchSessions.length ? <p>אין פגישות.</p> : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-collapse">
-                      <thead><tr className="bg-orange-50"><th className="border p-2">תאריך</th><th className="border p-2">סטטוס</th><th className="border p-2">סיכום</th></tr></thead>
-                      <tbody>
-                        {currentMatchSessions.map(s => (
-                          <tr key={s.id} className="hover:bg-orange-50/50">
-                            <td className="border p-2">{s.scheduledTime?.toDate().toLocaleString()}</td>
-                            <td className="border p-2">{s.status}</td>
-                            <td className="border p-2"><span className="text-blue-600 cursor-pointer" onClick={() => setSelectedSessionForView(s.sessionSummary)}>צפייה</span></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    <div className="flex justify-between items-center mt-4">
-                      <Button onClick={() => setMatchSessionCurrentPage(p => Math.max(1, p - 1))} disabled={matchSessionCurrentPage === 1}>הקודם</Button>
-                      <span>עמוד {matchSessionCurrentPage} מתוך {totalMatchSessionPages}</span>
-                      <Button onClick={() => setMatchSessionCurrentPage(p => Math.min(totalMatchSessionPages, p + 1))} disabled={matchSessionCurrentPage === totalMatchSessionPages}>הבא</Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <input type="text" placeholder="חיפוש התאמה..." value={activeMatchSearch} onChange={e => setActiveMatchSearch(e.target.value)} className="border rounded px-3 py-2 w-full mb-4" />
-                {!activeMatches.length ? <p>אין התאמות פעילות.</p> : (
+              <div className="space-y-4">
+                <Button onClick={() => {
+                  setShowSessionDetails(false);
+                  setSelectedMatchForDetails(null);
+                }}>
+                  חזור לרשימת ההתאמות
+                </Button>
+                <h4 className="text-xl font-semibold text-orange-800">פירוט פגישות עבור התאמה</h4>
+                {loadingSessions ? (
+                  <LoadingSpinner />
+                ) : filteredMatchSessions.length === 0 ? (
+                  <p className="text-orange-600/80">אין פגישות זמינות עבור התאמה זו.</p>
+                ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm border-collapse">
                       <thead>
                         <tr className="bg-orange-50">
-                          <th className="border p-2 cursor-pointer" onClick={() => handleMatchSort('requesterInfo.fullName')}>פונה</th>
-                          <th className="border p-2 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב</th>
-                          <th className="border p-2">פגישות</th>
-                          <th className="border p-2">ביטול</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">תאריך ושעה</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">סטטוס</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">משך (דקות)</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">מיקום</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">הערה</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">סיכום</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {activeMatches.filter(m => m.requesterInfo?.fullName.toLowerCase().includes(activeMatchSearch.toLowerCase()) || m.volunteerInfo?.fullName.toLowerCase().includes(activeMatchSearch.toLowerCase())).slice((activeMatchCurrentPage - 1) * itemsPerPage, activeMatchCurrentPage * itemsPerPage).map(match => (
-                          <tr key={match.id} className="hover:bg-orange-50/50">
-                            <td className="border p-2"><HoverCard user={match.requesterInfo} adminConfig={requesterFormConfig}>{match.requesterInfo?.fullName || 'N/A'}</HoverCard></td>
-                            <td className="border p-2"><HoverCard user={match.volunteerInfo} adminConfig={volunteerFormConfig}>{match.volunteerInfo?.fullName || 'N/A'}</HoverCard></td>
-                            <td className="border p-2 text-center"><span className="text-blue-600 cursor-pointer" onClick={() => { setSelectedMatchForDetails(match.id); setShowSessionDetails(true); }}>צפייה</span></td>
-                            <td className="border p-2 text-center"><button onClick={() => { setSelectedMatchForDetails(match.id); setShowCancelMatchModal(true); }} className="text-red-600">ביטול</button></td>
+                        {currentMatchSessions.map(session => (
+                          <tr key={session.id} className="hover:bg-orange-50/50">
+                            <td className="border border-orange-100 p-2 text-orange-700">
+                              {session.scheduledTime ? new Date(session.scheduledTime.seconds * 1000).toLocaleString() : 'N/A'}
+                            </td>
+                            <td className="border border-orange-100 p-2 text-orange-700">{session.status || 'N/A'}</td>
+                            <td className="border border-orange-100 p-2 text-orange-700">{session.durationMinutes || 'N/A'}</td>
+                            <td className="border border-orange-100 p-2 text-orange-700">{session.location || 'N/A'}</td>
+                            <td className="border border-orange-100 p-2 text-orange-700">{session.notes || 'N/A'}</td>
+                            <td className="border border-orange-100 p-2 text-orange-700">
+                              <span
+                                className="text-blue-600 hover:underline cursor-pointer"
+                                onClick={() => setSelectedSessionForView(session.sessionSummary)}
+                              >
+                                צפייה
+                              </span>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                    <div className="flex justify-between items-center mt-4">
-                      <Button onClick={() => setActiveMatchCurrentPage(p => Math.max(1, p - 1))} disabled={activeMatchCurrentPage === 1}>הקודם</Button>
-                      <span>עמוד {activeMatchCurrentPage} מתוך {Math.ceil(activeMatches.length / itemsPerPage)}</span>
-                      <Button onClick={() => setActiveMatchCurrentPage(p => Math.min(Math.ceil(activeMatches.length / itemsPerPage), p + 1))}>הבא</Button>
-                    </div>
                   </div>
                 )}
+                <div className="flex justify-between items-center mt-4">
+                  <Button
+                    onClick={() => setMatchSessionCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={matchSessionCurrentPage === 1}
+                    variant="outline"
+                  >
+                    הקודם
+                  </Button>
+                  <span className="text-orange-700">
+                    עמוד {matchSessionCurrentPage} מתוך {totalMatchSessionPages}
+                  </span>
+                  <Button
+                    onClick={() => setMatchSessionCurrentPage(prev => Math.min(totalMatchSessionPages, prev + 1))}
+                    disabled={matchSessionCurrentPage === totalMatchSessionPages}
+                    variant="outline"
+                  >
+                    הבא
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="חיפוש התאמה לפי שם פונה/מתנדב..."
+                    value={activeMatchSearch}
+                    onChange={e => setActiveMatchSearch(e.target.value)}
+                    className="border rounded px-3 py-2 w-full"
+                  />
+                </div>
+
+                {activeMatches.length === 0 ? (
+                  <p className="text-orange-600/80">אין התאמות פעילות.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-orange-50">
+                          <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('requesterInfo.fullName')}>פונה{matchSortColumn === 'requesterInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                          <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב{matchSortColumn === 'volunteerInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                          <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('meetingFrequency')}>תדירות פגישות{matchSortColumn === 'meetingFrequency' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">פגישות</th>
+                          <th className="border border-orange-100 p-2 text-orange-800">ביטול התאמה</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeMatches
+                          .filter(match =>
+                            match.requesterInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                            match.volunteerInfo?.fullName?.toLowerCase().includes(activeMatchSearch.toLowerCase()) ||
+                            match.requestId?.toLowerCase().includes(activeMatchSearch.toLowerCase())
+                          )
+                          .filter(match => {
+                            if (matchRequesterFilter !== "all" && match.requesterId !== matchRequesterFilter) return false;
+                            if (matchVolunteerFilter !== "all" && match.volunteerId !== matchVolunteerFilter) return false;
+                            return true;
+                          })
+                          .sort((a, b) => {
+                            if (!matchSortColumn) return 0;
+
+                            let aValue;
+                            let bValue;
+
+                            if (matchSortColumn === 'requesterInfo.fullName') {
+                              aValue = a.requesterInfo?.fullName || '';
+                              bValue = b.requesterInfo?.fullName || '';
+                            } else if (matchSortColumn === 'volunteerInfo.fullName') {
+                              aValue = a.volunteerInfo?.fullName || '';
+                              bValue = b.volunteerInfo?.fullName || '';
+                            } else if (matchSortColumn === 'meetingFrequency') {
+                              aValue = a[matchSortColumn] || '';
+                              bValue = b[matchSortColumn] || '';
+                            } else {
+                              aValue = a[matchSortColumn];
+                              bValue = b[matchSortColumn];
+                            }
+
+                            if (typeof aValue === 'string' && typeof bValue === 'string') {
+                              return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                            } else {
+                              return matchSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+                            }
+                          })
+                          .slice(
+                            (activeMatchCurrentPage - 1) * itemsPerPage,
+                            activeMatchCurrentPage * itemsPerPage
+                          )
+                          .map(match => (
+                            <tr key={match.id} className="hover:bg-orange-50/50">
+                              <td className="border p-2"><HoverCard user={match.requesterInfo} adminConfig={requesterFormConfig}>{match.requesterInfo?.fullName || 'N/A'}</HoverCard></td>
+                              <td className="border p-2"><HoverCard user={match.volunteerInfo} adminConfig={volunteerFormConfig}>{match.volunteerInfo?.fullName || 'N/A'}</HoverCard></td>
+                              <td className="border border-orange-100 p-2 text-orange-700">
+                                {match.meetingFrequency || 'N/A'}
+                              </td>
+                              <td className="border border-orange-100 p-2 text-center">
+                                <span
+                                  className="text-blue-600 hover:underline cursor-pointer"
+                                  onClick={() => {
+                                    setSelectedMatchForDetails(match.id);
+                                    setShowSessionDetails(true);
+                                  }}
+                                >
+                                  צפייה
+                                </span>
+                              </td>
+                              <td className="border border-orange-100 p-2 text-center">
+                                <button
+                                  onClick={() => {
+                                    setSelectedMatchForDetails(match.id);
+                                    setShowSessionDetails(false);
+                                    setShowCancelMatchModal(true);
+                                  }}
+                                  className="p-2 rounded-full text-red-600 hover:text-white hover:bg-red-600 focus:outline-none transition-colors duration-200 flex items-center justify-center mx-auto"
+                                >
+                                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <div className="flex justify-between items-center mt-4">
+                  <Button
+                    onClick={() => setActiveMatchCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={activeMatchCurrentPage === 1}
+                    variant="outline"
+                  >
+                    הקודם
+                  </Button>
+                  <span className="text-orange-700">
+                    עמוד {activeMatchCurrentPage} מתוך {Math.ceil(activeMatches.length / itemsPerPage)}
+                  </span>
+                  <Button
+                    onClick={() => setActiveMatchCurrentPage(prev => Math.min(Math.ceil(activeMatches.length / itemsPerPage), prev + 1))}
+                    variant="outline"
+                  >
+                    הבא
+                  </Button>
+                </div>
               </>
             )}
           </CardContent>
