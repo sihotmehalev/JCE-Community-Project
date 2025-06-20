@@ -17,12 +17,14 @@ import {
   serverTimestamp,
   increment,
   arrayUnion,
+  getDocs
 } from "firebase/firestore";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import ChatPanel from "../ui/ChatPanel";
 import CustomAlert from "../ui/CustomAlert";
+import { generateRandomId } from "../../utils/firebaseHelpers";
 // Removed import SessionScheduler from "../modals/SessionScheduler"; 
 
 /* ────────────────────────── helpers ────────────────────────── */
@@ -98,6 +100,11 @@ export default function VolunteerDashboard() {
   const unsubMatch  = useRef(null);
   const unsubAdminApproval = useRef(null);
   const unsubChat   = useRef(null);
+
+    // Admin Chat Panel
+  const [showAdminChatPanel, setShowAdminChatPanel] = useState(false);
+  const [adminMessages, setAdminMessages] = useState([]);
+  const [adminNewMsg, setAdminNewMsg] = useState("");
 
   /* -------- bootstrap volunteer profile -------- */
   useEffect(() => {
@@ -336,6 +343,7 @@ export default function VolunteerDashboard() {
   };
 
   const openChat = (matchId) => {
+    closeAdminChat();
     setActiveMatchId(matchId);
     unsubChat.current?.();
     unsubChat.current = onSnapshot(
@@ -373,9 +381,67 @@ export default function VolunteerDashboard() {
   };
 
   const closeScheduleModal = () => {
+    setShowAdminChatPanel(false);
     setSelectedMatch(null);
     setShowScheduleModal(false);
   };
+
+  const openAdminChat = async () => {
+    if (unsubChat.current) closeChat();
+
+    setAdminMessages([]);
+    let convoId = "";
+    try {
+      const userDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", user.uid));
+      convoId = userDoc.data().conversationsWithAdminId;
+      if (!convoId) {
+        convoId = generateRandomId();
+        await updateDoc(doc(db, "Users", "Info", "Volunteers", user.uid), {
+          conversationsWithAdminId: convoId,
+        });
+      }
+      const msgs = await getDocs(
+        query(
+          collection(db, "conversations", convoId, "messages"),
+          orderBy("timestamp")
+        )
+      );
+      setAdminMessages(msgs.docs.map((d) => ({ id: d.id, ...d.data() })));
+      
+    } catch (error) {
+      console.error("Error opening admin chat:", error);
+      setAlertMessage({message: "אירעה שגיאה בפתיחת הצ'אט. אנא נסה שוב", type: "error"});
+    }
+    setShowAdminChatPanel(true);
+    setAdminNewMsg("");
+  };
+
+  const closeAdminChat = () => {
+    setShowAdminChatPanel(false);
+    setAdminMessages([]);
+    setAdminNewMsg("");
+  };
+
+  const sendAdminMessage = async () => {
+    if (!adminNewMsg.trim()) return;
+    const userDoc = await getDoc(doc(db, "Users", "Info", "Volunteers", user.uid));
+    const convoId = userDoc.data().conversationsWithAdminId;
+    if (!convoId) {
+      setAlertMessage({message: "אירעה שגיאה בשליחת ההודעה. אנא נסה שוב", type: "error"});
+      return;
+    }
+    await addDoc(
+      collection(db, "conversations", convoId, "messages"),
+      {
+        text: adminNewMsg.trim(),
+        senderId: user.uid,
+        timestamp: serverTimestamp(),
+      }
+    );
+    setAdminMessages(prev => [...prev, { text: adminNewMsg.trim(), senderId: user.uid, timestamp: serverTimestamp() }]);
+    setAdminNewMsg("");
+  };  
+
 
   const handleScheduleSession = async ({ match, scheduledTime, duration, location, notes, onSuccess, onError }) => {
     try {
@@ -481,12 +547,20 @@ export default function VolunteerDashboard() {
           שלום {userData?.fullName?.split(' ')[0] || ''} 👋
         </h1>
         <Button
-                  variant="outline"
-                  className="mr-2"
-                  onClick={() => window.location.href = '/profile'}
-                >
-                  הפרופיל שלי
-                </Button>
+          variant="outline"
+          className="mr-2"
+          onClick={() => window.location.href = '/profile'}
+        >
+          הפרופיל שלי
+        </Button>
+
+        <Button
+            variant="outline"
+            className="mr-2"
+            onClick={openAdminChat}
+        >
+            צאט עם מנהל
+        </Button>
         <div className="flex-1" />
 
         {/* Availability Toggle */}
@@ -592,6 +666,17 @@ export default function VolunteerDashboard() {
         setNewMsg={setNewMsg}
         onSend={sendMessage}
         chatPartnerName={matches.find(m => m.id === activeMatchId)?.requester?.fullName || 'שיחה'}
+      />
+
+      {/* Admin Chat Panel */}
+      <ChatPanel
+        isOpen={showAdminChatPanel}
+        onClose={closeAdminChat}
+        messages={adminMessages}
+        newMsg={adminNewMsg}
+        setNewMsg={setAdminNewMsg}
+        onSend={sendAdminMessage}
+        chatPartnerName={'מנהל'}
       />
 
       {/* Schedule Session Modal */}

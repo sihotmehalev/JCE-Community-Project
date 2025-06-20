@@ -732,6 +732,7 @@ export default function AdminDashboard() {
     setMessages([]);
   };
 
+  const ADMIN_ID = "admin";
   const sendMessage = async () => {
     if (!newMsg.trim() || !userSelectedForChat) return;
     try {
@@ -742,9 +743,16 @@ export default function AdminDashboard() {
         await updateDoc(doc(db, "Users", "Info", userRoleDoc, userSelectedForChat.id), { conversationsWithAdminId: convoId });
         setUserSelectedForChat(prev => ({ ...prev, conversationsWithAdminId: convoId }));
       }
-      const messageData = { text: newMsg.trim(), senderId: "1", timestamp: serverTimestamp() };
-      await addDoc(collection(db, "conversations", convoId, "messages"), messageData);
+      await addDoc(
+        collection(db, "conversations", convoId, "messages"),
+        {
+          text: newMsg.trim(),
+          senderId: ADMIN_ID,
+          timestamp: serverTimestamp(),
+        }
+      );
       setNewMsg("");
+      setMessages(prev => [...prev, { text: newMsg.trim(), senderId: ADMIN_ID, timestamp: serverTimestamp() }]);
     } catch (error) {
       setAlertMessage({ message: "שגיאה בשליחת ההודעה", type: "error" });
     }
@@ -1356,7 +1364,7 @@ export default function AdminDashboard() {
       <CustomAlert message={alertMessage?.message} onClose={() => setAlertMessage(null)} type={alertMessage?.type} />
       <CancelMatchModal isOpen={showCancelMatchModal} onClose={() => setShowCancelMatchModal(false)} match={activeMatches.find(m => m.id === selectedMatchForDetails)} onConfirm={() => cancelMatch(selectedMatchForDetails)} />
       <DeleteUserModal isOpen={showDeleteUserModal} onClose={() => { setshowDeleteUserModal(false); setSelectedUserForDelete(null); }} user={selectedUserForDelete} onConfirm={() => deleteUser(selectedUserForDelete)} />
-      <ChatPanel isOpen={showChatPanel} onClose={closeChat} messages={messages} newMsg={newMsg} setNewMsg={setNewMsg} onSend={sendMessage} chatPartnerName={userSelectedForChat?.fullName || 'שיחה'} />
+      <ChatPanel isOpen={showChatPanel} onClose={closeChat} messages={messages} newMsg={newMsg} setNewMsg={setNewMsg} onSend={sendMessage} chatPartnerName={userSelectedForChat?.fullName || 'שיחה'} currentUserId={ADMIN_ID}/>
     </div>
   );
 }
