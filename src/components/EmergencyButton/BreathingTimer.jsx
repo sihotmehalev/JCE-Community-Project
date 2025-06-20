@@ -1,3 +1,4 @@
+// BreathingTimer.jsx
 import React, { useState, useEffect } from 'react';
 
 export function BreathingTimer() {
@@ -32,12 +33,12 @@ export function BreathingTimer() {
   };
 
   return (
-    <div className="p-8 rounded-lg text-center relative" 
+    <div className="p-4 sm:p-8 rounded-lg text-center relative" 
          style={{ background: 'radial-gradient(circle at 70% 10%, #ffd7bd 0%,rgb(240, 155, 106) 50%, #f49b8c 100%)' }}>
       <h3 className="text-lg font-semibold text-orange-800 mb-6">תרגיל נשימה מרגיע</h3>
       
       {/* Breathing Circles */}
-      <div className="relative w-64 h-64 mx-auto">
+      <div className="relative w-36 h-36 sm:w-48 sm:h-48 mx-auto">
         {/* Outer glowing circle */}
         <div className="absolute inset-0 rounded-full animate-gentle-glow"
              style={{
@@ -60,8 +61,8 @@ export function BreathingTimer() {
         />
         
         {/* Center static circle with text */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-40 h-40 rounded-full bg-orange-100/30 backdrop-blur-sm flex flex-col items-center justify-center shadow-lg">
+        <div className="absolute inset-0 flex items-center justify-center"> 
+          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-orange-100/30 backdrop-blur-sm flex flex-col items-center justify-center shadow-lg">
             <span className="text-2xl font-bold text-orange-800">{getPhaseText()}</span>
             <span className="text-xl text-orange-700 mt-2">{count}</span>
           </div>

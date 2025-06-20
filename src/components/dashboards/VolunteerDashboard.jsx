@@ -142,6 +142,7 @@ export default function VolunteerDashboard() {
         openChat(chatWithMatchId);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, matches]);
 
   useEffect(() => {
@@ -519,55 +520,56 @@ export default function VolunteerDashboard() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center gap-3 mb-6">
-
-        <h1 className="text-2xl font-bold text-orange-800">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-orange-800 flex-grow">
           שלום {userData?.fullName?.split(' ')[0] || ''} 👋
         </h1>
-        <Button
-          variant="outline"
-          className="mr-2"
-          onClick={() => window.location.href = '/profile'}
-        >
-          הפרופיל שלי
-        </Button>
-
-        <Button
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button
             variant="outline"
-            className="mr-2"
+            className="w-full sm:w-auto"
+            onClick={() => window.location.href = '/profile'}
+          >
+            הפרופיל שלי
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
             onClick={openAdminChat}
-        >
+          >
             צאט עם מנהל
-        </Button>
-        <div className="flex-1" />
-
-        {/* Availability Toggle */}
-        <div className="flex items-center gap-2 ml-4">
-          <span className="text-sm text-orange-700">זמין</span>
-          <button onClick={toggleAvailability} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${isAvailable ? 'bg-green-600 border-green-400' : 'bg-gray-200 border-orange-400'}`}>
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${isAvailable ? '-translate-x-1' : '-translate-x-6'}`} />
-          </button>
-          <span className="text-sm text-orange-700">לא זמין</span>
+          </Button>
         </div>
-        {/* Personal/Admin Toggle */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-orange-700">בחירה עצמית</span>
-          <button onClick={flipPersonal} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${personal ? 'bg-orange-600 border-orange-400' : 'bg-gray-200 border-orange-400'}`}>
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${personal ? '-translate-x-1' : '-translate-x-6'}`} />
-          </button>
-          <span className="text-sm text-orange-700">שיוך ע״י מנהל</span>
+        <div className="flex-1 hidden sm:block" />
+        <div className="flex flex-col sm:flex-row items-center gap-4 mt-2 sm:mt-0 w-full sm:w-auto">
+          {/* Availability Toggle */}
+          <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
+            <span className="text-sm text-orange-700">זמין</span>
+            <button onClick={toggleAvailability} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ease-in-out outline-none ring-2 ring-orange-400 ring-offset-2 ${isAvailable ? 'bg-green-600' : 'bg-gray-200'}`}>
+              <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ease-in-out border-2 border-orange-400 ${isAvailable ? 'translate-x-0.5' : '-translate-x-5'}`} />
+            </button>
+            <span className="text-sm text-orange-700">לא זמין</span>
+          </div>
+          {/* Personal/Admin Toggle */}
+          <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
+            <span className="text-sm text-orange-700">שיוך ע״י מנהל</span>
+            <button onClick={flipPersonal} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ease-in-out outline-none ring-2 ring-orange-400 ring-offset-2 ${personal ? 'bg-orange-600' : 'bg-gray-200'}`}>
+              <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ease-in-out border-2 border-orange-400 ${personal ? 'translate-x-0.5' : '-translate-x-5'}`} />
+            </button>
+            <span className="text-sm text-orange-700">בחירה עצמית</span>
+          </div>
         </div>
       </div>
       <Card className="mb-6">
-        <div className="flex border-b border-gray-200">
+        <div className="flex flex-wrap border-b border-gray-200">
           {personal && (
             <>
-              <button onClick={() => setActiveTab("directRequests")} className={`flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "directRequests" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>בקשות ישירות ({direct.length})</button>
-              <button onClick={() => setActiveTab("openRequests")} className={`flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "openRequests" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>דפדוף בפונים פתוחים ({pool.length})</button>
-              <button onClick={() => setActiveTab("adminApproval")} className={`flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "adminApproval" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>בקשות ממתינות לאישור מנהל ({adminApprovalRequests.length})</button>
+              <button onClick={() => setActiveTab("directRequests")} className={`flex-1 p-2 sm:p-4 text-center font-medium text-xs sm:text-sm focus:outline-none ${activeTab === "directRequests" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>בקשות ישירות ({direct.length})</button>
+              <button onClick={() => setActiveTab("openRequests")} className={`flex-1 p-2 sm:p-4 text-center font-medium text-xs sm:text-sm focus:outline-none ${activeTab === "openRequests" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>דפדוף בפונים ({pool.length})</button>
+              <button onClick={() => setActiveTab("adminApproval")} className={`flex-1 p-2 sm:p-4 text-center font-medium text-xs sm:text-sm focus:outline-none ${activeTab === "adminApproval" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>ממתינות לאישור ({adminApprovalRequests.length})</button>
             </>
           )}
-          <button onClick={() => setActiveTab("activeMatches")} className={`flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "activeMatches" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>שיבוצים פעילים ({matches.length})</button>
+          <button onClick={() => setActiveTab("activeMatches")} className={`${personal ? 'flex-1' : ''} p-2 sm:p-4 text-center font-medium text-xs sm:text-sm focus:outline-none ${activeTab === "activeMatches" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>שיבוצים פעילים ({matches.length})</button>
         </div>
       </Card>
       <div className="mt-6">{renderTabContent()}</div>
@@ -751,9 +753,10 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
 
   useEffect(() => {
     const sessionsRef = collection(db, "Sessions");
-    return onSnapshot(query(sessionsRef, where("matchId", "==", match.id), orderBy("scheduledTime", "asc")), (snapshot) => {
+    const unsub = onSnapshot(query(sessionsRef, where("matchId", "==", match.id), orderBy("scheduledTime", "asc")), (snapshot) => {
       setSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), scheduledTime: doc.data().scheduledTime?.toDate() })));
     });
+    return unsub;
   }, [match.id]);
 
   // Fetch requester admin config when requester data is available
@@ -808,7 +811,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
             <h3 className="font-bold text-orange-900 text-xl mb-1">
               {requester?.fullName || "פונה ללא שם"}
             </h3>
-            <div className="flex items-center gap-4 text-sm text-orange-700">
+            <div className="flex flex-wrap items-center gap-4 text-sm text-orange-700">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
                 גיל: {requester?.age ?? "—"}
@@ -1251,7 +1254,7 @@ function SessionScheduler({ match, onClose, handleScheduleSession }) {
         <div><label className="block text-sm font-medium text-orange-700 mb-1"><Clock className="inline-block w-4 h-4 ml-1" />משך המפגש</label><select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400">{durationOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></div>
         <div><label className="block text-sm font-medium text-orange-700 mb-1"><MessageCircle className="inline-block w-4 h-4 ml-1" />אופן המפגש</label><select value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400">{locationOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></div>
         <div><label className="block text-sm font-medium text-orange-700 mb-1"><MessageCircle className="inline-block w-4 h-4 ml-1" />הערות למפגש</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="הערות או נושאים לדיון..." /></div>
-        <div className="flex gap-2 pt-2"><Button type="submit" disabled={isSubmitting} className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}>{isSubmitting ? 'קובע מפגש...' : 'קבע מפגש'}</Button><Button type="button" variant="outline" onClick={onClose}>ביטול</Button></div>
+        <div className="flex gap-2 pt-2"><Button type="submit" disabled={isSubmitting} className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}>{isSubmitting ? 'מעדכן...' : 'קבע מפגש'}</Button><Button type="button" variant="outline" onClick={onClose}>ביטול</Button></div>
       </form>
     </div>
   );

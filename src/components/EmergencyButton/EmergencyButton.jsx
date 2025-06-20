@@ -13,8 +13,8 @@ export default function EmergencyButton({ activeMatch }) {
     <>
       {/* Emergency Button */}      
       <button
-        onClick={() => setIsOpen(true)} 
-        className="fixed bottom-4 left-4 text-white rounded-full p-3 sm:p-4 shadow-lg transition-all z-[999999]"
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-4 left-4 text-white rounded-full p-2 sm:p-3 md:p-4 shadow-lg transition-all z-[999999]"
         aria-label="כפתור מצוקה"
         style={{ 
           position: 'fixed', 
@@ -22,7 +22,7 @@ export default function EmergencyButton({ activeMatch }) {
           background: 'radial-gradient(circle at 70% 10%,rgb(255, 136, 136) 0%, #f49b8c 50%,rgb(243, 20, 20) 100%)',
         }}
       >
-        <span className="text-xl sm:text-2xl">🆘</span>
+        <span className="text-lg sm:text-xl md:text-2xl">🆘</span>
       </button>
 
       {/* Emergency Dialog */}
