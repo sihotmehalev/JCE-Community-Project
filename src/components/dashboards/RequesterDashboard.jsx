@@ -14,7 +14,8 @@ import {
   query,
   where,
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  arrayUnion
 } from "firebase/firestore";
 import { Button } from "../ui/button";
 import EmergencyButton from "../EmergencyButton/EmergencyButton";
@@ -24,6 +25,7 @@ import { X, User, Calendar, Clock, MessageCircle, Plus, Sparkles } from "lucide-
 import ChatPanel from "../ui/ChatPanel";
 import CustomAlert from "../ui/CustomAlert";
 import LifeAdvice from "./LifeAdvice"; // Corrected import casing
+import { generateRandomId } from "../../utils/firebaseHelpers";
 
 
 
@@ -94,6 +96,7 @@ export default function RequesterDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [requestProfile, setRequestProfile] = useState({});
+  const [personal, setPersonal] = useState(true);
   const [availableVolunteers, setAvailableVolunteers] = useState([]);
   const [sortedVolunteers, setSortedVolunteers] = useState([]);
   const [adminApprovalRequests, setAdminApprovalRequests] = useState([]);
@@ -107,6 +110,7 @@ export default function RequesterDashboard() {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [activeTab, setActiveTab] = useState("available");
   const [alertMessage, setAlertMessage] = useState(null);
+  const [declinedVolunteers, setDeclinedVolunteers] = useState([]);
   const [requesterFormConfig, setRequesterFormConfig] = useState({
     hideNoteField: false, // Initialize with default structure
     customFields: []
@@ -888,7 +892,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
-            <UserIcon className="w-6 h-6 text-orange-600" />
+            <User className="w-6 h-6 text-orange-600" />
           </div>
           <div>
             <h3 className="font-bold text-orange-900 text-xl mb-1">
@@ -1001,6 +1005,35 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
 function SessionModal({ title, sessions, onClose, readOnly = false, partnerName }) {
   const now = new Date();
 
+  // Helper to generate Google Calendar link
+  const generateGoogleCalendarLink = (session, partnerName) => {
+    const startTime = new Date(session.scheduledTime);
+    const endTime = new Date(startTime.getTime() + session.durationMinutes * 60 * 1000);
+
+    const formatDateTime = (date) => {
+      return date.toISOString().replace(/[-:]|\.\d{3}/g, '');
+    };
+
+    const title = encodeURIComponent(`מפגש תמיכה עם ${partnerName}`);
+    const dates = `${formatDateTime(startTime)}/${formatDateTime(endTime)}`;
+    const details = encodeURIComponent(session.notes || 'מפגש תמיכה שנקבע דרך המערכת');
+    let location = '';
+    if (session.location === 'video') location = encodeURIComponent('שיחת וידאו');
+    if (session.location === 'phone') location = encodeURIComponent('שיחת טלפון');
+    if (session.location === 'in_person') location = encodeURIComponent('פגישה פיזית');
+
+    return (
+      `https://www.google.com/calendar/render?action=TEMPLATE` +
+      `&text=${title}` +
+      `&dates=${dates}` +
+      `&details=${details}` +
+      `&location=${location}` +
+      `&sf=true` +
+      `&output=xml`
+    );
+  };
+
+
   // Helper function to format session times in Hebrew
   const formatSessionTime = (date) => {
     if (!date) return "—";
@@ -1036,6 +1069,7 @@ function SessionModal({ title, sessions, onClose, readOnly = false, partnerName 
         return '📅';
     }
   };
+
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
