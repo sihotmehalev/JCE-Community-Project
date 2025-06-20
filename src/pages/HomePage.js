@@ -344,37 +344,7 @@ export default function HomePage() {
       {/* Event Slider Section */}
       <div className="mt-24 sm:mt-32">
         <EventSlider/>
-      </div>
-
-      {/* Testimonial Section - MOVED TO THE BOTTOM */}
-      <motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.2 }}
-        variants={containerVariants}
-        className="mt-24 text-center max-w-6xl mx-auto" 
-      >
-        <h2 className="text-3xl font-bold text-orange-800 mb-4">מה אנשים אומרים עלינו?</h2>
-        <p className="text-lg text-orange-700 mb-12 max-w-3xl mx-auto leading-relaxed">
-          הסיפורים שלכם הם ההשראה שלנו. הנה כמה מילים מהלב של חברי הקהילה:
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {testimonials.map((testimonial, index) => (
-            <motion.div key={index} variants={itemVariants}>
-              <Card className="rounded-xl shadow-lg border border-gray-100 h-full flex flex-col justify-between bg-white hover:shadow-xl transition-shadow duration-300 relative"> 
-                <CardContent className="p-6 pt-10 italic text-gray-700 leading-relaxed text-base"> 
-                  <span className="text-4xl text-orange-300 absolute top-3 right-4 opacity-50">“</span> 
-                  {testimonial.quote}
-                  <span className="text-4xl text-orange-300 absolute bottom-3 left-4 opacity-50 transform rotate-180">“</span> 
-                </CardContent>
-                <div className="p-6 pt-2 text-right font-semibold text-orange-700">
-                  — {testimonial.author}
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
+      </div> 
     </div>
   );
 }
