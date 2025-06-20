@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { auth, db } from "../../config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
@@ -14,8 +14,7 @@ import {
   query,
   where,
   orderBy,
-  serverTimestamp,
-  arrayUnion
+  serverTimestamp
 } from "firebase/firestore";
 import { Button } from "../ui/button";
 import EmergencyButton from "../EmergencyButton/EmergencyButton";
@@ -23,7 +22,7 @@ import LoadingSpinner from "../ui/LoadingSpinner";
 import { Card } from "../ui/card";
 import { X, User, Phone, Heart } from "lucide-react";
 import ChatPanel from "../ui/ChatPanel";
-import CustomAlert from "../ui/CustomAlert";;
+import CustomAlert from "../ui/CustomAlert";
 import { generateRandomId } from "../../utils/firebaseHelpers";
 
 
@@ -325,6 +324,7 @@ export default function RequesterDashboard() {
           setPendingRequests(updatedPendingRequests);
         }
         setAlertMessage({message: "הבקשה נשלחה בהצלחה וממתינה לאישור", type: "success"});
+        }
       } catch (error) {
         console.error("Error requesting volunteer:", error);
         setAlertMessage({message: "אירעה שגיאה בשליחת הבקשה. אנא נסה שוב", type: "error"});
@@ -357,24 +357,7 @@ export default function RequesterDashboard() {
         initiatedBy: null,
         updatedAt: serverTimestamp(),
       });
-      
-      // In this specific case, since we're using a live snapshot,
-      // we don't need to update the state manually as the Firestore 
-      // listener in the useEffect above will automatically update the UI
-      // when the document changes. However, we can still update it optimistically
-      // for better UX.
-      // const updatedPendingRequests = pendingRequests.filter(req => req.id !== requestId);
-      // setPendingRequests(updatedPendingRequests);
-      
-      // console.log("Updated pending requests after cancel:", updatedPendingRequests);
-
       setAlertMessage({message: "הבקשה בוטלה בהצלחה", type: "success"});
-    } catch (error) {
-      console.error("Error canceling request:", error);
-      setAlertMessage({message: "אירעה שגיאה בביטול הבקשה. אנא נסה שוב", type: "error"});
-    } finally {
-      setRequestLoading(false);
-    }
   };
   
   const openChat = (matchId) => {
@@ -1039,7 +1022,7 @@ function SessionModal({ title, sessions, onClose, readOnly = false, partnerName 
             {sessions.map(session => (
               <div 
                 key={session.id} 
-                className={'p-3 rounded-md text-sm transition-colors ${session.status === 'completed' ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}
+                className={`p-3 rounded-md text-sm transition-colors ${session.status === 'completed' ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}
               >
                 <div className="font-medium text-orange-800 flex items-center justify-between">
                   <span>{new Date(session.scheduledTime).toLocaleString('he-IL', {

@@ -107,11 +107,6 @@ export default function VolunteerDashboard() {
     }
   }, [personal]);
   /* listener refs */
-  const unsubDirect = useRef(null);
-  const unsubPool   = useRef(null);
-  const unsubMatch  = useRef(null);
-  const unsubAdminApproval = useRef(null);
-  const unsubChat   = useRef(null);
 
     // Admin Chat Panel
   const [showAdminChatPanel, setShowAdminChatPanel] = useState(false);
@@ -572,7 +567,7 @@ export default function VolunteerDashboard() {
               <button onClick={() => setActiveTab("adminApproval")} className={`flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "adminApproval" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>בקשות ממתינות לאישור מנהל ({adminApprovalRequests.length})</button>
             </>
           )}
-          <button onClick={() => setActiveTab("activeMatches")} className={'flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "activeMatches" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>שיבוצים פעילים ({matches.length})</button>
+          <button onClick={() => setActiveTab("activeMatches")} className={`flex-1 p-4 text-center font-medium text-sm focus:outline-none ${activeTab === "activeMatches" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>שיבוצים פעילים ({matches.length})</button>
         </div>
       </Card>
       <div className="mt-6">{renderTabContent()}</div>
@@ -584,7 +579,8 @@ export default function VolunteerDashboard() {
         setNewMsg={setNewMsg}
         onSend={sendMessage}
         chatPartnerName={matches.find(m => m.id === activeMatchId)?.requester?.fullName || 'שיחה'}
-      {/* Admin Chat Panel */}
+      />
+        {/* Admin Chat Panel */}
       <ChatPanel
         isOpen={showAdminChatPanel}
         onClose={closeAdminChat}
@@ -764,7 +760,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
   useEffect(() => {
     const fetchRequesterConfig = async () => {
       if (match?.requesterId) {
-        console.log('[MatchCard - VolunteerDashboard] Attempting to fetch requester_config for requesterId: ${match.requesterId}`);
+        console.log(`[MatchCard - VolunteerDashboard] Attempting to fetch requester_config for requesterId: ${match.requesterId}`);
         try {
           const configDocRef = doc(db, "admin_form_configs", "requester_config");
           const configSnap = await getDoc(configDocRef);
@@ -853,7 +849,7 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
                 console.log(`[MatchCard - VolunteerDashboard] Key: ${key}`);
                 console.log(`[MatchCard - VolunteerDashboard] Label from Config: ${fieldDef.label}`);
                 console.log(`[MatchCard - VolunteerDashboard] Value from Requester: ${JSON.stringify(value)}`);
-                console.log('[MatchCard - VolunteerDashboard] shareWithPartner flag: ${fieldDef.shareWithPartner}`);
+                console.log(`[MatchCard - VolunteerDashboard] shareWithPartner flag: ${fieldDef.shareWithPartner}`);
 
                 let displayValue = value;
                 if (Array.isArray(value)) {
@@ -1053,7 +1049,7 @@ function SessionModal({ title, sessions, onClose, showCompletionButton = false, 
             {sessions.map(session => (
               <div 
                 key={session.id} 
-                className={'p-3 rounded-md text-sm transition-colors ${getSessionStatusColor(session)}`}
+                className={`p-3 rounded-md text-sm transition-colors ${getSessionStatusColor(session)}`}
               >
                 <div className="font-medium text-orange-800 flex items-center justify-between">
                   <span>{formatSessionTime(session.scheduledTime)}</span>

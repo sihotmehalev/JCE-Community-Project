@@ -137,9 +137,6 @@ export default function AdminDashboard() {
   const [activeMatchesFilter, setActiveMatchesFilter] = useState("all");
   const [activeMatches, setActiveMatches] = useState([]);
   const [activeMatchSearch, setActiveMatchSearch] = useState("");
-
-  const [activeMatchCurrentPage, setActiveMatchCurrentPage] = useState(1);
-
   const [matchRequesterFilter] = useState("all");
   const [matchVolunteerFilter] = useState("all");
   const [matchSortColumn, setMatchSortColumn] = useState(null);
@@ -567,6 +564,7 @@ export default function AdminDashboard() {
       await batch.commit();
 
       const requester = requesters.find(r => r.id === requesterId);
+      const volunteer = volunteers.find(r => r.id === volunteerId);
       await createNotification(
         requesterId,
         `נוצרה עבורך התאמה חדשה עם ${volunteer?.fullName || 'מתנדב/ת'}!`,
@@ -580,7 +578,6 @@ export default function AdminDashboard() {
 
       setAlertMessage({ message: "התאמה נוצרה בהצלחה!", type: "success" });
 
-      const requester = requesters.find(r => r.id === requesterId);
       const matchedVolunteer = volunteers.find(v => v.id === volunteerId);
       if (requester && matchedVolunteer) {
         sendMatchConfirmationEmail(requester.fullName, matchedVolunteer.fullName, requester.email);
@@ -688,7 +685,7 @@ export default function AdminDashboard() {
   const handleToggleHideNote = async () => {
     const newConfig = { ...requesterFormConfig, hideNoteField: !requesterFormConfig.hideNoteField };
     try {
-      await setFirestoreDoc(doc(db, "admin_form_configs", "requester_config"), newConfig);
+      await setDoc(doc(db, "admin_form_configs", "requester_config"), newConfig);
       setAlertMessage({ message: "הגדרת שדה 'הערה' עודכנה.", type: "success" });
     } catch (error) {
       console.error("Error updating hideNoteField:", error);
@@ -718,7 +715,7 @@ export default function AdminDashboard() {
     const newConfig = { ...roleConfig, customFields: updatedFields };
 
     try {
-      await setFirestoreDoc(doc(db, "admin_form_configs", `${editingRoleType}_config`), newConfig);
+      await setDoc(doc(db, "admin_form_configs", `${editingRoleType}_config`), newConfig);
       setRoleConfig(newConfig);
       setAlertMessage({ message: "שדה מותאם אישית נשמר בהצלחה.", type: "success" });
       setShowFieldEditor(false);
@@ -738,7 +735,7 @@ export default function AdminDashboard() {
     const newConfig = { ...roleConfig, customFields: updatedFields };
 
     try {
-      await setFirestoreDoc(doc(db, "admin_form_configs", `${roleType}_config`), newConfig);
+      await setDoc(doc(db, "admin_form_configs", `${roleType}_config`), newConfig);
       setRoleConfig(newConfig);
       setAlertMessage({ message: "שדה מותאם אישית נמחק.", type: "success" });
     } catch (error) {
@@ -936,11 +933,10 @@ export default function AdminDashboard() {
                   || r.email?.toLowerCase().includes(requesterSearch.toLowerCase()))
                    )
                     .map(req => (
-                    <li key={req.id} className={'p-2 rounded shadow cursor-pointer ${selectedRequester === req.id ? 'border-2 border-orange-500' : 'bg-white'}`} onClick={() => setSelectedRequester(selectedRequester === req.id ? null : req.id)}>
+                    <li key={req.id} className={`p-2 rounded shadow cursor-pointer ${selectedRequester === req.id ? 'border-2 border-orange-500' : 'bg-white'}`} onClick={() => setSelectedRequester(selectedRequester === req.id ? null : req.id)}>
                       <strong className="text-orange-800">{req.fullName}</strong>
                     </li>
-                  ))
-                  }
+                  ))}
                 </ul>
               </div>
 
@@ -950,7 +946,7 @@ export default function AdminDashboard() {
                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
                 <ul className="space-y-2 h-[400px] overflow-y-scroll">
                   {volunteers.filter(v => v.approved === "true" && (v.isAvailable || v.isAvaliable) && !v.personal && (v.fullName?.toLowerCase().includes(volunteerSearch.toLowerCase()) || v.email?.toLowerCase().includes(volunteerSearch.toLowerCase()))).map(v => (
-                    <li key={v.id} className={'p-2 rounded shadow cursor-pointer ${selectedVolunteer === v.id ? 'border-2 border-orange-500' : 'bg-white'} ${!selectedRequester ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => selectedRequester && setSelectedVolunteer(selectedVolunteer === v.id ? null : v.id)}>
+                    <li key={v.id} className={`p-2 rounded shadow cursor-pointer ${selectedVolunteer === v.id ? 'border-2 border-orange-500' : 'bg-white'} ${!selectedRequester ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => selectedRequester && setSelectedVolunteer(selectedVolunteer === v.id ? null : v.id)}>
                       <strong className="text-orange-800">{v.fullName}</strong>
                     </li>
                   ))}

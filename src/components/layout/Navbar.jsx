@@ -11,10 +11,9 @@ import {
   orderBy,
   onSnapshot,
   writeBatch,
-  getDocs // Import getDocs for the clear all function
+  getDocs
 } from "firebase/firestore";
 import { Bell } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
