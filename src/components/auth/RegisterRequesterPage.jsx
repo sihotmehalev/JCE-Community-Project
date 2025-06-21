@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../../config/firebaseConfig";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, increment, writeBatch, collection, serverTimestamp, getDoc } from "firebase/firestore";
 import RegisterLayout from "../layout/RegisterLayout"; // Assuming this is the correct layout
 import { Eye, EyeOff } from 'lucide-react';
@@ -280,6 +280,8 @@ export default function RegisterRequesterPage() {
 
       await batch.commit();
       
+      await signOut(auth);
+
       setAlertMessage({ message: "נרשמת בהצלחה!", type: "success", onClose: () => navigate("/requester-dashboard") });
     } catch (error) {
       console.error("Registration error:", error);
