@@ -373,6 +373,7 @@ export default function VolunteerDashboard() {
           text: newMsg.trim(),
           senderId: user.uid,
           createdAt: serverTimestamp(),
+          seenByOther: false,
         }
       );
       await createNotification(
@@ -448,9 +449,10 @@ export default function VolunteerDashboard() {
         text: adminNewMsg.trim(),
         senderId: user.uid,
         timestamp: serverTimestamp(),
+        seenByOther: false,
       }
     );
-    setAdminMessages(prev => [...prev, { text: adminNewMsg.trim(), senderId: user.uid, timestamp: serverTimestamp() }]);
+    setAdminMessages(prev => [...prev, { text: adminNewMsg.trim(), senderId: user.uid, timestamp: serverTimestamp(), seenByOther: false }]);
     setAdminNewMsg("");
   };  
 

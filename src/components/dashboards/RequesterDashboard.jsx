@@ -26,6 +26,9 @@ import ChatPanel from "../ui/ChatPanel";
 import CustomAlert from "../ui/CustomAlert";
 import LifeAdvice from "./LifeAdvice"; // Corrected import casing
 import { generateRandomId } from "../../utils/firebaseHelpers";
+import { writeBatch } from "firebase/firestore";
+import ChatButton from "../ui/ChatButton";
+
 
 
 
@@ -362,15 +365,30 @@ export default function RequesterDashboard() {
     }
   };
   
-  const openChat = (matchId) => {
-    closeAdminChat();
-    setActiveMatchId(matchId);
-    unsubChat.current?.();
-    unsubChat.current = onSnapshot(
-      query(collection(db, "conversations", matchId, "messages"), orderBy("createdAt", "asc")),
-      (snap) => setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-    );
-  };
+const openChat = async (matchId) => {
+  closeAdminChat();
+  setActiveMatchId(matchId);
+  
+  // Mark all messages from volunteer as seen
+  const messagesRef = collection(db, "conversations", matchId, "messages");
+  const messagesSnapshot = await getDocs(messagesRef);
+  
+  const batch = writeBatch(db);
+  messagesSnapshot.docs.forEach(messageDoc => {
+    const messageData = messageDoc.data();
+    if (messageData.senderId !== user.uid && !messageData.seenByOther) {
+      // Mark messages from volunteer as seen by requester
+      batch.update(messageDoc.ref, { seenByOther: true });
+    }
+  });
+  await batch.commit();
+  
+  unsubChat.current?.();
+  unsubChat.current = onSnapshot(
+    query(collection(db, "conversations", matchId, "messages"), orderBy("createdAt", "asc")),
+    (snap) => setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+  );
+};
 
   const closeChat = () => {
     setActiveMatchId(null);
@@ -384,7 +402,7 @@ export default function RequesterDashboard() {
     try {
       await addDoc(
         collection(db, "conversations", activeMatch.id, "messages"),
-        { text: newMsg.trim(), senderId: user.uid, createdAt: serverTimestamp() }
+        { text: newMsg.trim(), senderId: user.uid, createdAt: serverTimestamp(), seenByOther: false}
       );
       if (activeMatch.volunteerId) {
         await addDoc(collection(db, "notifications"), {
@@ -478,6 +496,19 @@ export default function RequesterDashboard() {
           conversationsWithAdminId: convoId,
         });
       }
+
+      const messagesRef = collection(db, "conversations", convoId, "messages");
+      const messagesSnapshot = await getDocs(messagesRef);
+      
+      const batch = writeBatch(db);
+      messagesSnapshot.docs.forEach(messageDoc => {
+        const messageData = messageDoc.data();
+        if (messageData.senderId === "1" && !messageData.seenByOther) {
+          batch.update(messageDoc.ref, { seenByOther: true });
+        }
+      });
+      await batch.commit();  
+
       const msgs = await getDocs(
         query(
           collection(db, "conversations", convoId, "messages"),
@@ -514,6 +545,7 @@ export default function RequesterDashboard() {
         text: adminNewMsg.trim(),
         senderId: user.uid,
         timestamp: serverTimestamp(),
+        seenByOther: false,
       }
     );
     setAdminMessages(prev => [...prev, { text: adminNewMsg.trim(), senderId: user.uid, timestamp: serverTimestamp() }]);
@@ -536,13 +568,15 @@ export default function RequesterDashboard() {
         >
           הפרופיל שלי
         </Button>
-        <Button 
-          variant="outline"
-          className="mr-2"
+        <ChatButton 
+          conversationId={user.conversationsWithAdminId} 
           onClick={openAdminChat}
+          currentUserId={user.uid}
+          otherUserId="1" 
+          className="mr-2"
         >
-           צאט עם מנהל
-        </Button>
+          צאט עם מנהל
+        </ChatButton>
         <div className="flex-1" />
         <div className="flex items-center gap-2 mt-2 sm:mt-0">
           <span className="text-sm text-orange-700">פנייה ישירה למתנדב</span>
@@ -923,9 +957,15 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
 
       {/* Chat and Sessions Buttons */}
       <div className="flex gap-2 flex-wrap">
-        <Button onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}>
-          {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
-        </Button>
+      <ChatButton 
+        conversationId={match.id} 
+        onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}
+        currentUserId={match.requesterId}
+        otherUserId={match.volunteerId}
+        className="flex items-center gap-2"
+      >
+        {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
+      </ChatButton>
         {upcomingSessions.length > 0 && (
           <Button
             variant="outline"
