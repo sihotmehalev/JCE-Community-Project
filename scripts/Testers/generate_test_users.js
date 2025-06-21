@@ -189,9 +189,9 @@ const getRandomDateInLastMonth = () => {
  |                            4. GENERATE                              |
  *─────────────────────────────────────────────────────────────────────*/
 async function generate() {
-  const requesterCount = 10;   // מספר מבקשים
-  const volunteerCount = 0;    // מספר מתנדבים
-  const startId        = 50;    // מתחילים מ-1 לשני הסוגים
+  const requesterCount = 1;   // מספר מבקשים
+  const volunteerCount = 1;    // מספר מתנדבים
+  const startId        = 1;    // מתחילים מ-1 לשני הסוגים
 
   console.log(`\n➤ יוצר ${requesterCount} מבקשים ו-${volunteerCount} מתנדבים (IDs 1..)…\n`);
 
