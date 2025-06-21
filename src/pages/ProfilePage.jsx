@@ -552,23 +552,6 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
           )}
-
-          {/* Status Card */}
-          {(role === "volunteer" || role?.startsWith("admin")) && (
-            <Card className="border-0 bg-white/70 backdrop-blur-sm hover:shadow-2xl transition-all duration-300">
-              <CardContent className="p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Star className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-800">סטטוס</h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderFieldsForCard(statusFields)}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </div>

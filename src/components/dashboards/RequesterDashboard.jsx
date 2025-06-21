@@ -547,7 +547,7 @@ export default function RequesterDashboard() {
         <div className="flex items-center gap-2 mt-2 sm:mt-0">
           <span className="text-sm text-orange-700">פנייה ישירה למתנדב</span>
           <button onClick={flipPersonal} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${personal ? 'bg-orange-600 border-orange-400' : 'bg-gray-200 border-orange-400'}`}>
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${personal ? 'translate-x-0.5' : '-translate-x-5'}`} />
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${personal ? '-translate-x-1' : '-translate-x-6'}`} />
           </button>
           <span className="text-sm text-orange-700">ללא העדפה</span>
         </div>
@@ -581,13 +581,13 @@ export default function RequesterDashboard() {
             className={`
               flex-1 p-4 text-center font-medium text-sm focus:outline-none flex items-center justify-center gap-2
               ${activeTab === "lifeAdvice"
-                ? 'bg-gradient-to-r from-orange-400 via-red-400 to-purple-500 text-white shadow-inner'
+                ? 'border-b-2 border-purple-500 text-purple-500 mx-1'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-orange-50/50'
               }
               transition-all duration-200 ease-in-out
             `}
           >
-            <Sparkles className={`w-4 h-4 ${activeTab === "lifeAdvice" ? 'text-white' : 'text-purple-500'}`} />
+            <Sparkles className={`w-4 h-4 ${activeTab === "lifeAdvice" ? 'text-purple-500' : 'text-purple-500'}`} />
             ייעוץ מהלב AI
           </button>
         </div>
