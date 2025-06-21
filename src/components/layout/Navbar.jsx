@@ -218,7 +218,7 @@ export default function Navbar() {
           {!user ? (
             <>
               {/* Login is the rightmost item */}
-              <Link to="/login" className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">התחברות</Link>
+              <Link to="/login" className="mr-5 px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">התחברות</Link>
               {/* Register is next */}
               <div className="relative inline-block" ref={dropdownRef}>
                 <button onClick={() => setIsOpen(!isOpen)} className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">הרשמה</button>
@@ -248,7 +248,7 @@ export default function Navbar() {
         </div>
 
         {/* Section 2: Logo + Notifications (Responsive) - Visual left on both desktop and mobile */}
-        <div className="flex items-center gap-4 order-2 md:order-2" dir="ltr">
+        <div className="ml-4 flex items-center gap-4 order-2 md:order-2" dir="ltr">
           <Link to="/" className="flex-shrink-0">
             <img src="/images/logo.png" alt="שיחות מהלב Logo" className="h-16" />
           </Link>
@@ -296,7 +296,7 @@ export default function Navbar() {
         </div>
 
         {/* Section 3: Mobile Hamburger (Mobile Only) - Visual right on mobile, hidden on desktop */}
-        <div className="md:hidden flex items-center gap-4 order-1 md:order-3" dir="ltr">
+        <div className="mr-4 md:hidden flex items-center gap-4 order-1 md:order-3" dir="ltr">
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-orange-600 hover:text-orange-700 focus:outline-none">
             {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
