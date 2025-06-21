@@ -217,7 +217,7 @@ export default function Navbar() {
 
   return (
     <nav className="bg-white/20 backdrop-blur-sm shadow-lg sticky top-0 z-50" dir="rtl">
-      <div className="w-full flex justify-between items-center py-2">
+      <div className="w-full flex justify-between items-center py-2 px-4">
         {/* Section 1: Navigation Buttons (Desktop) - Visual right on desktop, hidden on mobile */}
         <div className="hidden md:flex items-center space-x-4 rtl:space-x-reverse order-3 md:order-1">
           {/* Order these from right to left in JSX to achieve desired visual order from right to left */}
