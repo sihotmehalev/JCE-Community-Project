@@ -59,7 +59,7 @@ const CustomAlert = ({ message, onClose, type = 'info', position = 'center' }) =
   }
 
   return (
-    <div className={`fixed inset-0 bg-black bg-opacity-50 flex ${position === 'bottom' ? 'items-end' : 'items-center'} justify-center z-50 p-4`}>
+    <div className={`fixed inset-0 bg-black bg-opacity-50 flex ${position === 'bottom' ? 'items-end' : position === 'top' ? 'items-start' : 'items-center'} justify-center z-50 p-4`}>
       <div className={` ${bgColorClass} ${borderColorClass} rounded-lg shadow-xl p-6 max-w-sm w-full mx-auto text-center transform transition-all sm:my-8 sm:align-middle sm:max-w-md`}>
         <div className="flex justify-center items-center mb-4">
           <span className={iconColorClass}>{icon}</span>
