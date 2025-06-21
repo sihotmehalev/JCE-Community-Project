@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { auth, db } from "../../config/firebaseConfig";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
@@ -26,6 +26,7 @@ export default function Navbar() {
   const [role, setRole] = useState(null);
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
+  const navigate = useNavigate();
   const [currentUnsubscribeNotif, setCurrentUnsubscribeNotif] = useState(null);
 
   useEffect(() => {
@@ -215,6 +216,17 @@ export default function Navbar() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  // Handler for notification click - now with a slight delay for navigation
+  const handleNotificationClick = (link) => {
+    setNotifOpen(false); // Close notification dropdown immediately
+    // Add a small delay before navigating to ensure the dropdown UI has time to update/close
+    setTimeout(() => {
+      if (link) {
+        navigate(link); // Use navigate for programmatic routing
+      }
+    }, 50); // A small delay, e.g., 50ms, can be adjusted
+  };
+
   return (
     <nav className="bg-white/20 backdrop-blur-sm shadow-lg sticky top-0 z-50" dir="rtl">
       <div className="w-full flex justify-between items-center py-2 px-4">
@@ -272,17 +284,16 @@ export default function Navbar() {
                     <>
                       <div className="flex-grow overflow-y-auto">
                         {notifications.map((n) => (
-                          <Link
+                          <div
                             key={n.id}
-                            to={n.link || '#'}
-                            onClick={() => setNotifOpen(false)}
+                            onClick={() => handleNotificationClick(n.link)} // Use new handler
                             className="block py-2 px-3 hover:bg-gray-100 rounded-md cursor-pointer"
                           >
                             <p className="text-sm">{n.message}</p>
                             <p className="text-xs text-gray-400">
                               {n.createdAt?.toDate() ? new Date(n.createdAt.toDate()).toLocaleString("he-IL") : ""}
                             </p>
-                          </Link>
+                          </div>
                         ))}
                       </div>
                       <div className="border-t border-gray-200 mt-2 pt-2">
@@ -301,8 +312,51 @@ export default function Navbar() {
           )}
         </div>
 
+        {/* Mobile Hamburger & Bell (always on the left for mobile) */}
+        <div className="md:hidden flex items-center gap-4" dir="ltr">
+          {user && (
+            <div className="relative" ref={notifRef}>
+              <button onClick={() => { setNotifOpen(!notifOpen); if(!notifOpen) markAllRead(); }} className="text-orange-600 hover:text-orange-700 focus:outline-none">
+                <Bell className="h-6 w-6" />
+                {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs w-4 h-4 flex items-center justify-center">{unreadCount}</span>}
+              </button>
+              {notifOpen && (
+                <div className="absolute left-0 mt-2 bg-white shadow-lg rounded-md p-2 z-[9999] w-60 max-h-80 overflow-y-auto flex flex-col">
+                  {notifications.length === 0 ? (
+                    <div className="text-center text-gray-500 py-4">אין התראות</div>
+                  ) : (
+                    <>
+                      <div className="flex-grow overflow-y-auto">
+                        {notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            onClick={() => handleNotificationClick(n.link)} // Use new handler
+                            className="block py-2 px-3 hover:bg-gray-100 rounded-md cursor-pointer"
+                          >
+                            <p className="text-sm">{n.message}</p>
+                            <p className="text-xs text-gray-400">
+                              {n.createdAt?.toDate() ? new Date(n.createdAt.toDate()).toLocaleString("he-IL") : ""}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="border-t border-gray-200 mt-2 pt-2">
+                        <div
+                          onClick={clearAllNotifications}
+                          className="text-center text-red-500 hover:bg-red-50 rounded-md py-1 text-sm cursor-pointer"
+                        >
+                          נקה הכל
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         {/* Section 3: Mobile Hamburger (Mobile Only) - Visual right on mobile, hidden on desktop */}
         <div className="mr-4 md:hidden flex items-center gap-4 order-1 md:order-3" dir="ltr">
+
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-orange-600 hover:text-orange-700 focus:outline-none">
             {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
