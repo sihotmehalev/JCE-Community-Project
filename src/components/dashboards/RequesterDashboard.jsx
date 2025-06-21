@@ -581,13 +581,13 @@ export default function RequesterDashboard() {
             className={`
               flex-1 p-4 text-center font-medium text-sm focus:outline-none flex items-center justify-center gap-2
               ${activeTab === "lifeAdvice"
-                ? 'bg-gradient-to-r from-orange-400 via-red-400 to-purple-500 text-white shadow-inner'
+                ? 'border-b-2 border-purple-500 text-purple-500 mx-1'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-orange-50/50'
               }
               transition-all duration-200 ease-in-out
             `}
           >
-            <Sparkles className={`w-4 h-4 ${activeTab === "lifeAdvice" ? 'text-white' : 'text-purple-500'}`} />
+            <Sparkles className={`w-4 h-4 ${activeTab === "lifeAdvice" ? 'text-purple-500' : 'text-purple-500'}`} />
             ייעוץ מהלב AI
           </button>
         </div>
