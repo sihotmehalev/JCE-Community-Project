@@ -228,7 +228,14 @@ export default function UnifiedAnalyticsBarChart() {
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="label" />
-            <YAxis allowDecimals={false} />
+            <YAxis 
+              allowDecimals={false} 
+              tickMargin={10}
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 12, textAnchor: 'end', dominantBaseline: 'middle' }}
+              width={40}
+            />
             <Tooltip />
             <Bar dataKey="count" fill="#f97316" name="כמות" />
           </BarChart>
