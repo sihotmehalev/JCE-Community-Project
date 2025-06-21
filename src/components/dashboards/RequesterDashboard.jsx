@@ -683,13 +683,11 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
 
   useEffect(() => {
     const fetchVolunteerConfig = async () => {
-      // console.log(`[VolunteerCard] Attempting to fetch volunteer_config for volunteerId: ${volunteer.id}`);
       try {
         const configDocRef = doc(db, "admin_form_configs", "volunteer_config");
         const configSnap = await getDoc(configDocRef);
         if (configSnap.exists()) {
           const configData = configSnap.data();
-          // console.log("[VolunteerCard] Successfully fetched volunteer_config data:", JSON.stringify(configData, null, 2));
           setVolunteerAdminConfig({
             ...configData,
             customFields: Array.isArray(configData.customFields) ? configData.customFields : []
@@ -737,7 +735,6 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
     });
   }
 
-  // console.log(`Volunteer ${volunteer.id}: isPending=${isPending}, hasAnyPending=${hasAnyPendingRequest}, shouldShow=${shouldShowButton}`);
 
   return (
     <div className="border border-orange-100 rounded-lg p-4 bg-orange-100">
@@ -784,12 +781,6 @@ function VolunteerCard({ volunteer, onRequest, isRecommended, compatibilityScore
         <div className="mt-4 pt-4 border-t border-orange-200">
           <h4 className="font-semibold text-orange-800 text-md mb-2">מידע נוסף מהמתנדב:</h4>
           <div className="space-y-1 text-sm">
-            {/* {(() => {
-              console.log("[VolunteerCard] START Rendering Shared Fields. Volunteer Data:", JSON.stringify(volunteer, null, 2));
-              console.log("[VolunteerCard] Using Volunteer Admin Config:", JSON.stringify(volunteerAdminConfig, null, 2));
-              console.log("[VolunteerCard] Shareable fields to render:", shareableCustomFields);
-              return null;
-            })()} */}
             {shareableCustomFields.map(field => (
               <p key={field.key} className="text-orange-700">
                 <strong className="text-orange-800">{field.label}:</strong> {field.value}
@@ -846,19 +837,16 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
   useEffect(() => {
     const fetchVolunteerConfig = async () => {
       if (match?.volunteerId) {
-        // console.log(`[MatchCard - RequesterDashboard] Attempting to fetch volunteer_config for volunteerId: ${match.volunteerId}`);
         try {
           const configDocRef = doc(db, "admin_form_configs", "volunteer_config");
           const configSnap = await getDoc(configDocRef);
           if (configSnap.exists()) {
             const configData = configSnap.data();
-            // console.log("[MatchCard - RequesterDashboard] Successfully fetched volunteer_config data:", JSON.stringify(configData, null, 2));
             setVolunteerAdminConfig({
               ...configData,
               customFields: Array.isArray(configData.customFields) ? configData.customFields : []
             });
           } else {
-            // console.warn("[MatchCard - RequesterDashboard] Volunteer admin config document not found at admin_form_configs/volunteer_config.");
             setVolunteerAdminConfig({ customFields: [] });
           }
         } catch (error) {
@@ -866,7 +854,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
           setVolunteerAdminConfig({ customFields: [] });
         }
       } else {
-        // console.log("[MatchCard - RequesterDashboard] No volunteerId in match, cannot fetch config.");
         setVolunteerAdminConfig({ customFields: [] });
       }
     };
@@ -940,12 +927,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, activeMatchId }) {
         <div className="mt-4 pt-4 border-t border-orange-200">
           <h4 className="font-semibold text-orange-800 text-md mb-2">מידע נוסף מהמתנדב:</h4>
           <div className="space-y-1 text-sm">
-            {/* {(() => {
-              console.log("[MatchCard - RequesterDashboard] START Rendering Shared Fields. Volunteer Data:", JSON.stringify(volunteer, null, 2));
-              console.log("[MatchCard - RequesterDashboard] Using Volunteer Admin Config:", JSON.stringify(volunteerAdminConfig, null, 2));
-              console.log("[MatchCard - RequesterDashboard] Shareable fields to render:", matchShareableCustomFields);
-              return null; // Or <></>
-            })()} */}
             {matchShareableCustomFields.map(field => (
               <p key={field.key} className="text-orange-700">
                 <strong className="text-orange-800">{field.label}:</strong> {field.value}
