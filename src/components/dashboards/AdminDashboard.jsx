@@ -1115,7 +1115,7 @@ export default function AdminDashboard() {
                           )
                           .map(match => (
                             <tr key={match.id} className="hover:bg-orange-50/50">
-                              <td className="border p-2">
+                              <td className="border p-2 font-bold underline text-orange-700">
                                 {match.requesterInfo ? (
                                   <HoverCard user={match.requesterInfo} adminConfig={requesterFormConfig}>
                                     {match.requesterInfo.fullName || 'N/A'}
@@ -1124,7 +1124,7 @@ export default function AdminDashboard() {
                                   'N/A'
                                 )}
                               </td>
-                              <td className="border p-2">
+                              <td className="border p-2 font-bold underline text-orange-700">
                                 {match.volunteerInfo ? (
                                   <HoverCard user={match.volunteerInfo} adminConfig={volunteerFormConfig}>
                                     {match.volunteerInfo.fullName || 'N/A'}
@@ -1284,7 +1284,7 @@ export default function AdminDashboard() {
                 <tbody>
                   {currentUsers.map(u => (
                     <tr key={`${u.id}-${u.role}`} className="hover:bg-orange-50/50">
-                      <td className="border p-2"><HoverCard user={u} adminConfig={u.role === 'requester' ? requesterFormConfig : volunteerFormConfig}>{u.fullName}</HoverCard></td>
+                      <td className="border p-2 font-bold underline text-orange-700"><HoverCard user={u} adminConfig={u.role === 'requester' ? requesterFormConfig : volunteerFormConfig}>{u.fullName}</HoverCard></td>
                       <td className="border border-orange-100 p-1 sm:p-2 text-orange-700 hidden md:table-cell">{u.email}</td>
                       <td className="border border-orange-100 p-1 sm:p-2 text-orange-700">
                         {u.role === 'volunteer' && 'מתנדב'}
