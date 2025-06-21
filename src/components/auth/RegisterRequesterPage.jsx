@@ -116,6 +116,12 @@ export default function RegisterRequesterPage() {
       return;
     }
 
+    if (name === "phone") {
+        const numericValue = value.replace(/[^0-9]/g, '');
+        setFormData(prev => ({ ...prev, [name]: numericValue }));
+        return;
+    }
+
     setFormData(prev => {
       // Handle admin-defined custom fields
       // Ensure adminConfig and customFields are defined before trying to find a field
@@ -532,6 +538,7 @@ export default function RegisterRequesterPage() {
               required
               value={formData.phone}
               onChange={handleChange}
+              pattern="[0-9]*"
               className={inputClassName}
             />
           </div>

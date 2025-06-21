@@ -118,6 +118,12 @@ export default function RegisterVolunteerPage() {
       }));
       return;
     }
+
+    if (name === "phone") {
+        const numericValue = value.replace(/[^0-9]/g, '');
+        setFormData(prev => ({ ...prev, [name]: numericValue }));
+        return;
+    }
     
     setFormData(prev => {
       // Handle admin-defined custom fields
@@ -548,6 +554,7 @@ export default function RegisterVolunteerPage() {
               required
               value={formData.phone}
               onChange={handleChange}
+              pattern="[0-9]*"
               className={inputClassName}
             />
 
