@@ -95,6 +95,13 @@ export function HoverCard({ user, children, adminConfig }) { // Added adminConfi
       {user.maritalStatus && <div><span className="font-semibold">מצב משפחתי:</span> {user.maritalStatus}</div>}
       {user.motivation && <div><span className="font-semibold">מוטיבציה:</span> {user.motivation}</div>}
       {user.strengths && <div><span className="font-semibold">חוזקות:</span> {user.strengths}</div>}
+      {user.chatPref && user.chatPref.length > 0 && <div><span className="font-semibold">העדפות שיחה:</span> {user.chatPref.join(', ')}</div>}
+      {user.frequency && user.frequency.length > 0 && <div><span className="font-semibold">תדירות:</span> {user.frequency.join(', ')}</div>}
+      {user.needs && <div><span className="font-semibold">צרכים:</span> {user.needs}</div>}
+      {user.onBehalfOf && <div><span className="font-semibold">פונה עבור:</span> {user.onBehalfOf}</div>}
+      {user.preferredTimes && <div><span className="font-semibold">זמנים מועדפים:</span> {user.preferredTimes}</div>}
+      {user.reason && <div><span className="font-semibold">סיבת הפנייה:</span> {user.reason}</div>}
+      {user.volunteerPrefs && <div><span className="font-semibold">העדפות למתנדב:</span> {user.volunteerPrefs}</div>}
       {user.availableDays && user.availableDays.length > 0 && (
         <div>
           <span className="font-semibold">ימים פנויים:</span> {user.availableDays.join(", ")}
