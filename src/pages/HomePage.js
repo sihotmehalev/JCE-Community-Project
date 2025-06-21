@@ -1,8 +1,10 @@
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { motion } from "framer-motion";
 import { EventSlider } from "../components/EventSlider/EventSlider";
+import CustomAlert from "../components/ui/CustomAlert";
 import { 
   User, 
   Heart, 
@@ -51,6 +53,41 @@ const itemVariants = {
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [alertMessage, setAlertMessage] = useState(null); // For the CustomAlert
+
+  // useEffect to handle the message from registration or other navigations
+  useEffect(() => {
+    console.log("[HomePage] Location state:", location.state); // Log the received state
+
+    if (location.state?.message && location.state?.type) {
+      console.log("[HomePage] Displaying message from location state:", location.state.message);
+      setAlertMessage({
+        message: location.state.message,
+        type: location.state.type,
+        // Optional: Add an onClose that also clears the alertMessage state
+        onClose: () => {
+          setAlertMessage(null);
+          // Clear the location state to prevent showing the message again on refresh or back navigation
+          window.history.replaceState({}, document.title);
+        }
+      });
+      // Important: Clear the location.state after processing it
+      // to prevent the message from re-appearing on refresh or if the user navigates back and then forward.
+      // Do this AFTER setting the alert, or in the onClose if you prefer.
+      // window.history.replaceState({}, document.title); // Moved to onClose for better control
+    } else if (alertMessage && !location.state?.message) {
+      // This case handles if the alert was set, then user navigates away and back
+      // without new state. If you want the alert to persist across such navigations, remove this.
+      // Or, if you want it to clear, this is one way, but clearing in onClose is better.
+    }
+
+  }, [location.state]); // Depend on location.state
+
+  // Scroll to top on page load or when navigation state changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]); // Depend on pathname to ensure it triggers on navigation
 
   // Placeholder for your icon path - replace with your actual icon
   const headlineIconSrc = "/icons/sihot_mehalev_icon.svg";
@@ -321,6 +358,19 @@ export default function HomePage() {
       <div className="mt-24 sm:mt-32">
         <EventSlider/>
       </div> 
+
+      <CustomAlert
+        message={alertMessage?.message}
+        onClose={() => {
+          setAlertMessage(null); // Always clear the local alert state
+          // If the message came from navigation state, clear that too
+          if (location.state?.message) {
+            window.history.replaceState({}, document.title);
+          }
+        }}
+        type={alertMessage?.type}
+        position="top"
+      />
     </div>
   );
 }

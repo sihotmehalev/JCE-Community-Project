@@ -27,31 +27,75 @@ export default function Navbar() {
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
   const navigate = useNavigate();
+  const [currentUnsubscribeNotif, setCurrentUnsubscribeNotif] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      setRole(null);
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        setUser(firebaseUser); // Set user immediately
         const uid = firebaseUser.uid;
-        let userRef = doc(db, "Users", "Info", "Admins", "Level", "FirstLevel", uid);
-        let snap = await getDoc(userRef);
-        if (snap.exists()) { setRole("admin-first"); return; }
-        
-        userRef = doc(db, "Users", "Info", "Admins", "Level", "SecondLevel", uid);
-        snap = await getDoc(userRef);
-        if (snap.exists()) { setRole("admin-second"); return; }
-        
-        userRef = doc(db, "Users", "Info", "Volunteers", uid);
-        snap = await getDoc(userRef);
-        if (snap.exists()) { setRole("volunteer"); return; }
-        
-        userRef = doc(db, "Users", "Info", "Requesters", uid);
-        snap = await getDoc(userRef);
-        if (snap.exists()) { setRole("requester"); return; }
+        let userRole = null; // Temporary variable for role
+
+        try { // Wrap Firestore calls in try-catch
+          // Check if user is still authenticated before each async Firestore call
+          // This is a bit more verbose but can help catch issues if sign-out is very fast
+          if (auth.currentUser?.uid !== uid) {
+            console.warn("[Navbar] User signed out during role check. Aborting role fetch.");
+            setUser(null);
+            setRole(null);
+            return;
+          }
+          let userRef = doc(db, "Users", "Info", "Admins", "Level", "FirstLevel", uid);
+          let snap = await getDoc(userRef);
+          if (snap.exists()) { userRole = "admin-first"; }
+          
+          if (!userRole && auth.currentUser?.uid === uid) { // Check again
+            userRef = doc(db, "Users", "Info", "Admins", "Level", "SecondLevel", uid);
+            snap = await getDoc(userRef);
+            if (snap.exists()) { userRole = "admin-second"; }
+          }
+          
+          if (!userRole && auth.currentUser?.uid === uid) { // And again
+            userRef = doc(db, "Users", "Info", "Volunteers", uid);
+            snap = await getDoc(userRef);
+            if (snap.exists()) { userRole = "volunteer"; }
+          }
+          
+          if (!userRole && auth.currentUser?.uid === uid) { // And again
+            userRef = doc(db, "Users", "Info", "Requesters", uid);
+            snap = await getDoc(userRef);
+            if (snap.exists()) { userRole = "requester"; }
+          }
+
+          // Only set role if user is still the same one we started with
+          if (auth.currentUser?.uid === uid) {
+            if (userRole) {
+              setRole(userRole);
+            } else {
+              console.warn(`[Navbar] User ${uid} authenticated but no role found in Firestore.`);
+              setRole(null);
+            }
+          } else {
+            // User changed/signed out during the async operations
+            setUser(null);
+            setRole(null);
+          }
+        } catch (error) {
+          // Handle cases where getDoc might fail due to permissions if sign-out already happened
+          console.error("[Navbar] Error fetching user role:", error);
+          if (error.code === 'permission-denied' || error.code === 'unauthenticated') {
+            console.warn("[Navbar] Permission denied during role fetch, likely due to sign out.");
+          }
+          setUser(null); // Ensure user/role are cleared on error
+          setRole(null);
+        }
+      } else {
+        // User is signed out
+        setUser(null);
+        setRole(null);
       }
     });
-    return unsubscribe;
+    return () => unsubscribeAuth();
   }, []);
 
   const handleLogout = async () => {
@@ -74,42 +118,92 @@ export default function Navbar() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isMobileMenuOpen]);
+  }, [isMobileMenuOpen, dropdownRef, notifRef]);
 
   useEffect(() => {
-    if (!user) {
-        setNotifications([]); // Clear notifications on logout
-        return;
-    };
+    // Only set up the listener if we have a user AND their role has been determined.
+    if (!user || !role) {
+      // If there was a previous listener, ensure it's cleaned up when user/role become null.
+      if (currentUnsubscribeNotif) {
+        console.log("[Navbar] Cleaning up previous notifications listener due to user/role change.");
+        currentUnsubscribeNotif();
+        setCurrentUnsubscribeNotif(null);
+      }
+      setNotifications([]); // Clear notifications
+      return; // Exit early
+    }
+
+    // If a listener is already active for the current user/role, don't set up a new one.
+    // This check helps prevent re-subscribing if only other dependencies (like currentUnsubscribeNotif itself)
+    // were to change, though with the dependency array fix, this becomes less critical.
+    // However, it's good defensive programming to prevent multiple subscriptions.
+    // A more robust check might involve comparing the `user.uid` and `role` with some stored state
+    // indicating the currently active listener, but for simplicity, we rely on `newUnsubscribe` in the cleanup.
+    
+    console.log("[Navbar] Setting up notifications listener for user:", user.uid, "with role:", role);
     const q = query(collection(db, "notifications"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
-    const unsubscribeNotif = onSnapshot(q, (snapshot) => {
+    
+    // onSnapshot returns the unsubscribe function
+    const newUnsubscribe = onSnapshot(q, (snapshot) => {
+      console.log("[Navbar] Notifications snapshot received.");
       setNotifications(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
-    }, (error) => console.error("Error listening to notifications:", error));
-    return () => unsubscribeNotif();
-  }, [user]);
+    }, (error) => {
+      console.error("[Navbar] Error listening to notifications:", error);
+      if (error.code === 'permission-denied' || error.code === 'unauthenticated') {
+        console.warn("[Navbar] Permission denied for notifications, user might be signing out or auth state is inconsistent.");
+      }
+    });
+
+    // Store the new unsubscribe function in state for potential manual cleanup if user/role become null again
+    setCurrentUnsubscribeNotif(() => newUnsubscribe);
+
+    // The cleanup function for THIS effect instance. This will be called when the component unmounts
+    // or before the effect re-runs (if user or role change).
+    return () => {
+        console.log("[Navbar] Cleaning up notifications listener.");
+        newUnsubscribe();
+        // Do NOT set setCurrentUnsubscribeNotif(null) here, as it would cause an infinite loop.
+        // The next run of the effect will handle setting it if needed.
+    };
+  }, [user, role]); // Dependencies: user, role. Removed currentUnsubscribeNotif.
 
   const markAllRead = async () => {
-    if (notifications.filter(n => !n.read).length === 0) return;
+    if (!auth.currentUser || notifications.filter(n => !n.read).length === 0) return; // Check auth
     const batch = writeBatch(db);
     notifications.filter((n) => !n.read).forEach((n) => {
       batch.update(doc(db, "notifications", n.id), { read: true });
     });
-    await batch.commit();
+    try {
+      if (auth.currentUser) { // Check auth again before commit
+          await batch.commit();
+      } else {
+          console.warn("[Navbar] User signed out before markAllRead could commit.");
+      }
+    } catch (error) {
+      console.error("[Navbar] Error marking all notifications as read:", error);
+    }
   };
 
   const clearAllNotifications = async () => {
-    if (!user || notifications.length === 0) return;
+    if (!auth.currentUser || notifications.length === 0) return; // Check auth
 
     const batch = writeBatch(db);
-    const q = query(collection(db, "notifications"), where("userId", "==", user.uid));
+    // Ensure we are querying for the CURRENTLY authenticated user.
+    // This might be redundant if 'user' state is up-to-date, but defensive.
+    const currentUserId = auth.currentUser.uid; 
+    const q = query(collection(db, "notifications"), where("userId", "==", currentUserId));
     
     try {
         const snapshot = await getDocs(q);
         snapshot.forEach(doc => {
             batch.delete(doc.ref);
         });
-        await batch.commit();
-        setNotifOpen(false); // Close dropdown after clearing
+        if (auth.currentUser) { // Check auth again before commit
+          await batch.commit();
+          setNotifOpen(false);
+        } else {
+          console.warn("[Navbar] User signed out before clearAllNotifications could commit.");
+        }
     } catch (error) {
         console.error("Error clearing all notifications:", error);
     }
@@ -135,14 +229,14 @@ export default function Navbar() {
 
   return (
     <nav className="bg-white/20 backdrop-blur-sm shadow-lg sticky top-0 z-50" dir="rtl">
-      <div className="container mx-auto px-4 flex justify-between items-center py-2">
-        {/* Right side: Desktop Nav (appears on the right due to dir="rtl" on parent, content is RTL) */}
-        <div className="hidden md:flex items-center space-x-4 rtl:space-x-reverse">
+      <div className="w-full flex justify-between items-center py-2 px-4">
+        {/* Section 1: Navigation Buttons (Desktop) - Visual right on desktop, hidden on mobile */}
+        <div className="hidden md:flex items-center space-x-4 rtl:space-x-reverse order-3 md:order-1">
           {/* Order these from right to left in JSX to achieve desired visual order from right to left */}
           {!user ? (
             <>
               {/* Login is the rightmost item */}
-              <Link to="/login" className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">התחברות</Link>
+              <Link to="/login" className="mr-5 px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">התחברות</Link>
               {/* Register is next */}
               <div className="relative inline-block" ref={dropdownRef}>
                 <button onClick={() => setIsOpen(!isOpen)} className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">הרשמה</button>
@@ -171,13 +265,13 @@ export default function Navbar() {
           <a href="https://chat.whatsapp.com/L5kE8M2lzSj0Spr7gJKcV6" target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-md border-2 border-green-600 text-green-700 hover:bg-green-600 hover:text-white transition-all duration-200"><FontAwesomeIcon icon={faWhatsapp} size="lg" /></a>
         </div>
 
-        {/* Left side: Logo + Notifications (desktop) - Appears on the left due to dir="rtl" on parent */}
-        <div className="flex items-center gap-4" dir="ltr">
+        {/* Section 2: Logo + Notifications (Responsive) - Visual left on both desktop and mobile */}
+        <div className="ml-4 flex items-center gap-4 order-2 md:order-2" dir="ltr">
           <Link to="/" className="flex-shrink-0">
             <img src="/images/logo.png" alt="שיחות מהלב Logo" className="h-16" />
           </Link>
           {user && (
-            <div className="relative hidden md:block" ref={notifRef} dir="ltr">
+            <div className="relative" ref={notifRef}>
               <button onClick={() => { setNotifOpen(!notifOpen); if(!notifOpen) markAllRead(); }} className="text-orange-600 hover:text-orange-700 focus:outline-none">
                 <Bell className="h-6 w-6" />
                 {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs w-4 h-4 flex items-center justify-center">{unreadCount}</span>}
@@ -260,6 +354,9 @@ export default function Navbar() {
               )}
             </div>
           )}
+        {/* Section 3: Mobile Hamburger (Mobile Only) - Visual right on mobile, hidden on desktop */}
+        <div className="mr-4 md:hidden flex items-center gap-4 order-1 md:order-3" dir="ltr">
+
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-orange-600 hover:text-orange-700 focus:outline-none">
             {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>

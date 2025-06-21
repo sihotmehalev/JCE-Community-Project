@@ -1,7 +1,7 @@
 // RegisterVolunteerPage.jsx - טופס הרשמה למתנדבים ברמה מקצועית
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../../config/firebaseConfig";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, increment, writeBatch, serverTimestamp, getDoc } from "firebase/firestore";
 import RegisterLayout from "../layout/RegisterLayout";
 import { Eye, EyeOff } from 'lucide-react';
@@ -91,17 +91,40 @@ export default function RegisterVolunteerPage() {
 
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  // Ensure adminConfig is initialized correctly
   const [adminConfig, setAdminConfig] = useState({
     customFields: []
   });
   const [adminConfigLoading, setAdminConfigLoading] = useState(true);
-
-  // Alert state
   const [alertMessage, setAlertMessage] = useState(null);
+  
+  // New state to track successful registration completion before navigation
+  const [registrationCompletedAndReadyToSignOut, setRegistrationCompletedAndReadyToSignOut] = useState(false);
 
-  // Navigation
   const navigate = useNavigate();
+
+  // useEffect to handle sign-out when the component unmounts after successful registration
+  useEffect(() => {
+    if (registrationCompletedAndReadyToSignOut) {
+      return () => {
+        // This cleanup function is called when the component unmounts
+        console.log("[RegisterVolunteerPage] Unmounting after successful registration, attempting to sign out...");
+        // Check if there's actually a user to sign out
+        // This can prevent errors if signOut is called when already signed out for some reason
+        if (auth.currentUser) { 
+          signOut(auth)
+            .then(() => {
+              console.log("[RegisterVolunteerPage] User signed out successfully post-registration.");
+            })
+            .catch((error) => {
+              console.error("[RegisterVolunteerPage] Error signing out post-registration:", error);
+            });
+        } else {
+            console.log("[RegisterVolunteerPage] No current user to sign out during unmount.");
+        }
+      };
+    }
+    return undefined;
+  }, [registrationCompletedAndReadyToSignOut]);
 
   const togglePasswordVisibility = () => {
     setShowPassword(prev => !prev);
@@ -118,20 +141,23 @@ export default function RegisterVolunteerPage() {
       }));
       return;
     }
+
+    if (name === "phone") {
+        const numericValue = value.replace(/[^0-9]/g, '');
+        setFormData(prev => ({ ...prev, [name]: numericValue }));
+        return;
+    }
     
     setFormData(prev => {
-      // Handle admin-defined custom fields
-      // Ensure adminConfig and customFields are defined before trying to find a field
       const adminField = adminConfig?.customFields?.find(field => field.name === name);
       if (adminField) {
-        if (adminField.type === "checkbox" && !adminField.isArray) { // Simple boolean checkbox
+        if (adminField.type === "checkbox" && !adminField.isArray) {
              return { ...prev, [name]: checked };
         }
         return { ...prev, [name]: value };
       }
 
       if (type === "checkbox") {
-        // Handle arrays for availableDays and availableHours
         if (name === "availableDays" || name === "availableHours") {
           const array = Array.isArray(prev[name]) ? prev[name] : [];
           return {
@@ -139,14 +165,12 @@ export default function RegisterVolunteerPage() {
             [name]: checked ? [...array, value] : array.filter(v => v !== value)
           };
         }
-        // Handle regular checkboxes
         return {
           ...prev,
           [name]: checked
         };
       }
       
-      // Handle select inputs
       if (type === "select-one") {
         if (["gender", "maritalStatus", "profession", "experience"].includes(name)) {
           setShowCustomInput(prevShow => ({
@@ -155,7 +179,6 @@ export default function RegisterVolunteerPage() {
           }));
           
           if (value !== "אחר") {
-            // Clear custom input when a regular option is selected
             setCustomInputs(prevCustom => ({
               ...prevCustom,
               [name]: ''
@@ -165,21 +188,17 @@ export default function RegisterVolunteerPage() {
               [name]: value
             };
           } else {
-            // Keep "אחר" as the field value when custom input is enabled
             return {
               ...prev,
               [name]: "אחר"
             };
           }
         }
-        
         return {
           ...prev,
           [name]: value
         };
       }
-      
-      // Handle all other input types
       return {
         ...prev,
         [name]: value
@@ -195,20 +214,15 @@ export default function RegisterVolunteerPage() {
         const docSnap = await getDoc(configDocRef);
         console.log("[RegisterVolunteerPage] Fetched admin_form_configs/volunteer_config snapshot exists:", docSnap.exists());
         if (docSnap.exists()) {
-          const configData = docSnap.data() || {}; // Ensure configData is an object
+          const configData = docSnap.data() || {};
           console.log("[RegisterVolunteerPage] Raw configData from Firestore:", configData);
           
           const customFields = Array.isArray(configData.customFields) ? configData.customFields : [];
+          setAdminConfig({ customFields });
 
-          // Ensure customFields is always an array
-          setAdminConfig({
-            customFields: customFields
-          });
-
-          // Initialize formData with default values for custom fields
           const initialCustomData = {};
           customFields.forEach(field => {
-            if (field.name) { // Ensure field has a name
+            if (field.name) {
                 if (field.type === 'checkbox' && !field.isArray) {
                     initialCustomData[field.name] = field.defaultValue || false;
                 } else {
@@ -220,10 +234,9 @@ export default function RegisterVolunteerPage() {
 
         } else {
           console.log("[RegisterVolunteerPage] No admin configuration found for volunteers. Using defaults.");
-          setAdminConfig({ customFields: [] }); // Explicitly set defaults
+          setAdminConfig({ customFields: [] });
         }
-      } catch (error)
-       {
+      } catch (error) {
         console.error("Error fetching volunteer admin config:", error);
       }
       setAdminConfigLoading(false);
@@ -235,6 +248,7 @@ export default function RegisterVolunteerPage() {
     e.preventDefault();
     setLoading(true);
     setAlertMessage(null);
+    setRegistrationCompletedAndReadyToSignOut(false); // Reset on new submission
 
     if (!formData.agree) {
       setAlertMessage({ message: "יש לאשר את ההצהרה כדי להמשיך", type: "error" });
@@ -252,10 +266,7 @@ export default function RegisterVolunteerPage() {
       const uid = userCred.user.uid;
       
       const batch = writeBatch(db);
-      
       const { password, ...formDataWithoutPassword } = formData;
-
-      // Prepare customData from admin-defined fields
       const customFieldData = {};
       if (adminConfig?.customFields) {
         adminConfig.customFields.forEach(field => {
@@ -267,7 +278,6 @@ export default function RegisterVolunteerPage() {
         });
       }
 
-      // Merge custom input values for fields with "אחר"
       const finalData = {
         ...formDataWithoutPassword,
         gender: formData.gender === "אחר" ? customInputs.gender : formData.gender,
@@ -277,32 +287,41 @@ export default function RegisterVolunteerPage() {
         availableHours: formData.availableHours.includes('אחר') 
           ? [...formData.availableHours.filter(h => h !== 'אחר'), customInputs.availableHours] 
           : formData.availableHours,
-        ...customFieldData, // Add admin-defined fields
+        ...customFieldData,
         approved: "pending",
         personal: true,
         isAvailable: true,
         activeMatchIds: [],
         requestIds: [],
-        role: "volunteer", // Explicitly set role
+        role: "volunteer",
         createdAt: serverTimestamp(),
         lastActivity: serverTimestamp(),
       };
 
-      // Add user data to Users/Info/Volunteers collection
       const userDocRef = doc(db, "Users", "Info", "Volunteers", uid);
       batch.set(userDocRef, finalData);
-
-      // Increment the Volunteers counter in Users/Info
       const counterRef = doc(db, "Users", "Info");
-      batch.set(counterRef, {
-        Volunteers: increment(1)
-      }, { merge: true });
+      batch.set(counterRef, { Volunteers: increment(1) }, { merge: true });
 
       await batch.commit();
+      console.log("[RegisterVolunteerPage] Firestore batch committed successfully.");
+
+      // Set the flag to true. This arms the useEffect cleanup for sign-out.
+      setRegistrationCompletedAndReadyToSignOut(true);
       
-      setAlertMessage({ message: "נרשמת בהצלחה! בקשתך תיבדק על ידי מנהל המערכת.", type: "success", onClose: () => navigate("/") });
+      // Navigate. This will cause the component to unmount, triggering the signOut in useEffect's cleanup.
+      // The success message is passed to the HomePage.
+      console.log("[RegisterVolunteerPage] Navigating to home page...");
+      navigate("/", { 
+        state: { 
+          message: "נרשמת בהצלחה! בקשתך תיבדק על ידי מנהל המערכת.", 
+          type: "success" 
+        } 
+      });
+      
     } catch (error) {
       console.error("Registration error:", error);
+      setRegistrationCompletedAndReadyToSignOut(false); // Ensure flag is false on error
       let specificMessage = "שגיאה ברישום: " + error.message;
       if (error.code === 'auth/email-already-in-use') {
         specificMessage = 'כתובת אימייל זו כבר רשומה במערכת.';
@@ -316,12 +335,10 @@ export default function RegisterVolunteerPage() {
 
   const inputClassName = "w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 outline-none text-sm transition-all duration-200 bg-white/70 backdrop-blur-sm hover:border-orange-300";
 
-  // Helper to render dynamic admin-defined fields
   const renderAdminFields = () => {
     if (adminConfigLoading) {
       return <p className="text-sm text-orange-600">טוען שדות נוספים...</p>;
     }
-    // More robust check
     if (!adminConfig || !Array.isArray(adminConfig.customFields) || adminConfig.customFields.length === 0) {
       console.log("[RegisterVolunteerPage] No custom fields to render or adminConfig.customFields is not an array. Current adminConfig.customFields:", adminConfig?.customFields);
       return null;
@@ -415,6 +432,7 @@ export default function RegisterVolunteerPage() {
               type="button"
               onClick={togglePasswordVisibility}
               className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 opacity-40 hover:opacity-80 transition-opacity duration-200"
+              aria-label={showPassword ? "הסתר סיסמה" : "הצג סיסמה"}
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
@@ -435,9 +453,7 @@ export default function RegisterVolunteerPage() {
             className={inputClassName}
           />
           
-          {/* Stack all fields vertically */}
           <div className="space-y-4">
-            {/* Gender Field */}
             <div>
               <label htmlFor="gender" className="block text-sm font-medium text-orange-700">מגדר</label>
               <select
@@ -455,7 +471,6 @@ export default function RegisterVolunteerPage() {
               </select>
               {showCustomInput.gender && (
                 <div className="mt-2">
-                  {/* <label htmlFor="custom_gender" className="block text-sm font-medium text-orange-700">פרט/י מגדר</label> */}
                   <input
                     name="custom_gender"
                     id="custom_gender"
@@ -468,18 +483,18 @@ export default function RegisterVolunteerPage() {
               )}
             </div>
 
-            {/* Age Field */}
-            <label htmlFor="age" className="block text-sm font-medium text-orange-700">גיל</label>
-            <input
-              type="number"
-              name="age"
-              id="age"
-              value={formData.age}
-              onChange={handleChange}
-              className={inputClassName}
-            />
+            <div>
+              <label htmlFor="age" className="block text-sm font-medium text-orange-700">גיל</label>
+              <input
+                type="number"
+                name="age"
+                id="age"
+                value={formData.age}
+                onChange={handleChange}
+                className={inputClassName}
+              />
+            </div>
 
-            {/* Marital Status Field */}
             <div>
               <label htmlFor="maritalStatus" className="block text-sm font-medium text-orange-700">מצב משפחתי</label>
               <select
@@ -509,7 +524,6 @@ export default function RegisterVolunteerPage() {
               )}
             </div>
 
-            {/* Profession Field */}
             <div>
               <label htmlFor="profession" className="block text-sm font-medium text-orange-700">מקצוע</label>
               <select
@@ -539,35 +553,36 @@ export default function RegisterVolunteerPage() {
               )}
             </div>
 
-            {/* Phone Field */}
-            <label htmlFor="phone" className="block text-sm font-medium text-orange-700">טלפון</label>
-            <input
-              type="tel"
-              name="phone"
-              id="phone"
-              required
-              value={formData.phone}
-              onChange={handleChange}
-              className={inputClassName}
-            />
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-orange-700">טלפון</label>
+              <input
+                type="tel"
+                name="phone"
+                id="phone"
+                required
+                value={formData.phone}
+                onChange={handleChange}
+                pattern="[0-9]*"
+                className={inputClassName}
+              />
+            </div>
 
-            {/* Location Field */}
-            <label htmlFor="location" className="block text-sm font-medium text-orange-700">מקום מגורים</label>
-            <input
-              name="location"
-              id="location"
-              value={formData.location}
-              onChange={handleChange}
-              className={inputClassName}
-            />
+            <div>
+              <label htmlFor="location" className="block text-sm font-medium text-orange-700">מקום מגורים</label>
+              <input
+                name="location"
+                id="location"
+                value={formData.location}
+                onChange={handleChange}
+                className={inputClassName}
+              />
+            </div>
           </div>
         </div>
 
         {/* Experience and Availability */}
         <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
           <h3 className="font-semibold text-orange-800 mb-2">ניסיון וזמינות</h3>
-          
-          {/* Experience Field */}
           <div>
             <label htmlFor="experience" className="block text-sm font-medium text-orange-700">רמת ניסיון</label>
             <select
@@ -598,7 +613,6 @@ export default function RegisterVolunteerPage() {
             )}
           </div>
           
-          {/* Available Days */}
           <div>
             <label className="block text-sm font-medium text-orange-700 mb-2">
               ימים זמינים בשבוע
@@ -620,7 +634,6 @@ export default function RegisterVolunteerPage() {
             </div>
           </div>
 
-          {/* Available Hours */}
           <div>
             <label className="block text-sm font-medium text-orange-700 mb-2">
               שעות זמינות
@@ -658,28 +671,30 @@ export default function RegisterVolunteerPage() {
         {/* Motivation and Strengths */}
         <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
           <h3 className="font-semibold text-orange-800 mb-2">מוטיבציה וחוזקות</h3>
-          <label htmlFor="strengths" className="block text-sm font-medium text-orange-700">מהם החוזקות שלך כאדם / כמתנדב?</label>
-          <textarea
-            name="strengths"
-            id="strengths"
-            value={formData.strengths}
-            onChange={handleChange}
-            rows="3"
-            className={inputClassName}
-          />
-          <label htmlFor="motivation" className="block text-sm font-medium text-orange-700">מה מביא אותך להתנדב במסגרת כזו?</label>
-          <textarea
-            name="motivation"
-            id="motivation"
-            value={formData.motivation}
-            onChange={handleChange}
-            rows="3"
-            className={inputClassName}
-          />
+          <div>
+            <label htmlFor="strengths" className="block text-sm font-medium text-orange-700">מהם החוזקות שלך כאדם / כמתנדב?</label>
+            <textarea
+              name="strengths"
+              id="strengths"
+              value={formData.strengths}
+              onChange={handleChange}
+              rows="3"
+              className={inputClassName}
+            />
+          </div>
+          <div>
+            <label htmlFor="motivation" className="block text-sm font-medium text-orange-700">מה מביא אותך להתנדב במסגרת כזו?</label>
+            <textarea
+              name="motivation"
+              id="motivation"
+              value={formData.motivation}
+              onChange={handleChange}
+              rows="3"
+              className={inputClassName}
+            />
+          </div>
         </div>
 
-        {/* Admin Defined Custom Fields */}
-        {/* Stricter check for rendering custom fields section */}
         {!adminConfigLoading && adminConfig && Array.isArray(adminConfig.customFields) && adminConfig.customFields.length > 0 && (
           <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-4">
             <h3 className="font-semibold text-orange-800 mb-2">פרטים נוספים</h3>
@@ -701,7 +716,6 @@ export default function RegisterVolunteerPage() {
         </label>
       </div>
 
-      {/* Custom Alert */}
       <CustomAlert
         message={alertMessage?.message}
         onClose={alertMessage?.onClose || (() => setAlertMessage(null))}

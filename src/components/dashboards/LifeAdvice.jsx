@@ -15,7 +15,6 @@ function createTailoredPrompt(questionText, userData, requesterFormConfig) {
     { key: 'age', label: 'גיל' },
     { key: 'gender', label: 'מגדר' },
     { key: 'maritalStatus', label: 'מצב משפחתי' },
-    { key: 'location', label: 'מקום מגורים' },
     { key: 'reason', label: 'סיבת פנייה עיקרית' },
     { key: 'needs', label: 'צרכים בתמיכה' },
   ];
@@ -24,18 +23,31 @@ function createTailoredPrompt(questionText, userData, requesterFormConfig) {
     if (userData && userData[field.key]) {
       const fieldDef = requesterFormConfig?.customFields?.find(cf => cf.name === field.key);
       const label = fieldDef?.label || field.label;
-      const valueToDisplay = String(userData[field.key]).replace(/`/g, "'").replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      const valueToDisplay = String(userData[field.key]).replace(/`/g, '\`');
       prompt += `- ${label}: ${valueToDisplay}\n`;
     }
   });
 
+  // Exclude sensitive or irrelevant fields from the AI prompt
+  const excludedFields = [
+    'fullName', 'name', 'firstName', 'lastName', 'email', 'phone', 
+    'uid', 'id', 'userType', 'approved', 'createdAt', 'lastLogin', 
+    'profileComplete', 'requesterId', 'volunteerId', 
+    'matchId', 'status', 'updatedAt'
+  ];
+
   prompt += "\nפרטים נוספים מהפרופיל (כולל שדות מותאמים אישית):\n";
   if (userData) {
     for (const key in userData) {
-      if (Object.hasOwnProperty.call(userData, key) && !relevantFields.some(rf => rf.key === key) && typeof userData[key] !== 'object' && userData[key] !== null && userData[key] !== '') {
+      if (Object.hasOwnProperty.call(userData, key) && 
+          !relevantFields.some(rf => rf.key === key) && 
+          !excludedFields.includes(key) && 
+          typeof userData[key] !== 'object' && 
+          userData[key] !== null && 
+          userData[key] !== '') {
           const fieldDef = requesterFormConfig?.customFields?.find(cf => cf.name === key);
           const label = fieldDef?.label || key;
-          const valueToDisplay = String(userData[key]).replace(/`/g, "'").replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          const valueToDisplay = String(userData[key]).replace(/`/g, '\`');
           prompt += `- ${label}: ${valueToDisplay}\n`;
       }
     }

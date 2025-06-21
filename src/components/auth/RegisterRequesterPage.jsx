@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../../config/firebaseConfig";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, increment, writeBatch, collection, serverTimestamp, getDoc } from "firebase/firestore";
 import RegisterLayout from "../layout/RegisterLayout"; // Assuming this is the correct layout
 import { Eye, EyeOff } from 'lucide-react';
@@ -114,6 +114,12 @@ export default function RegisterRequesterPage() {
         [originalField]: value
       }));
       return;
+    }
+
+    if (name === "phone") {
+        const numericValue = value.replace(/[^0-9]/g, '');
+        setFormData(prev => ({ ...prev, [name]: numericValue }));
+        return;
     }
 
     setFormData(prev => {
@@ -274,7 +280,9 @@ export default function RegisterRequesterPage() {
 
       await batch.commit();
       
-      setAlertMessage({ message: "נרשמת בהצלחה!", type: "success", onClose: () => navigate("/login") });
+      await signOut(auth);
+
+      setAlertMessage({ message: "נרשמת בהצלחה!", type: "success", onClose: () => navigate("/requester-dashboard") });
     } catch (error) {
       console.error("Registration error:", error);
       let specificMessage = "שגיאה ברישום: " + error.message;
@@ -532,6 +540,7 @@ export default function RegisterRequesterPage() {
               required
               value={formData.phone}
               onChange={handleChange}
+              pattern="[0-9]*"
               className={inputClassName}
             />
           </div>
