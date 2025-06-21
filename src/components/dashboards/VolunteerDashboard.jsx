@@ -552,11 +552,11 @@ export default function VolunteerDashboard() {
           </div>
           {/* Personal/Admin Toggle */}
           <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
-            <span className="text-sm text-orange-700">שיוך ע״י מנהל</span>
+            <span className="text-sm text-orange-700">בחירה עצמית</span>
             <button onClick={flipPersonal} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ease-in-out outline-none ring-2 ring-orange-400 ring-offset-2 ${personal ? 'bg-orange-600' : 'bg-gray-200'}`}>
               <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ease-in-out border-2 border-orange-400 ${personal ? 'translate-x-0.5' : '-translate-x-5'}`} />
             </button>
-            <span className="text-sm text-orange-700">בחירה עצמית</span>
+            <span className="text-sm text-orange-700">שיוך ע״י מנהל</span>
           </div>
         </div>
       </div>
