@@ -547,7 +547,7 @@ export default function RequesterDashboard() {
         <div className="flex items-center gap-2 mt-2 sm:mt-0">
           <span className="text-sm text-orange-700">פנייה ישירה למתנדב</span>
           <button onClick={flipPersonal} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${personal ? 'bg-orange-600 border-orange-400' : 'bg-gray-200 border-orange-400'}`}>
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${personal ? 'translate-x-0.5' : '-translate-x-5'}`} />
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${personal ? '-translate-x-1' : '-translate-x-6'}`} />
           </button>
           <span className="text-sm text-orange-700">ללא העדפה</span>
         </div>
