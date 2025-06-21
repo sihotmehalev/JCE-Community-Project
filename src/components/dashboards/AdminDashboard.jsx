@@ -142,6 +142,8 @@ export default function AdminDashboard() {
   const [matchVolunteerFilter] = useState("all");
   const [matchSortColumn, setMatchSortColumn] = useState(null);
   const [matchSortOrder, setMatchSortOrder] = useState("asc");
+  const [requesterFilters, setRequesterFilters] = useState({ gender: 'all', ageRange: 'all' });
+  const [volunteerFilters, setVolunteerFilters] = useState({ gender: 'all', profession: 'all' });
 
   // Session details states
 
@@ -257,6 +259,11 @@ export default function AdminDashboard() {
   const indexOfFirstApproval = indexOfLastApproval - approvalsPerPage;
   const currentApprovals = filteredPendingRequests.slice(indexOfFirstApproval, indexOfLastApproval);
   const totalApprovalPages = Math.ceil(filteredPendingRequests.length / approvalsPerPage);
+
+  const professions = useMemo(() => {
+    const allProfessions = volunteers.map(v => v.profession).filter(Boolean);
+    return [...new Set(allProfessions)];
+  }, [volunteers]);
 
   const filteredMatchSessions = useMemo(() => matchSessions, [matchSessions]);
   const indexOfLastMatchSession = matchSessionCurrentPage * itemsPerPage;
@@ -926,30 +933,107 @@ export default function AdminDashboard() {
 
               {/* Requesters List */}
               <div className="w-full lg:w-1/4 border rounded p-4 bg-orange-50/50">
-                <input type="text" placeholder="חיפוש פונה..." value={requesterSearch} onChange={e => setRequesterSearch(e.target.value)} className="border rounded px-2 py-1 w-full mb-2" />
-                <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
-                <ul className="space-y-2 h-[250px] lg:h-[400px] overflow-y-scroll">
-                  {requesters.filter(r => !r.activeMatchId
-                   && (r.fullName?.toLowerCase().includes(requesterSearch.toLowerCase())
-                  || r.email?.toLowerCase().includes(requesterSearch.toLowerCase()))
-                   )
-                    .map(req => (
-                    <li key={req.id} className={`p-2 rounded shadow cursor-pointer ${selectedRequester === req.id ? 'border-2 border-orange-500' : 'bg-white'}`} onClick={() => setSelectedRequester(selectedRequester === req.id ? null : req.id)}>
-                      <strong className="text-orange-800">{req.fullName}</strong>
-                    </li>
+                <div className="relative w-full mb-2">
+                    <input type="text" placeholder="חיפוש פונה..." value={requesterSearch} onChange={e => setRequesterSearch(e.target.value)} className="border rounded px-2 py-1 w-full" />
+                    {requesterSearch && (
+                        <button onClick={() => setRequesterSearch('')} className="absolute top-1/2 left-2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600" title="נקה חיפוש">&#x2715;</button>
+                    )}
+                </div>
+                 <div className="flex gap-2 mb-2">
+                   <div className="relative w-1/2">
+                    <select value={requesterFilters.gender} onChange={e => setRequesterFilters(f => ({...f, gender: e.target.value}))} className="border rounded px-2 py-1 w-full">
+                        <option value="all">כל המגדרים</option>
+                        <option value="נקבה">נקבה</option>
+                        <option value="זכר">זכר</option>
+                        <option value="אחר">אחר</option>
+                    </select>
+                    {requesterFilters.gender !== 'all' && (
+                        <button onClick={() => setRequesterFilters(f => ({...f, gender: 'all'}))} className="absolute top-1/2 left-2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600" title="נקה סינון">&#x2715;</button>
+                    )}
+                   </div>
+                   <div className="relative w-1/2">
+                    <select value={requesterFilters.ageRange} onChange={e => setRequesterFilters(f => ({...f, ageRange: e.target.value}))} className="border rounded px-2 py-1 w-full">
+                        <option value="all">כל הגילאים</option>
+                        <option value="0-18">0-18</option>
+                        <option value="19-30">19-30</option>
+                        <option value="31-50">31-50</option>
+                        <option value="51+">51+</option>
+                    </select>
+                    {requesterFilters.ageRange !== 'all' && (
+                        <button onClick={() => setRequesterFilters(f => ({...f, ageRange: 'all'}))} className="absolute top-1/2 left-2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600" title="נקה סינון">&#x2715;</button>
+                    )}
+                   </div>
+                 </div>
+                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
+                 <ul className="space-y-2 h-[250px] lg:h-[400px] overflow-y-scroll">
+                   {requesters.filter(r => {
+                      if (r.activeMatchId || !r.personal) return false;
+                      if (requesterSearch && !r.fullName?.toLowerCase().includes(requesterSearch.toLowerCase()) && !r.email?.toLowerCase().includes(requesterSearch.toLowerCase())) return false;
+                      if (requesterFilters.gender !== 'all' && r.gender !== requesterFilters.gender) return false;
+                      if (requesterFilters.ageRange !== 'all') {
+                        const [minStr, maxStr] = requesterFilters.ageRange.split('-');
+                        const min = Number(minStr);
+                        const age = Number(r.age);
+                        if (isNaN(age)) return false;
+                        if (maxStr) {
+                          const max = Number(maxStr);
+                          if (age < min || age > max) return false;
+                        } else {
+                          if (age < min) return false;
+                        }
+                      }
+                      return true;
+                   })
+                     .map(req => (
+                     <li key={req.id} className={`p-2 rounded shadow cursor-pointer ${selectedRequester === req.id ? 'border-2 border-orange-500' : 'bg-white'}`} onClick={() => setSelectedRequester(selectedRequester === req.id ? null : req.id)}>
+                       <strong className="text-orange-800">{req.fullName}</strong>
+                     </li>
                   ))}
                 </ul>
               </div>
 
               {/* Volunteers List */}
               <div className="w-full lg:w-1/4 border rounded p-4 bg-orange-50/50">
-                <input type="text" placeholder="חיפוש מתנדב..." value={volunteerSearch} onChange={e => setVolunteerSearch(e.target.value)} className="border rounded px-2 py-1 w-full mb-2" />
-                <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
-                <ul className="space-y-2 h-[250px] lg:h-[400px] overflow-y-scroll">
-                  {volunteers.filter(v => v.approved === "true" && (v.isAvailable || v.isAvaliable) && !v.personal && (v.fullName?.toLowerCase().includes(volunteerSearch.toLowerCase()) || v.email?.toLowerCase().includes(volunteerSearch.toLowerCase()))).map(v => (
-                    <li key={v.id} className={`p-2 rounded shadow cursor-pointer ${selectedVolunteer === v.id ? 'border-2 border-orange-500' : 'bg-white'} ${!selectedRequester ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => selectedRequester && setSelectedVolunteer(selectedVolunteer === v.id ? null : v.id)}>
-                      <strong className="text-orange-800">{v.fullName}</strong>
-                    </li>
+                <div className="relative w-full mb-2">
+                  <input type="text" placeholder="חיפוש מתנדב..." value={volunteerSearch} onChange={e => setVolunteerSearch(e.target.value)} className="border rounded px-2 py-1 w-full" />
+                  {volunteerSearch && (
+                        <button onClick={() => setVolunteerSearch('')} className="absolute top-1/2 left-2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600" title="נקה חיפוש">&#x2715;</button>
+                  )}
+                </div>
+                 <div className="flex gap-2 mb-2">
+                    <div className="relative w-1/2">
+                      <select value={volunteerFilters.gender} onChange={e => setVolunteerFilters(f => ({...f, gender: e.target.value}))} className="border rounded px-2 py-1 w-full">
+                        <option value="all">כל המגדרים</option>
+                        <option value="נקבה">נקבה</option>
+                        <option value="זכר">זכר</option>
+                        <option value="אחר">אחר</option>
+                      </select>
+                      {volunteerFilters.gender !== 'all' && (
+                        <button onClick={() => setVolunteerFilters(f => ({...f, gender: 'all'}))} className="absolute top-1/2 left-2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600" title="נקה סינון">&#x2715;</button>
+                      )}
+                    </div>
+                    <div className="relative w-1/2">
+                      <select value={volunteerFilters.profession} onChange={e => setVolunteerFilters(f => ({...f, profession: e.target.value}))} className="border rounded px-2 py-1 w-full">
+                        <option value="all">כל המקצועות</option>
+                        {professions.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                      {volunteerFilters.profession !== 'all' && (
+                        <button onClick={() => setVolunteerFilters(f => ({...f, profession: 'all'}))} className="absolute top-1/2 left-2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600" title="נקה סינון">&#x2715;</button>
+                      )}
+                    </div>
+                 </div>
+                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
+                 <ul className="space-y-2 h-[250px] lg:h-[400px] overflow-y-scroll">
+                   {volunteers.filter(v => {
+                      if (v.approved !== "true" || !v.personal) return false;
+                      if (volunteerSearch && !v.fullName?.toLowerCase().includes(volunteerSearch.toLowerCase()) && !v.email?.toLowerCase().includes(volunteerSearch.toLowerCase())) return false;
+                      if (volunteerFilters.gender !== 'all' && v.gender !== volunteerFilters.gender) return false;
+                      if (volunteerFilters.profession !== 'all' && v.profession !== volunteerFilters.profession) return false;
+                      return true;
+                   }).map(v => (
+                     <li key={v.id} className={`p-2 rounded shadow cursor-pointer ${selectedVolunteer === v.id ? 'border-2 border-orange-500' : 'bg-white'} ${!selectedRequester ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => selectedRequester && setSelectedVolunteer(selectedVolunteer === v.id ? null : v.id)}>
+                       <strong className="text-orange-800">{v.fullName}</strong>
+                     </li>
                   ))}
                 </ul>
               </div>
