@@ -173,13 +173,16 @@ export default function LifeAdvice({ userData, requesterFormConfig }) {
         </select>
       </div>
       <div className="flex justify-center mt-4">
-        <Button 
-          onClick={handleGetAdviceFromTemplate} 
-          disabled={loading || !selectedQuestionId} 
-          className="px-8 py-3 text-lg bg-orange-500 hover:bg-orange-600 text-white shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-0.5"
-        >
-        {loading && selectedQuestionId ? <LoadingSpinner /> : "קבל/י עצה מהרשימה"}
-      </Button>
+        {!loading && (
+          <Button 
+            onClick={handleGetAdviceFromTemplate} 
+            disabled={!selectedQuestionId} 
+            className="px-8 py-3 text-lg bg-orange-500 hover:bg-orange-600 text-white shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-0.5"
+          >
+            קבל/י עצה מהרשימה
+          </Button>
+        )}
+        {loading && <LoadingSpinner />}
       </div>
       </div>
 
@@ -216,13 +219,16 @@ export default function LifeAdvice({ userData, requesterFormConfig }) {
           rows="3"
           className="w-full p-3 border-2 border-orange-200 rounded-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 outline-none text-md bg-white shadow-inner"
         />
-        <Button 
-          onClick={handleSendCustomQuestion} 
-          disabled={loading || !currentInput.trim()} 
-          className="px-8 py-3 text-lg self-center bg-green-500 hover:bg-green-600 text-white shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-0.5"
-        >
-          {loading && currentInput.trim() ? <LoadingSpinner /> : "שלח שאלה"}
-        </Button>
+        {!loading && (
+          <Button 
+            onClick={handleSendCustomQuestion} 
+            disabled={!currentInput.trim()} 
+            className="px-8 py-3 text-lg self-center bg-green-500 hover:bg-green-600 text-white shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-0.5"
+          >
+            שלח שאלה
+          </Button>
+        )}
+        {loading && <LoadingSpinner />}
       </div>
       
       <CustomAlert message={alertMessage?.message} type={alertMessage?.type} onClose={() => setAlertMessage(null)} />
