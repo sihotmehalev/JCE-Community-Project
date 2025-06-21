@@ -173,6 +173,7 @@ export default function AdminDashboard() {
   const [newMsg, setNewMsg] = useState("");
   const [userSelectedForChat, setUserSelectedForChat] = useState(null);
   const [userLastChatTimestamps, setUserLastChatTimestamps] = useState({});
+  const [unreadCounts, setUnreadCounts] = useState({});
   
   // Form Customization states
   const [requesterFormConfig, setRequesterFormConfig] = useState({ hideNoteField: false, customFields: [] });
@@ -205,9 +206,42 @@ export default function AdminDashboard() {
     if (allUsers.length > 0) fetchLastMessages();
   }, [allUsers]);
 
+  useEffect(() => {
+    if (allUsers.length === 0) return;
+
+    const unsubscribers = allUsers.map(user => {
+      if (!user.conversationsWithAdminId) {
+        return null;
+      }
+      const messagesRef = collection(db, "conversations", user.conversationsWithAdminId, "messages");
+      const q = query(
+          messagesRef,
+          where("senderId", "==", user.id),
+          where("seenByOther", "==", false)
+      );
+
+      return onSnapshot(q, (snapshot) => {
+        setUnreadCounts(prevCounts => ({
+          ...prevCounts,
+          [user.id]: snapshot.size
+        }));
+      }, (error) => {
+        console.error(`Error fetching unread count for user ${user.id}:`, error);
+      });
+    }).filter(Boolean);
+
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }, [allUsers]);
+
   // Memoized calculations for pagination and filtering
   const filteredAndSortedUsers = useMemo(() => {
     return allUsers
+      .map(u => ({
+        ...u,
+        unreadMessages: unreadCounts[u.id] || 0,
+      }))
       .filter(u =>
         (roleFilter === "all" || u.role === roleFilter) &&
         (statusFilter === "all" || u.derivedDisplayStatus === statusFilter) &&
@@ -229,13 +263,17 @@ export default function AdminDashboard() {
           aValue = a.activeMatchIds?.length || 0;
           bValue = b.activeMatchIds?.length || 0;
         }
+        if (sortColumn === 'unreadMessages') {
+          aValue = a.unreadMessages || 0;
+          bValue = b.unreadMessages || 0;
+        }
         if (typeof aValue === 'string' && typeof bValue === 'string') {
           return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
         } else {
           return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
         }
       });
-  }, [allUsers, userSearch, roleFilter, statusFilter, personalFilter, activeMatchesFilter, sortColumn, sortOrder]);
+  }, [allUsers, userSearch, roleFilter, statusFilter, personalFilter, activeMatchesFilter, sortColumn, sortOrder, unreadCounts]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -1375,7 +1413,7 @@ export default function AdminDashboard() {
                     <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('approved')}>סטטוס{sortColumn === 'approved' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer hidden sm:table-cell" onClick={() => handleSort('personal')}>אישי{sortColumn === 'personal' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer hidden sm:table-cell" onClick={() => handleSort('activeMatchIds')}>התאמות{sortColumn === 'activeMatchIds' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer">צ'אט</th>
+                    <th className="border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer" onClick={() => handleSort('unreadMessages')}>צ'אט{sortColumn === 'unreadMessages' && (sortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                     <th className="w-24 border border-orange-100 p-1 sm:p-2 text-orange-800 cursor-pointer">מחיקה</th>
                   </tr>
                 </thead>
