@@ -107,17 +107,23 @@ export default function RegisterVolunteerPage() {
     if (registrationCompletedAndReadyToSignOut) {
       return () => {
         // This cleanup function is called when the component unmounts
-        console.log("[RegisterVolunteerPage] Unmounting after successful registration, signing out...");
-        signOut(auth)
-          .then(() => {
-            console.log("[RegisterVolunteerPage] User signed out successfully post-registration.");
-          })
-          .catch((error) => {
-            console.error("[RegisterVolunteerPage] Error signing out post-registration:", error);
-          });
+        console.log("[RegisterVolunteerPage] Unmounting after successful registration, attempting to sign out...");
+        // Check if there's actually a user to sign out
+        // This can prevent errors if signOut is called when already signed out for some reason
+        if (auth.currentUser) { 
+          signOut(auth)
+            .then(() => {
+              console.log("[RegisterVolunteerPage] User signed out successfully post-registration.");
+            })
+            .catch((error) => {
+              console.error("[RegisterVolunteerPage] Error signing out post-registration:", error);
+            });
+        } else {
+            console.log("[RegisterVolunteerPage] No current user to sign out during unmount.");
+        }
       };
     }
-    return undefined; // No cleanup needed if not completed
+    return undefined;
   }, [registrationCompletedAndReadyToSignOut]);
 
   const togglePasswordVisibility = () => {

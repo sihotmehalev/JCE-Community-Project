@@ -26,31 +26,75 @@ export default function Navbar() {
   const [role, setRole] = useState(null);
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
+  const [currentUnsubscribeNotif, setCurrentUnsubscribeNotif] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      setRole(null);
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        setUser(firebaseUser); // Set user immediately
         const uid = firebaseUser.uid;
-        let userRef = doc(db, "Users", "Info", "Admins", "Level", "FirstLevel", uid);
-        let snap = await getDoc(userRef);
-        if (snap.exists()) { setRole("admin-first"); return; }
-        
-        userRef = doc(db, "Users", "Info", "Admins", "Level", "SecondLevel", uid);
-        snap = await getDoc(userRef);
-        if (snap.exists()) { setRole("admin-second"); return; }
-        
-        userRef = doc(db, "Users", "Info", "Volunteers", uid);
-        snap = await getDoc(userRef);
-        if (snap.exists()) { setRole("volunteer"); return; }
-        
-        userRef = doc(db, "Users", "Info", "Requesters", uid);
-        snap = await getDoc(userRef);
-        if (snap.exists()) { setRole("requester"); return; }
+        let userRole = null; // Temporary variable for role
+
+        try { // Wrap Firestore calls in try-catch
+          // Check if user is still authenticated before each async Firestore call
+          // This is a bit more verbose but can help catch issues if sign-out is very fast
+          if (auth.currentUser?.uid !== uid) {
+            console.warn("[Navbar] User signed out during role check. Aborting role fetch.");
+            setUser(null);
+            setRole(null);
+            return;
+          }
+          let userRef = doc(db, "Users", "Info", "Admins", "Level", "FirstLevel", uid);
+          let snap = await getDoc(userRef);
+          if (snap.exists()) { userRole = "admin-first"; }
+          
+          if (!userRole && auth.currentUser?.uid === uid) { // Check again
+            userRef = doc(db, "Users", "Info", "Admins", "Level", "SecondLevel", uid);
+            snap = await getDoc(userRef);
+            if (snap.exists()) { userRole = "admin-second"; }
+          }
+          
+          if (!userRole && auth.currentUser?.uid === uid) { // And again
+            userRef = doc(db, "Users", "Info", "Volunteers", uid);
+            snap = await getDoc(userRef);
+            if (snap.exists()) { userRole = "volunteer"; }
+          }
+          
+          if (!userRole && auth.currentUser?.uid === uid) { // And again
+            userRef = doc(db, "Users", "Info", "Requesters", uid);
+            snap = await getDoc(userRef);
+            if (snap.exists()) { userRole = "requester"; }
+          }
+
+          // Only set role if user is still the same one we started with
+          if (auth.currentUser?.uid === uid) {
+            if (userRole) {
+              setRole(userRole);
+            } else {
+              console.warn(`[Navbar] User ${uid} authenticated but no role found in Firestore.`);
+              setRole(null);
+            }
+          } else {
+            // User changed/signed out during the async operations
+            setUser(null);
+            setRole(null);
+          }
+        } catch (error) {
+          // Handle cases where getDoc might fail due to permissions if sign-out already happened
+          console.error("[Navbar] Error fetching user role:", error);
+          if (error.code === 'permission-denied' || error.code === 'unauthenticated') {
+            console.warn("[Navbar] Permission denied during role fetch, likely due to sign out.");
+          }
+          setUser(null); // Ensure user/role are cleared on error
+          setRole(null);
+        }
+      } else {
+        // User is signed out
+        setUser(null);
+        setRole(null);
       }
     });
-    return unsubscribe;
+    return () => unsubscribeAuth();
   }, []);
 
   const handleLogout = async () => {
@@ -73,42 +117,86 @@ export default function Navbar() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isMobileMenuOpen]);
+  }, [isMobileMenuOpen, dropdownRef, notifRef]);
 
   useEffect(() => {
-    if (!user) {
-        setNotifications([]); // Clear notifications on logout
-        return;
-    };
+    // If there's an existing listener, unsubscribe from it first
+    if (currentUnsubscribeNotif) {
+      console.log("[Navbar] Cleaning up previous notifications listener.");
+      currentUnsubscribeNotif();
+      setCurrentUnsubscribeNotif(null); // Reset the stored unsubscribe function
+    }
+
+    // Only set up the listener if we have a user AND their role has been determined.
+    if (!user || !role) {
+      setNotifications([]); // Clear notifications
+      return; // Exit early
+    }
+
+    console.log("[Navbar] Setting up notifications listener for user:", user.uid, "with role:", role);
     const q = query(collection(db, "notifications"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
-    const unsubscribeNotif = onSnapshot(q, (snapshot) => {
+    
+    // onSnapshot returns the unsubscribe function
+    const newUnsubscribe = onSnapshot(q, (snapshot) => {
+      console.log("[Navbar] Notifications snapshot received.");
       setNotifications(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
-    }, (error) => console.error("Error listening to notifications:", error));
-    return () => unsubscribeNotif();
-  }, [user]);
+    }, (error) => {
+      console.error("[Navbar] Error listening to notifications:", error);
+      if (error.code === 'permission-denied' || error.code === 'unauthenticated') {
+        console.warn("[Navbar] Permission denied for notifications, user might be signing out or auth state is inconsistent.");
+      }
+    });
+
+    // Store the new unsubscribe function in state
+    setCurrentUnsubscribeNotif(() => newUnsubscribe);
+
+    // The cleanup function for THIS effect instance will be implicitly handled
+    // by the check at the beginning of the effect on the next run.
+    // Explicitly, you could also return it:
+    return () => {
+        console.log("[Navbar] Effect for notifications re-running or component unmounting. Cleaning up new listener.");
+        newUnsubscribe();
+        setCurrentUnsubscribeNotif(null); // Also clear on unmount
+    };
+  }, [user, role, currentUnsubscribeNotif]); // Dependencies: user, role, currentUnsubscribeNotif
 
   const markAllRead = async () => {
-    if (notifications.filter(n => !n.read).length === 0) return;
+    if (!auth.currentUser || notifications.filter(n => !n.read).length === 0) return; // Check auth
     const batch = writeBatch(db);
     notifications.filter((n) => !n.read).forEach((n) => {
       batch.update(doc(db, "notifications", n.id), { read: true });
     });
-    await batch.commit();
+    try {
+      if (auth.currentUser) { // Check auth again before commit
+          await batch.commit();
+      } else {
+          console.warn("[Navbar] User signed out before markAllRead could commit.");
+      }
+    } catch (error) {
+      console.error("[Navbar] Error marking all notifications as read:", error);
+    }
   };
 
   const clearAllNotifications = async () => {
-    if (!user || notifications.length === 0) return;
+    if (!auth.currentUser || notifications.length === 0) return; // Check auth
 
     const batch = writeBatch(db);
-    const q = query(collection(db, "notifications"), where("userId", "==", user.uid));
+    // Ensure we are querying for the CURRENTLY authenticated user.
+    // This might be redundant if 'user' state is up-to-date, but defensive.
+    const currentUserId = auth.currentUser.uid; 
+    const q = query(collection(db, "notifications"), where("userId", "==", currentUserId));
     
     try {
         const snapshot = await getDocs(q);
         snapshot.forEach(doc => {
             batch.delete(doc.ref);
         });
-        await batch.commit();
-        setNotifOpen(false); // Close dropdown after clearing
+        if (auth.currentUser) { // Check auth again before commit
+          await batch.commit();
+          setNotifOpen(false);
+        } else {
+          console.warn("[Navbar] User signed out before clearAllNotifications could commit.");
+        }
     } catch (error) {
         console.error("Error clearing all notifications:", error);
     }
