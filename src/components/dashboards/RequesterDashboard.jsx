@@ -569,10 +569,11 @@ const openChat = async (matchId) => {
           הפרופיל שלי
         </Button>
         <ChatButton 
-          conversationId={user.conversationsWithAdminId} 
+          conversationId={requestProfile?.conversationsWithAdminId}
           onClick={openAdminChat}
-          currentUserId={user.uid}
-          otherUserId="1" 
+          currentUserId={requestProfile?.id || user.uid}
+          otherUserId="1"
+          variant="outline"
           className="mr-2"
         >
           צאט עם מנהל

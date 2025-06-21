@@ -563,12 +563,12 @@ export default function VolunteerDashboard() {
           >
             הפרופיל שלי
           </Button>
-          <ChatButton 
-            conversationId={user.conversationsWithAdminId} 
+          <ChatButton
+            conversationId={volProfile?.conversationsWithAdminId}
             onClick={openAdminChat}
-            currentUserId={user.uid}
-            otherUserId="1" 
-            isAdminChat={true}
+            currentUserId={volProfile?.id || user.uid}
+            otherUserId="1"
+            variant="outline"
             className="w-full sm:w-auto"
           >
             צאט עם מנהל
@@ -914,8 +914,8 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
 
       {/* Chat and Schedule Buttons */}
       <div className="flex gap-2 flex-wrap">
-        <ChatButton 
-          conversationId={match.id} 
+        <ChatButton
+          conversationId={match.id}
           onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}
           currentUserId={match.volunteerId}
           otherUserId={match.requesterId}
