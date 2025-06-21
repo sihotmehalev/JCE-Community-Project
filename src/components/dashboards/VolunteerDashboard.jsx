@@ -542,22 +542,22 @@ export default function VolunteerDashboard() {
         </div>
         <div className="flex-1 hidden sm:block" />
         <div className="flex flex-col sm:flex-row items-center gap-4 mt-2 sm:mt-0 w-full sm:w-auto">
-          {/* Availability Toggle */}
-          <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
-            <span className="text-sm text-orange-700">זמין</span>
-            <button onClick={toggleAvailability} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ease-in-out outline-none ring-2 ring-orange-400 ring-offset-2 ${isAvailable ? 'bg-green-600' : 'bg-gray-200'}`}>
-              <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ease-in-out border-2 border-orange-400 ${isAvailable ? 'translate-x-0.5' : '-translate-x-5'}`} />
-            </button>
-            <span className="text-sm text-orange-700">לא זמין</span>
-          </div>
-          {/* Personal/Admin Toggle */}
-          <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
-            <span className="text-sm text-orange-700">בחירה עצמית</span>
-            <button onClick={flipPersonal} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ease-in-out outline-none ring-2 ring-orange-400 ring-offset-2 ${personal ? 'bg-orange-600' : 'bg-gray-200'}`}>
-              <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ease-in-out border-2 border-orange-400 ${personal ? 'translate-x-0.5' : '-translate-x-5'}`} />
-            </button>
-            <span className="text-sm text-orange-700">שיוך ע״י מנהל</span>
-          </div>
+        {/* Availability Toggle */}
+        <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
+          <span className="text-sm text-orange-700">זמין</span>
+          <button onClick={toggleAvailability} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${isAvailable ? 'bg-green-600 border-orange-400' : 'bg-gray-200 border-orange-400'}`}>
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${isAvailable ? '-translate-x-1' : '-translate-x-6'}`} />
+          </button>
+          <span className="text-sm text-orange-700">לא זמין</span>
+        </div>
+        {/* Personal/Admin Toggle */}
+        <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
+          <span className="text-sm text-orange-700">בחירה עצמית</span>
+          <button onClick={flipPersonal} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ring-2 ring-orange-400 ring-offset-2 ${personal ? 'bg-orange-600 border-orange-400' : 'bg-gray-200 border-orange-400'}`}>
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform border-2 border-orange-400 ${personal ? '-translate-x-1' : '-translate-x-6'}`} />
+          </button>
+          <span className="text-sm text-orange-700">שיוך ע״י מנהל</span>
+        </div>
         </div>
       </div>
       <Card className="mb-6">
