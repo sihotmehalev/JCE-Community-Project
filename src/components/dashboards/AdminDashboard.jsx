@@ -465,7 +465,6 @@ export default function AdminDashboard() {
         status: "active",
         startDate: new Date(),
         endDate: null,
-        meetingFrequency: "weekly",
         totalSessions: 0,
         notes: ""
       });
@@ -559,7 +558,7 @@ export default function AdminDashboard() {
         batch.update(doc(db, "Requests", requestId), { volunteerId, status: "matched", matchedAt: new Date(), matchId: matchId });
       }
       
-      batch.set(doc(db, "Matches", matchId), { volunteerId, requesterId, requestId: finalRequestId, status: "active", startDate: new Date(), endDate: null, meetingFrequency: "weekly", totalSessions: 0, notes: "Manual match by admin" });
+      batch.set(doc(db, "Matches", matchId), { volunteerId, requesterId, requestId: finalRequestId, status: "active", startDate: new Date(), endDate: null, totalSessions: 0, notes: "Manual match by admin" });
       batch.update(doc(db, "Users", "Info", "Volunteers", volunteerId), { activeMatchIds: arrayUnion(matchId) });
       batch.update(doc(db, "Users", "Info", "Requesters", requesterId), { activeMatchId: matchId });
       await batch.commit();
@@ -1071,7 +1070,6 @@ export default function AdminDashboard() {
                         <tr className="bg-orange-50">
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('requesterInfo.fullName')}>פונה{matchSortColumn === 'requesterInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                           <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('volunteerInfo.fullName')}>מתנדב{matchSortColumn === 'volunteerInfo.fullName' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
-                          <th className="border border-orange-100 p-2 text-orange-800 cursor-pointer" onClick={() => handleMatchSort('meetingFrequency')}>תדירות פגישות{matchSortColumn === 'meetingFrequency' && (matchSortOrder === 'asc' ? ' ▲' : ' ▼')}</th>
                           <th className="border border-orange-100 p-2 text-orange-800">פגישות</th>
                           <th className="border border-orange-100 p-2 text-orange-800">ביטול התאמה</th>
                         </tr>
@@ -1100,9 +1098,6 @@ export default function AdminDashboard() {
                             } else if (matchSortColumn === 'volunteerInfo.fullName') {
                               aValue = a.volunteerInfo?.fullName || '';
                               bValue = b.volunteerInfo?.fullName || '';
-                            } else if (matchSortColumn === 'meetingFrequency') {
-                              aValue = a[matchSortColumn] || '';
-                              bValue = b[matchSortColumn] || '';
                             } else {
                               aValue = a[matchSortColumn];
                               bValue = b[matchSortColumn];
@@ -1137,9 +1132,6 @@ export default function AdminDashboard() {
                                 ) : (
                                   'N/A'
                                 )}
-                              </td>
-                              <td className="border border-orange-100 p-2 text-orange-700">
-                                {match.meetingFrequency || 'N/A'}
                               </td>
                               <td className="border border-orange-100 p-2 text-center">
                                 <span
