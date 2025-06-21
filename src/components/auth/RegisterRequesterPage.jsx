@@ -280,7 +280,7 @@ export default function RegisterRequesterPage() {
 
       await batch.commit();
       
-      setAlertMessage({ message: "נרשמת בהצלחה!", type: "success", onClose: () => navigate("/login") });
+      setAlertMessage({ message: "נרשמת בהצלחה!", type: "success", onClose: () => navigate("/requester-dashboard") });
     } catch (error) {
       console.error("Registration error:", error);
       let specificMessage = "שגיאה ברישום: " + error.message;
