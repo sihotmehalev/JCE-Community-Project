@@ -120,19 +120,25 @@ export default function Navbar() {
   }, [isMobileMenuOpen, dropdownRef, notifRef]);
 
   useEffect(() => {
-    // If there's an existing listener, unsubscribe from it first
-    if (currentUnsubscribeNotif) {
-      console.log("[Navbar] Cleaning up previous notifications listener.");
-      currentUnsubscribeNotif();
-      setCurrentUnsubscribeNotif(null); // Reset the stored unsubscribe function
-    }
-
     // Only set up the listener if we have a user AND their role has been determined.
     if (!user || !role) {
+      // If there was a previous listener, ensure it's cleaned up when user/role become null.
+      if (currentUnsubscribeNotif) {
+        console.log("[Navbar] Cleaning up previous notifications listener due to user/role change.");
+        currentUnsubscribeNotif();
+        setCurrentUnsubscribeNotif(null);
+      }
       setNotifications([]); // Clear notifications
       return; // Exit early
     }
 
+    // If a listener is already active for the current user/role, don't set up a new one.
+    // This check helps prevent re-subscribing if only other dependencies (like currentUnsubscribeNotif itself)
+    // were to change, though with the dependency array fix, this becomes less critical.
+    // However, it's good defensive programming to prevent multiple subscriptions.
+    // A more robust check might involve comparing the `user.uid` and `role` with some stored state
+    // indicating the currently active listener, but for simplicity, we rely on `newUnsubscribe` in the cleanup.
+    
     console.log("[Navbar] Setting up notifications listener for user:", user.uid, "with role:", role);
     const q = query(collection(db, "notifications"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
     
@@ -147,18 +153,18 @@ export default function Navbar() {
       }
     });
 
-    // Store the new unsubscribe function in state
+    // Store the new unsubscribe function in state for potential manual cleanup if user/role become null again
     setCurrentUnsubscribeNotif(() => newUnsubscribe);
 
-    // The cleanup function for THIS effect instance will be implicitly handled
-    // by the check at the beginning of the effect on the next run.
-    // Explicitly, you could also return it:
+    // The cleanup function for THIS effect instance. This will be called when the component unmounts
+    // or before the effect re-runs (if user or role change).
     return () => {
-        console.log("[Navbar] Effect for notifications re-running or component unmounting. Cleaning up new listener.");
+        console.log("[Navbar] Cleaning up notifications listener.");
         newUnsubscribe();
-        setCurrentUnsubscribeNotif(null); // Also clear on unmount
+        // Do NOT set setCurrentUnsubscribeNotif(null) here, as it would cause an infinite loop.
+        // The next run of the effect will handle setting it if needed.
     };
-  }, [user, role, currentUnsubscribeNotif]); // Dependencies: user, role, currentUnsubscribeNotif
+  }, [user, role]); // Dependencies: user, role. Removed currentUnsubscribeNotif.
 
   const markAllRead = async () => {
     if (!auth.currentUser || notifications.filter(n => !n.read).length === 0) return; // Check auth
