@@ -77,23 +77,34 @@ export const AdminEventList = () => {
         const now = new Date();
         const q = query(
             collection(db, "Events"),
-            where("scheduled_time", "<", Timestamp.fromDate(now))
+            where("scheduled_time", "<", Timestamp.fromDate(now)),
+            orderBy("scheduled_time", "desc") // Order by time to keep newest first
         );
-        
+
         try {
             const querySnapshot = await getDocs(q);
             const batch = writeBatch(db);
-            let deletedCount = 0;
+            let passedEvents = [];
 
             querySnapshot.forEach((docSnap) => {
-                batch.delete(doc(db, "Events", docSnap.id));
-                deletedCount++;
+                const eventData = docSnap.data();
+                if (eventData.status !== "Passed") {
+                    batch.update(docSnap.ref, { status: "Passed" });
+                }
+                passedEvents.push({ id: docSnap.id, ...eventData, ref: docSnap.ref });
             });
 
-            if (deletedCount > 0) {
-                await batch.commit();
-                setAlertMessage({ message: `נמחקו ${deletedCount} אירועים ישנים.`, type: "success" });
+            // Keep the 6 most recent "Passed" events, delete the rest
+            const eventsToDelete = passedEvents.slice(6);
+
+            if (eventsToDelete.length > 0) {
+                eventsToDelete.forEach(event => {
+                    batch.delete(event.ref);
+                });
+                setAlertMessage({ message: `נמחקו ${eventsToDelete.length} אירועים ישנים שעברו את ה-6 האחרונים.`, type: "success" });
             }
+            await batch.commit();
+
         } catch (error) {
             console.error("Error cleaning up old events:", error);
             setAlertMessage({ message: "שגיאה בניקוי אירועים ישנים.", type: "error" });
@@ -325,6 +336,7 @@ export const AdminEventList = () => {
                             <option value="all">כל האירועים</option>
                             <option value="scheduled">אירועים מתוכננים</option>
                             <option value="cancelled">אירועים מבוטלים</option>
+                            <option value="Passed">אירועים שהסתיימו</option>
                         </select>
                     </div>
 
@@ -350,7 +362,7 @@ export const AdminEventList = () => {
                                         <td className="border border-orange-100 p-1 sm:p-2 text-orange-700 hidden lg:table-cell">{event.location}</td>
                                         <td className="border border-orange-100 p-1 sm:p-2 text-orange-700 hidden lg:table-cell">{event.Contact_info && (<a href={`tel:${event.Contact_info}`} className="text-blue-600 hover:text-blue-800">{event.Contact_info}</a>)}</td>
                                         <td className="border border-orange-100 p-1 sm:p-2 text-orange-700 hidden lg:table-cell"><a href={`mailto:${event.mail}`} className="text-blue-600 hover:text-blue-800">{event.mail}</a></td>
-                                        <td className="border border-orange-100 p-1 sm:p-2 text-right"><span className={`px-2 py-1 rounded-full text-xs sm:text-sm ${event.status === 'scheduled' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{event.status === 'scheduled' ? 'מתוכנן' : 'מבוטל'}</span></td>
+                                        <td className="border border-orange-100 p-1 sm:p-2 text-right"><span className={`px-2 py-1 rounded-full text-xs sm:text-sm ${event.status === 'scheduled' ? 'bg-green-100 text-green-800' : event.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{event.status === 'scheduled' ? 'מתוכנן' : event.status === 'cancelled' ? 'מבוטל' : 'אירוע שהסתיים'}</span></td>
                                         <td className="border border-orange-100 p-1 sm:p-2 text-center">
                                             <button onClick={() => openEditModal(event)} className="p-2 rounded-full text-blue-600 hover:text-white hover:bg-blue-600 focus:outline-none transition-colors duration-200 inline-flex items-center justify-center" title="ערוך אירוע">
                                                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
@@ -434,6 +446,7 @@ export const AdminEventList = () => {
                                     <select value={editForm.status || 'scheduled'} onChange={(e) => updateForm('status', e.target.value)} className="w-full p-2 border rounded-md bg-white hover:border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all appearance-none cursor-pointer" dir="rtl">
                                         <option value="scheduled">מתוכנן</option>
                                         <option value="cancelled">מבוטל</option>
+                                        <option value="Passed">הסתיים</option>
                                     </select>
                                 </div>
                             </div>
