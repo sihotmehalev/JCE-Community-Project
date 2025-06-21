@@ -1,6 +1,6 @@
 // c/Users/moti/Desktop/talksfromtheheart/18.6/JCE-Community-Project/src/components/admin/event-management/AdminAddEvent.jsx
 import React, { useState } from 'react';
-import { collection, addDoc, Timestamp, getDocs, writeBatch, serverTimestamp, doc, query } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, getDocs, writeBatch, serverTimestamp, doc, query, setDoc } from 'firebase/firestore'; // Added setDoc
 import { db } from '../../../config/firebaseConfig';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
@@ -101,8 +101,11 @@ const AdminAddEvent = ({ onEventAdded }) => {
                 return;
             }
             
-            await addDoc(collection(db, "Events"), eventData);
-            
+            // Get the document reference before adding to get its ID
+            const newEventRef = doc(collection(db, "Events"));
+            await setDoc(newEventRef, eventData);
+            const eventId = newEventRef.id; // Get the ID of the newly created event
+
             const batch = writeBatch(db);
             const volunteersQuery = query(collection(db, "Users", "Info", "Volunteers"));
             const requestersQuery = query(collection(db, "Users", "Info", "Requesters"));
@@ -113,7 +116,8 @@ const AdminAddEvent = ({ onEventAdded }) => {
             ]);
 
             const notificationMessage = `אירוע חדש: ${eventData.name}`;
-            const notificationLink = '/'; // Corrected link to homepage
+            // Set the notification link to EventsPage with eventId parameter
+            const notificationLink = `/events?eventId=${eventId}`; //
 
             volunteersSnapshot.forEach(userDoc => {
                 const notificationRef = doc(collection(db, "notifications"));

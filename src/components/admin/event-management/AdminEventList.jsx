@@ -7,7 +7,7 @@ import CustomAlert from "../../ui/CustomAlert";
 import { Button } from '../../../components/ui/button';
 
 // Helper function to create notifications for all users
-const notifyAllUsers = async (message, link) => {
+const notifyAllUsers = async (message, eventId) => { // Added eventId parameter
     const batch = writeBatch(db);
     const volunteersQuery = query(collection(db, "Users", "Info", "Volunteers"));
     const requestersQuery = query(collection(db, "Users", "Info", "Requesters"));
@@ -20,7 +20,7 @@ const notifyAllUsers = async (message, link) => {
 
         const notificationData = {
             message,
-            link,
+            link: `/events?eventId=${eventId}`, // Use eventId to construct the link
             createdAt: serverTimestamp(),
             read: false
         };
@@ -36,7 +36,7 @@ const notifyAllUsers = async (message, link) => {
         });
 
         await batch.commit();
-    } catch (error) { // Corrected syntax here: removed "=>"
+    } catch (error) {
         console.error("Error sending notifications to all users:", error);
     }
 };
@@ -205,7 +205,8 @@ export const AdminEventList = () => {
 
             await deleteDoc(eventRef);
 
-            await notifyAllUsers(`האירוע '${eventName}' בוטל.`, '/');
+            // Pass eventId to notifyAllUsers for the link
+            await notifyAllUsers(`האירוע '${eventName}' בוטל.`, eventId); //
             
             setAlertMessage({ message: 'האירוע נמחק בהצלחה', type: 'success' });
 
@@ -289,7 +290,8 @@ export const AdminEventList = () => {
             const message = eventData.status === 'cancelled' 
                 ? `האירוע '${eventData.name}' בוטל.`
                 : `האירוע '${eventData.name}' עודכן. בדקו את הפרטים החדשים.`;
-            await notifyAllUsers(message, '/');
+            // Pass eventId to notifyAllUsers for the link
+            await notifyAllUsers(message, editForm.id); //
             
             closeModal();
             setAlertMessage({ message: 'האירוע עודכן בהצלחה!', type: 'success' });

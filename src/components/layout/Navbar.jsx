@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { auth, db } from "../../config/firebaseConfig";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
@@ -26,6 +26,7 @@ export default function Navbar() {
   const [role, setRole] = useState(null);
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -121,6 +122,17 @@ export default function Navbar() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  // Handler for notification click - now with a slight delay for navigation
+  const handleNotificationClick = (link) => {
+    setNotifOpen(false); // Close notification dropdown immediately
+    // Add a small delay before navigating to ensure the dropdown UI has time to update/close
+    setTimeout(() => {
+      if (link) {
+        navigate(link); // Use navigate for programmatic routing
+      }
+    }, 50); // A small delay, e.g., 50ms, can be adjusted
+  };
+
   return (
     <nav className="bg-white/20 backdrop-blur-sm shadow-lg sticky top-0 z-50" dir="rtl">
       <div className="container mx-auto px-4 flex justify-between items-center py-2">
@@ -178,17 +190,16 @@ export default function Navbar() {
                     <>
                       <div className="flex-grow overflow-y-auto">
                         {notifications.map((n) => (
-                          <Link
+                          <div
                             key={n.id}
-                            to={n.link || '#'}
-                            onClick={() => setNotifOpen(false)}
+                            onClick={() => handleNotificationClick(n.link)} // Use new handler
                             className="block py-2 px-3 hover:bg-gray-100 rounded-md cursor-pointer"
                           >
                             <p className="text-sm">{n.message}</p>
                             <p className="text-xs text-gray-400">
                               {n.createdAt?.toDate() ? new Date(n.createdAt.toDate()).toLocaleString("he-IL") : ""}
                             </p>
-                          </Link>
+                          </div>
                         ))}
                       </div>
                       <div className="border-t border-gray-200 mt-2 pt-2">
@@ -223,17 +234,16 @@ export default function Navbar() {
                     <>
                       <div className="flex-grow overflow-y-auto">
                         {notifications.map((n) => (
-                          <Link
+                          <div
                             key={n.id}
-                            to={n.link || '#'}
-                            onClick={() => setNotifOpen(false)}
+                            onClick={() => handleNotificationClick(n.link)} // Use new handler
                             className="block py-2 px-3 hover:bg-gray-100 rounded-md cursor-pointer"
                           >
                             <p className="text-sm">{n.message}</p>
                             <p className="text-xs text-gray-400">
                               {n.createdAt?.toDate() ? new Date(n.createdAt.toDate()).toLocaleString("he-IL") : ""}
                             </p>
-                          </Link>
+                          </div>
                         ))}
                       </div>
                       <div className="border-t border-gray-200 mt-2 pt-2">
