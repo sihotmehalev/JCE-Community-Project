@@ -581,6 +581,7 @@ export default function VolunteerDashboard() {
         setNewMsg={setNewMsg}
         onSend={sendMessage}
         chatPartnerName={matches.find(m => m.id === activeMatchId)?.requester?.fullName || 'שיחה'}
+        currentUserId={user.uid}
       />
         {/* Admin Chat Panel */}
       <ChatPanel
@@ -591,6 +592,7 @@ export default function VolunteerDashboard() {
         setNewMsg={setAdminNewMsg}
         onSend={sendAdminMessage}
         chatPartnerName={'מנהל'}
+        currentUserId={user.uid}
       />
 
       {/* Schedule Session Modal */}

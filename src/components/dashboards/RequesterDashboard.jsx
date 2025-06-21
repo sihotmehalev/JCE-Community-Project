@@ -610,6 +610,7 @@ export default function RequesterDashboard() {
         setNewMsg={setNewMsg}
         onSend={sendMessage}
         chatPartnerName={activeMatch?.volunteer?.fullName || 'שיחה'}
+        currentUserId={user.uid}
       />
 
         {/* Admin Chat Panel */}
@@ -621,6 +622,7 @@ export default function RequesterDashboard() {
         setNewMsg={setAdminNewMsg}
         onSend={sendAdminMessage}
         chatPartnerName={'מנהל'}
+        currentUserId={user.uid}
       />
 
       <CustomAlert
