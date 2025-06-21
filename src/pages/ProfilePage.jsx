@@ -74,6 +74,26 @@ const ProfileField = ({ label, name, value, isEditing, onChange, type = "text", 
               </option>
             ))}
           </select>
+        ) : type === 'multicheckbox' ? (
+            <div className="flex flex-wrap gap-x-4 gap-y-2" dir="rtl">
+                {options.map(opt => {
+                    const optionValue = opt.value || opt;
+                    const isChecked = Array.isArray(value) && value.includes(optionValue);
+                    return (
+                        <label key={optionValue} className="flex items-center gap-2 cursor-pointer text-sm">
+                            <input
+                                type="checkbox"
+                                name={name}
+                                value={optionValue}
+                                checked={isChecked}
+                                onChange={onChange}
+                                className="form-checkbox h-4 w-4 text-orange-600 border-orange-300 rounded focus:ring-orange-500 cursor-pointer"
+                            />
+                            <span>{opt.label || opt}</span>
+                        </label>
+                    );
+                })}
+            </div>
         ) : type === 'checkbox' ? (
           <input 
             type="checkbox" 
@@ -136,7 +156,18 @@ export default function ProfilePage() {
     const { name, value, type, checked } = e.target;
     const fieldDef = getFieldDefinition(name);
 
-    if (type === 'checkbox' || (fieldDef && fieldDef.type === 'checkbox')) {
+    if (fieldDef && fieldDef.type === 'multicheckbox') {
+        setEditData(prev => {
+            const existingValues = Array.isArray(prev[name]) ? prev[name] : [];
+            if (checked) {
+                // Add value if it's not already there
+                return { ...prev, [name]: existingValues.includes(value) ? existingValues : [...existingValues, value] };
+            } else {
+                // Remove value
+                return { ...prev, [name]: existingValues.filter(v => v !== value) };
+            }
+        });
+    } else if (type === 'checkbox' || (fieldDef && fieldDef.type === 'checkbox')) {
       setEditData(prev => ({ ...prev, [name]: checked }));
     } else {
       setEditData(prev => ({ ...prev, [name]: value }));
@@ -191,24 +222,43 @@ export default function ProfilePage() {
       fullName: { label: "שם מלא", icon: <User />, type: "text" },
       email: { label: "אימייל", icon: <Mail />, type: "email", readOnly: true },
       phone: { label: "טלפון", icon: <Phone />, type: "tel" },
-      gender: { label: "מגדר", icon: <User />, type: "text" },
+      gender: { label: "מגדר", icon: <User />, type: "select", options: ['זכר', 'נקבה', 'אחר'] },
       age: { label: "גיל", icon: <Calendar />, type: "number" },
       location: { label: "מקום מגורים", icon: <MapPin />, type: "text" },
-      maritalStatus: { label: "מצב משפחתי", icon: <User />, type: "text" },
+      maritalStatus: { label: "מצב משפחתי", icon: <User />, type: "select", options: ['רווק/ה', 'נשוי/אה', 'גרוש/ה', 'אלמן/ה', 'אחר'] },
       reason: { label: "סיבת הפנייה", icon: <MessageCircle />, type: "textarea", roles: ["requester"] },
       needs: { label: "צורך בתמיכה", icon: <MessageCircle />, type: "textarea", roles: ["requester"] },
-      chatPref: { label: "העדפות לשיחה", icon: <MessageCircle />, type: "text", roles: ["requester"] },
-      frequency: { label: "תדירות מועדפת", icon: <Clock />, type: "text", roles: ["requester"] },
-      preferredTimes: { label: "זמנים נוחים", icon: <Clock />, type: "text", roles: ["requester"] },
+      chatPref: { label: "העדפות לשיחה", icon: <MessageCircle />, type: "multicheckbox", roles: ["requester"], options: ['טלפון', 'וידאו', 'בהתכתבות', 'פרונטלית', 'אחר'] },
+      frequency: { label: "תדירות מועדפת", icon: <Clock />, type: "multicheckbox", roles: ["requester"], options: ['פעם בשבוע', 'פעם בשבועיים', 'אחר'] },
+      preferredTimes: { label: "זמנים נוחים", icon: <Clock />, type: "select", options: ['בוקר', 'צהריים', 'ערב', 'גמיש', 'אחר'], roles: ["requester"] },
       volunteerPrefs: { label: "העדפות למתנדב", icon: <User />, type: "textarea", roles: ["requester"] },
       note: { label: "הערה", icon: <MessageCircle />, type: "textarea", roles: ["requester"] },
       onBehalfOf: { label: "פונה עבור", type: "text", roles: ["requester"] },
       behalfName: { label: "שם האדם (עבורו הפנייה)", type: "text", roles: ["requester"] },
       behalfDetails: { label: "פרטי הפנייה (עבור אחר)", type: "textarea", roles: ["requester"] },
-      profession: { label: "מקצוע", icon: <Briefcase />, type: "text", roles: ["volunteer"] },
-      experience: { label: "ניסיון קודם", icon: <Star />, type: "text", roles: ["volunteer"] },
-      availableDays: { label: "ימים פנויים", icon: <Calendar />, type: "text", roles: ["volunteer"] },
-      availableHours: { label: "שעות פנויות", icon: <Clock />, type: "text", roles: ["volunteer"] },
+      profession: { 
+        label: "מקצוע", 
+        icon: <Briefcase />, 
+        type: "select", 
+        roles: ["volunteer"],
+        options: [
+          'עובד/ת סוציאלי/ת', 'פסיכולוג/ית', 'פסיכותרפיסט/ית', 'יועץ/ת חינוכי/ת', 'מטפל/ת באומנות',
+          'מטפל/ת CBT', 'מטפל/ת משפחתי/ת', 'מטפל/ת זוגי/ת', 'מאמן/ת אישי/ת', 'מחנך/ת', 'רב/נית',
+          'יועץ/ת רוחני/ת', 'סטודנט/ית למקצועות הטיפול', 'מתנדב/ת בעל/ת ניסיון בהקשבה והכלה', 'אחר'
+        ] 
+      },
+      experience: { 
+        label: "ניסיון קודם", 
+        icon: <Star />, 
+        type: "select", 
+        roles: ["volunteer"],
+        options: [
+          'אין ניסיון קודם', 'התנדבות קודמת בתחום דומה', 'עבודה מקצועית בתחום הטיפול',
+          'ניסיון בהקשבה והכלה', 'אחר'
+        ]
+      },
+      availableDays: { label: "ימים פנויים", icon: <Calendar />, type: "multicheckbox", roles: ["volunteer"], options: ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'] },
+      availableHours: { label: "שעות פנויות", icon: <Clock />, type: "multicheckbox", roles: ["volunteer"], options: ['בוקר (8:00-12:00)', 'צהריים (12:00-16:00)', 'אחה"צ (16:00-20:00)', 'ערב (20:00-24:00)', 'אחר'] },
       strengths: { label: "חוזקות", icon: <Star />, type: "textarea", roles: ["volunteer"] },
       motivation: { label: "מוטיבציה להתנדבות", icon: <MessageCircle />, type: "textarea", roles: ["volunteer"] },
       approved: { label: "סטטוס אישור", type: "text", readOnly: true },
