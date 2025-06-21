@@ -123,9 +123,9 @@ export default function Navbar() {
 
   return (
     <nav className="bg-white/20 backdrop-blur-sm shadow-lg sticky top-0 z-50" dir="rtl">
-      <div className="container mx-auto px-4 flex justify-between items-center py-2">
-        {/* Right side: Desktop Nav (appears on the right due to dir="rtl" on parent, content is RTL) */}
-        <div className="hidden md:flex items-center space-x-4 rtl:space-x-reverse">
+      <div className="w-full flex justify-between items-center py-2">
+        {/* Section 1: Navigation Buttons (Desktop) - Visual right on desktop, hidden on mobile */}
+        <div className="hidden md:flex items-center space-x-4 rtl:space-x-reverse order-3 md:order-1">
           {/* Order these from right to left in JSX to achieve desired visual order from right to left */}
           {!user ? (
             <>
@@ -159,56 +159,11 @@ export default function Navbar() {
           <a href="https://chat.whatsapp.com/L5kE8M2lzSj0Spr7gJKcV6" target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-md border-2 border-green-600 text-green-700 hover:bg-green-600 hover:text-white transition-all duration-200"><FontAwesomeIcon icon={faWhatsapp} size="lg" /></a>
         </div>
 
-        {/* Left side: Logo + Notifications (desktop) - Appears on the left due to dir="rtl" on parent */}
-        <div className="flex items-center gap-4" dir="ltr">
+        {/* Section 2: Logo + Notifications (Responsive) - Visual left on both desktop and mobile */}
+        <div className="flex items-center gap-4 order-2 md:order-2" dir="ltr">
           <Link to="/" className="flex-shrink-0">
             <img src="/images/logo.png" alt="שיחות מהלב Logo" className="h-16" />
           </Link>
-          {user && (
-            <div className="relative hidden md:block" ref={notifRef} dir="ltr">
-              <button onClick={() => { setNotifOpen(!notifOpen); if(!notifOpen) markAllRead(); }} className="text-orange-600 hover:text-orange-700 focus:outline-none">
-                <Bell className="h-6 w-6" />
-                {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs w-4 h-4 flex items-center justify-center">{unreadCount}</span>}
-              </button>
-              {notifOpen && (
-                <div className="absolute left-0 mt-2 bg-white shadow-lg rounded-md p-2 z-[9999] w-60 max-h-80 overflow-y-auto flex flex-col">
-                  {notifications.length === 0 ? (
-                    <div className="text-center text-gray-500 py-4">אין התראות</div>
-                  ) : (
-                    <>
-                      <div className="flex-grow overflow-y-auto">
-                        {notifications.map((n) => (
-                          <Link
-                            key={n.id}
-                            to={n.link || '#'}
-                            onClick={() => setNotifOpen(false)}
-                            className="block py-2 px-3 hover:bg-gray-100 rounded-md cursor-pointer"
-                          >
-                            <p className="text-sm">{n.message}</p>
-                            <p className="text-xs text-gray-400">
-                              {n.createdAt?.toDate() ? new Date(n.createdAt.toDate()).toLocaleString("he-IL") : ""}
-                            </p>
-                          </Link>
-                        ))}
-                      </div>
-                      <div className="border-t border-gray-200 mt-2 pt-2">
-                        <div
-                          onClick={clearAllNotifications}
-                          className="text-center text-red-500 hover:bg-red-50 rounded-md py-1 text-sm cursor-pointer"
-                        >
-                          נקה הכל
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Mobile Hamburger & Bell (always on the left for mobile) */}
-        <div className="md:hidden flex items-center gap-4" dir="ltr">
           {user && (
             <div className="relative" ref={notifRef}>
               <button onClick={() => { setNotifOpen(!notifOpen); if(!notifOpen) markAllRead(); }} className="text-orange-600 hover:text-orange-700 focus:outline-none">
@@ -250,6 +205,10 @@ export default function Navbar() {
               )}
             </div>
           )}
+        </div>
+
+        {/* Section 3: Mobile Hamburger (Mobile Only) - Visual right on mobile, hidden on desktop */}
+        <div className="md:hidden flex items-center gap-4 order-1 md:order-3" dir="ltr">
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-orange-600 hover:text-orange-700 focus:outline-none">
             {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
