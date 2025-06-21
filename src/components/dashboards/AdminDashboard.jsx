@@ -35,6 +35,7 @@ import { DeleteUserModal } from "../ui/DeleteUserModal";
 import ChatPanel from "../ui/ChatPanel";
 import CustomFieldEditor from "../admin/CustomFieldEditor";
 import { AdminAnalyticsTab } from "../analytics/AnalyticsTab";
+import AdminChatButton from '../ui/AdminChatButton';
 
 const createNotification = async (userId, message, link) => {
   if (!userId) return;
@@ -769,11 +770,24 @@ export default function AdminDashboard() {
     ))
   );
 
-  // Chat handlers
   const openChat = async (chatter) => {
     setUserSelectedForChat(chatter);
     setMessages([]);
     if (chatter.conversationsWithAdminId) {
+      // Mark all messages from user as seen by admin
+      const messagesRef = collection(db, "conversations", chatter.conversationsWithAdminId, "messages");
+      const messagesSnapshot = await getDocs(messagesRef);
+      
+      const batch = writeBatch(db);
+      messagesSnapshot.docs.forEach(messageDoc => {
+        const messageData = messageDoc.data();
+        if (messageData.senderId !== "1" && !messageData.seenByOther) {
+          // Mark messages from user as seen by admin
+          batch.update(messageDoc.ref, { seenByOther: true });
+        }
+      });
+      await batch.commit();
+      
       const msgs = await getDocs(query(collection(db, "conversations", chatter.conversationsWithAdminId, "messages"), orderBy("timestamp")));
       setMessages(msgs.docs.map((d) => ({ id: d.id, ...d.data() })));
     }
@@ -797,7 +811,7 @@ export default function AdminDashboard() {
         await updateDoc(doc(db, "Users", "Info", userRoleDoc, userSelectedForChat.id), { conversationsWithAdminId: convoId });
         setUserSelectedForChat(prev => ({ ...prev, conversationsWithAdminId: convoId }));
       }
-      const messageData = { text: newMsg.trim(), senderId: "1", timestamp: serverTimestamp() };
+      const messageData = { text: newMsg.trim(), senderId: "1", timestamp: serverTimestamp(), seenByOther: false };
       await addDoc(collection(db, "conversations", convoId, "messages"), messageData);
       setMessages(prev => [...prev, messageData]);
       setNewMsg("");
@@ -1402,19 +1416,13 @@ export default function AdminDashboard() {
                         }
                       </td>
                       <td className="border border-orange-100 p-1 sm:p-2 text-center">
-                        <button
-                          className={`p-2 rounded-full focus:outline-none transition-colors duration-200 flex items-center justify-center mx-auto
-                            ${u.approved === "declined" ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "text-blue-600 hover:text-white hover:bg-blue-600"}
-                          `}
-                          disabled={u.approved === "declined"}
+                        <AdminChatButton
+                          conversationId={u.conversationsWithAdminId}
                           onClick={() => openChat(u)}
-                          title="פתח צ'אט עם המשתמש"
-                        >
-                          {/* Envelope (letter) icon for chat */}
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="h-5 w-5">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                        </button>
+                          currentUserId="1"
+                          otherUserId={u.id}
+                          isDisabled={u.approved === "declined"}
+                        />
                       </td>
                       <td className="border border-orange-100 p-1 sm:p-2 text-center">                       
                          <button
