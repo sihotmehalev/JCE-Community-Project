@@ -1120,8 +1120,24 @@ export default function AdminDashboard() {
                           )
                           .map(match => (
                             <tr key={match.id} className="hover:bg-orange-50/50">
-                              <td className="border p-2"><HoverCard user={match.requesterInfo} adminConfig={requesterFormConfig}>{match.requesterInfo?.fullName || 'N/A'}</HoverCard></td>
-                              <td className="border p-2"><HoverCard user={match.volunteerInfo} adminConfig={volunteerFormConfig}>{match.volunteerInfo?.fullName || 'N/A'}</HoverCard></td>
+                              <td className="border p-2">
+                                {match.requesterInfo ? (
+                                  <HoverCard user={match.requesterInfo} adminConfig={requesterFormConfig}>
+                                    {match.requesterInfo.fullName || 'N/A'}
+                                  </HoverCard>
+                                ) : (
+                                  'N/A'
+                                )}
+                              </td>
+                              <td className="border p-2">
+                                {match.volunteerInfo ? (
+                                  <HoverCard user={match.volunteerInfo} adminConfig={volunteerFormConfig}>
+                                    {match.volunteerInfo.fullName || 'N/A'}
+                                  </HoverCard>
+                                ) : (
+                                  'N/A'
+                                )}
+                              </td>
                               <td className="border border-orange-100 p-2 text-orange-700">
                                 {match.meetingFrequency || 'N/A'}
                               </td>
