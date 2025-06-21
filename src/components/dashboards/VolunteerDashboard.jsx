@@ -25,6 +25,8 @@ import LoadingSpinner from "../ui/LoadingSpinner";
 import ChatPanel from "../ui/ChatPanel";
 import CustomAlert from "../ui/CustomAlert";
 import { generateRandomId } from "../../utils/firebaseHelpers";
+import { writeBatch } from "firebase/firestore";
+import ChatButton from "../ui/ChatButton";
 // Removed import SessionScheduler from "../modals/SessionScheduler"; 
 
 const fetchRequester = async (uid) => {
@@ -339,15 +341,27 @@ export default function VolunteerDashboard() {
     }
   };
 
-  const openChat = (matchId) => {
+  const openChat = async (matchId) => {
     closeAdminChat();
     setActiveMatchId(matchId);
+    
+    // Mark all messages from requester as seen
+    const messagesRef = collection(db, "conversations", matchId, "messages");
+    const messagesSnapshot = await getDocs(messagesRef);
+    
+    const batch = writeBatch(db);
+    messagesSnapshot.docs.forEach(messageDoc => {
+      const messageData = messageDoc.data();
+      if (messageData.senderId !== user.uid && !messageData.seenByOther) {
+        // Mark messages from requester as seen by volunteer
+        batch.update(messageDoc.ref, { seenByOther: true });
+      }
+    });
+    await batch.commit();
+    
     unsubChat.current?.();
     unsubChat.current = onSnapshot(
-      query(
-        collection(db, "conversations", matchId, "messages"),
-        orderBy("createdAt", "asc")
-      ),
+      query(collection(db, "conversations", matchId, "messages"), orderBy("createdAt", "asc")),
       (snap) => setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
   };
@@ -401,7 +415,7 @@ export default function VolunteerDashboard() {
 
   const openAdminChat = async () => {
     if (unsubChat.current) closeChat();
-
+  
     setAdminMessages([]);
     let convoId = "";
     try {
@@ -413,6 +427,21 @@ export default function VolunteerDashboard() {
           conversationsWithAdminId: convoId,
         });
       }
+      
+      // Mark all messages from admin as seen
+      const messagesRef = collection(db, "conversations", convoId, "messages");
+      const messagesSnapshot = await getDocs(messagesRef);
+      
+      const batch = writeBatch(db);
+      messagesSnapshot.docs.forEach(messageDoc => {
+        const messageData = messageDoc.data();
+        if (messageData.senderId === "1" && !messageData.seenByOther) {
+          // Mark messages from admin as seen by volunteer
+          batch.update(messageDoc.ref, { seenByOther: true });
+        }
+      });
+      await batch.commit();
+      
       const msgs = await getDocs(
         query(
           collection(db, "conversations", convoId, "messages"),
@@ -534,13 +563,16 @@ export default function VolunteerDashboard() {
           >
             הפרופיל שלי
           </Button>
-          <Button
-            variant="outline"
-            className="w-full sm:w-auto"
+          <ChatButton 
+            conversationId={user.conversationsWithAdminId} 
             onClick={openAdminChat}
+            currentUserId={user.uid}
+            otherUserId="1" 
+            isAdminChat={true}
+            className="w-full sm:w-auto"
           >
             צאט עם מנהל
-          </Button>
+          </ChatButton>
         </div>
         <div className="flex-1 hidden sm:block" />
         <div className="flex flex-col sm:flex-row items-center gap-4 mt-2 sm:mt-0 w-full sm:w-auto">
@@ -882,9 +914,16 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
 
       {/* Chat and Schedule Buttons */}
       <div className="flex gap-2 flex-wrap">
-        <Button onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}>
+        <ChatButton 
+          conversationId={match.id} 
+          onClick={isChatOpen ? onCloseChat : () => onOpenChat(match.id)}
+          currentUserId={match.volunteerId}
+          otherUserId={match.requesterId}
+          isAdminChat={false}
+          className="flex items-center gap-2"
+        >
           {isChatOpen ? "סגור שיחה" : "💬 פתח שיחה"}
-        </Button>
+        </ChatButton>
         <Button
           variant="outline"
           onClick={() => setShowScheduleModal(true)}
