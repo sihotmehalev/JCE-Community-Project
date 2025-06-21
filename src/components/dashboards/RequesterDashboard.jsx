@@ -569,7 +569,7 @@ export default function RequesterDashboard() {
                 מתנדבים זמינים{!activeMatch && ` (${sortedVolunteers.length})`} 
               </button>
               <button onClick={() => setActiveTab("pending")} className={`flex-1 p-2 sm:p-4 text-center font-medium text-xs sm:text-sm focus:outline-none ${activeTab === "pending" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>
-                בקשות שממתינות לאישור מנהל ({adminApprovalRequests.length})
+                ממתינות לאישור מנהל ({adminApprovalRequests.length})
               </button>
             </div>
           )}

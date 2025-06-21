@@ -566,7 +566,7 @@ export default function VolunteerDashboard() {
             <>
               <button onClick={() => setActiveTab("directRequests")} className={`flex-1 p-2 sm:p-4 text-center font-medium text-xs sm:text-sm focus:outline-none ${activeTab === "directRequests" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>בקשות ישירות ({direct.length})</button>
               <button onClick={() => setActiveTab("openRequests")} className={`flex-1 p-2 sm:p-4 text-center font-medium text-xs sm:text-sm focus:outline-none ${activeTab === "openRequests" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>דפדוף בפונים ({pool.length})</button>
-              <button onClick={() => setActiveTab("adminApproval")} className={`flex-1 p-2 sm:p-4 text-center font-medium text-xs sm:text-sm focus:outline-none ${activeTab === "adminApproval" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>ממתינות לאישור ({adminApprovalRequests.length})</button>
+              <button onClick={() => setActiveTab("adminApproval")} className={`flex-1 p-2 sm:p-4 text-center font-medium text-xs sm:text-sm focus:outline-none ${activeTab === "adminApproval" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>ממתינות לאישור מנהל ({adminApprovalRequests.length})</button>
             </>
           )}
           <button onClick={() => setActiveTab("activeMatches")} className={`${personal ? 'flex-1' : ''} p-2 sm:p-4 text-center font-medium text-xs sm:text-sm focus:outline-none ${activeTab === "activeMatches" ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}>שיבוצים פעילים ({matches.length})</button>
