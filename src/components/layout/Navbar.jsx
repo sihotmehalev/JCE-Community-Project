@@ -354,9 +354,9 @@ export default function Navbar() {
               )}
             </div>
           )}
+        </div>
         {/* Section 3: Mobile Hamburger (Mobile Only) - Visual right on mobile, hidden on desktop */}
         <div className="mr-4 md:hidden flex items-center gap-4 order-1 md:order-3" dir="ltr">
-
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-orange-600 hover:text-orange-700 focus:outline-none">
             {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
