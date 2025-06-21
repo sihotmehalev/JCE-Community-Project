@@ -1428,19 +1428,30 @@ export default function AdminDashboard() {
                         {u.role === 'admin-first' && 'מנהל רמה 1'}
                         {u.role === 'admin-second' && 'מנהל רמה 2'}
                       </td>
-                      <td className="border border-orange-100 p-1 sm:p-2 text-center">
-                        {u.derivedDisplayStatus === "ממתין לאישור" && (
-                          <span className="text-red-600">ממתין לאישור</span>
-                        )}
-                        {u.derivedDisplayStatus === "פעיל" && (
-                          <span className="text-green-600">פעיל</span>
-                        )}
-                        {u.derivedDisplayStatus === "נדחה" && (
-                          <span className="text-gray-500">נדחה</span>
-                        )}
-                        {u.derivedDisplayStatus === "לא פעיל" && (
-                          <span className="text-red-600">לא פעיל</span>
-                        )}
+                      <td className="border border-orange-100 p-1 sm:p-2 text-orange-700 w-40">
+                        <div className="flex items-center justify-between min-h-[28px]">
+                          {u.derivedDisplayStatus === "ממתין לאישור" && (
+                            <span className="text-amber-600 font-medium text-sm">ממתין לאישור</span>
+                          )}
+                          {u.derivedDisplayStatus === "פעיל" && (
+                            <span className="text-emerald-600 font-medium text-sm">פעיל</span>
+                          )}
+                          {u.derivedDisplayStatus === "נדחה" && (
+                            <>
+                            <span className="text-red-600 font-medium text-sm">נדחה</span>
+                            <button 
+                              onClick={() => approveVolunteer(u.id)} 
+                              className="mr-1 px-2 py-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-md text-xs font-medium shadow-sm hover:shadow-md transition-all duration-200 whitespace-nowrap border border-emerald-400"
+                              title="אישור מחדש"
+                            >
+                              אישור ✓ 
+                            </button>
+                            </>
+                          )}
+                          {u.derivedDisplayStatus === "לא פעיל" && (
+                            <span className="text-slate-500 font-medium text-sm">לא פעיל</span>
+                          )}
+                        </div>
                       </td>
                       <td className="border border-orange-100 p-1 sm:p-2 text-center hidden sm:table-cell">
                         {u.personal ? 'כן' : 'לא'}

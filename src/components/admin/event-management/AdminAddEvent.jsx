@@ -143,7 +143,7 @@ const AdminAddEvent = ({ onEventAdded }) => {
 
             await batch.commit();
 
-            setAlertMessage({ message: 'אירוע נוצר ונוטיפיקציות נשלחו בהצלחה!', type: 'success' });
+            setAlertMessage({ message: 'אירוע נוצר בהצלחה!', type: 'success' });
             
             setFormData({
                 name: '',

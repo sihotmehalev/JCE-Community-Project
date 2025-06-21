@@ -58,6 +58,7 @@ function createTailoredPrompt(questionText, userData, requesterFormConfig) {
 הצע/י צעדים ברורים שהמשתמש/ת יכול/ה לנקוט, ושקול/י היבטים שונים של הנושא. 
 התשובה צריכה להיות בעברית, מנוסחת היטב, מאורגנת ומפורטת מאוד.
 חשוב מאוד שהתשובה תהיה ארוכה ומעמיקה ככל האפשר, כאילו אתה כותב מאמר שלם בנושא. אנא פרט והרחב ככל שניתן, ושאף לתשובה שתתפרס על פני מספר רב של פסקאות, אפילו 15-20 פסקאות או יותר אם הנושא מאפשר זאת, כדי לכסות את הנושא ביסודיות מכל היבטיו.
+**הנחיה קריטית לשמירה על פרטיות**: לעולם אל תפנה למשתמש בשמו הפרטי, גם אם נדמה לך שאתה מזהה אותו בפרטים שנמסרו. השתמש בפניות כלליות כמו "שלום לך" או "פונה יקר/ה". שמירה על אנונימיות המשתמש היא בעלת חשיבות עליונה.
 בסיום התשובה המפורטת, אנא הצע 2-3 שאלות המשך רלוונטיות או נושאים נוספים שאוכל לחקור או לשאול אותך כדי להמשיך את השיחה ולהעמיק בהבנת הנושא ופתרונות אפשריים.`;
   return prompt;
 }
@@ -131,7 +132,10 @@ export default function LifeAdvice({ userData, requesterFormConfig }) {
   };
 
   useEffect(() => {
-    chatContainerRef.current?.scrollTo(0, 0); // Scroll to top for new messages
+    chatContainerRef.current?.scrollTo({
+      top: chatContainerRef.current.scrollHeight,
+      behavior: 'smooth'
+    });
   }, [conversationHistory]);
 
   // Early return if userData is not available, *after* all hooks have been called.
