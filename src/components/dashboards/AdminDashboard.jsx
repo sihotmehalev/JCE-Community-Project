@@ -1,4 +1,3 @@
-// c/Users/moti/Desktop/talksfromtheheart/18.6/JCE-Community-Project/src/components/dashboards/AdminDashboard.jsx
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { db } from "../../config/firebaseConfig";
 import {
@@ -52,7 +51,6 @@ const createNotification = async (userId, message, link) => {
   }
 };
 
-// Helper function to render custom fields for admin view
 const renderCustomFieldsForAdmin = (user, config, title = "מידע נוסף:") => {
   if (!user || !config || !Array.isArray(config.customFields) || config.customFields.length === 0) {
     return null;
@@ -90,7 +88,6 @@ const renderCustomFieldsForAdmin = (user, config, title = "מידע נוסף:") 
   );
 };
 
-// Helper function for displaying fullName with behalf info
 const getRequesterDisplayName = (requester) => {
   if (!requester) return '';
   const { fullName, behalfName, behalfDetails } = requester;
@@ -121,7 +118,7 @@ export default function AdminDashboard() {
   const [showAISuggestions, setShowAISuggestions] = useState(false);
   const [selectedRequestForAI, setSelectedRequestForAI] = useState(null);
   const [aiLoadingRequesterId, setAiLoadingRequesterId] = useState(null);
-  const [activeTab, setActiveTab] = useState("approvals");
+  const [activeTab, setActiveTab] = useState("matching");
   const [userSearch, setUserSearch] = useState("");
   const [sortColumn, setSortColumn] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc");
@@ -143,39 +140,30 @@ export default function AdminDashboard() {
   const [matchVolunteerFilter] = useState("all");
   const [matchSortColumn, setMatchSortColumn] = useState(null);
   const [matchSortOrder, setMatchSortOrder] = useState("asc");
-  const [requesterFilters, setRequesterFilters] = useState({ gender: 'all', ageRange: 'all' });
-  const [volunteerFilters, setVolunteerFilters] = useState({ gender: 'all', profession: 'all' });
 
-  // Session details states
+  // Updated filter states to include the new fields
+  const [requesterFilters, setRequesterFilters] = useState({ gender: 'all', ageRange: 'all', maritalStatus: 'all' });
+  const [volunteerFilters, setVolunteerFilters] = useState({ gender: 'all', profession: 'all', ageRange: 'all', maritalStatus: 'all' });
 
   const [showSessionDetails, setShowSessionDetails] = useState(false);
   const [selectedMatchForDetails, setSelectedMatchForDetails] = useState(null);
   const [matchSessions, setMatchSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
-
-  // Hover info panels states
   const [hoveredRequester, setHoveredRequester] = useState(null);
   const [hoveredVolunteer, setHoveredVolunteer] = useState(null);
   const requesterHoverTimeoutRef = useRef(null);
   const volunteerHoverTimeoutRef = useRef(null);
-  // Session summary states
   const [selectedSessionForView, setSelectedSessionForView] = useState(null);
   const [alertMessage, setAlertMessage] = useState(null);
-
-  // Modal states
   const [showCancelMatchModal, setShowCancelMatchModal] = useState(false);
   const [showDeleteUserModal, setshowDeleteUserModal] = useState(false);
   const [selectedUserForDelete, setSelectedUserForDelete] = useState(null);
-
-  // Chat panel states
   const [showChatPanel, setShowChatPanel] = useState(false);
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState("");
   const [userSelectedForChat, setUserSelectedForChat] = useState(null);
   const [userLastChatTimestamps, setUserLastChatTimestamps] = useState({});
   const [unreadCounts, setUnreadCounts] = useState({});
-  
-  // Form Customization states
   const [requesterFormConfig, setRequesterFormConfig] = useState({ hideNoteField: false, customFields: [] });
   const [volunteerFormConfig, setVolunteerFormConfig] = useState({ customFields: [] });
   const [loadingFormConfig, setLoadingFormConfig] = useState(true);
@@ -215,9 +203,9 @@ export default function AdminDashboard() {
       }
       const messagesRef = collection(db, "conversations", user.conversationsWithAdminId, "messages");
       const q = query(
-          messagesRef,
-          where("senderId", "==", user.id),
-          where("seenByOther", "==", false)
+        messagesRef,
+        where("senderId", "==", user.id),
+        where("seenByOther", "==", false)
       );
 
       return onSnapshot(q, (snapshot) => {
@@ -235,7 +223,6 @@ export default function AdminDashboard() {
     };
   }, [allUsers]);
 
-  // Memoized calculations for pagination and filtering
   const filteredAndSortedUsers = useMemo(() => {
     return allUsers
       .map(u => ({
@@ -301,8 +288,13 @@ export default function AdminDashboard() {
 
   const professions = useMemo(() => {
     const allProfessions = volunteers.map(v => v.profession).filter(Boolean);
-    return [...new Set(allProfessions)];
+    return [...new Set(allProfessions)].sort();
   }, [volunteers]);
+
+  const maritalStatuses = useMemo(() => {
+      const allStatuses = [...requesters, ...volunteers].map(u => u.maritalStatus).filter(Boolean);
+      return [...new Set(allStatuses)].sort();
+  }, [requesters, volunteers]);
 
   const filteredMatchSessions = useMemo(() => matchSessions, [matchSessions]);
   const indexOfLastMatchSession = matchSessionCurrentPage * itemsPerPage;
@@ -310,18 +302,15 @@ export default function AdminDashboard() {
   const currentMatchSessions = filteredMatchSessions.slice(indexOfFirstMatchSession, indexOfLastMatchSession);
   const totalMatchSessionPages = Math.ceil(filteredMatchSessions.length / itemsPerPage);
 
-  // useEffect for resetting pagination
   useEffect(() => { setCurrentPage(1); }, [userSearch, roleFilter, statusFilter, personalFilter, activeMatchesFilter]);
   useEffect(() => { setActiveMatchCurrentPage(1); }, [activeMatchSearch, matchSortColumn, matchSortOrder]);
 
-  // useEffect for real-time data listeners
   useEffect(() => {
     setLoading(true);
     setLoadingFormConfig(true);
     const unsubscribes = [];
 
     try {
-      // Volunteers listener
       unsubscribes.push(onSnapshot(collection(db, "Users", "Info", "Volunteers"), (snapshot) => {
         const v = snapshot.docs.map(doc => {
           const data = doc.data();
@@ -346,7 +335,6 @@ export default function AdminDashboard() {
         setAllUsers(prev => [...prev.filter(u => u.role !== 'volunteer'), ...v]);
       }));
 
-      // Requesters listener
       unsubscribes.push(onSnapshot(collection(db, "Users", "Info", "Requesters"), (snapshot) => {
         const r = snapshot.docs.map(doc => {
           const data = doc.data();
@@ -364,7 +352,6 @@ export default function AdminDashboard() {
         setAllUsers(prev => [...prev.filter(u => u.role !== 'requester'), ...r]);
       }));
 
-      // Pending Requests listener
       const requestsRef = query(collection(db, "Requests"), where("status", "==", "waiting_for_admin_approval"));
       unsubscribes.push(onSnapshot(requestsRef, async (snapshot) => {
         const pending = await Promise.all(snapshot.docs.map(async (docSnap) => {
@@ -376,7 +363,6 @@ export default function AdminDashboard() {
         setPendingRequests(pending);
       }));
 
-      // Matches listener
       unsubscribes.push(onSnapshot(collection(db, "Matches"), async (snapshot) => {
         const matches = await Promise.all(snapshot.docs.map(async (docSnap) => {
           const data = docSnap.data();
@@ -388,7 +374,6 @@ export default function AdminDashboard() {
         setLoading(false);
       }));
 
-      // Form Config listeners
       unsubscribes.push(onSnapshot(doc(db, "admin_form_configs", "requester_config"), (snap) => {
         const configData = snap.exists() ? snap.data() : {};
         setRequesterFormConfig({ hideNoteField: !!configData.hideNoteField, customFields: configData.customFields || [] });
@@ -398,19 +383,15 @@ export default function AdminDashboard() {
         const configData = snap.exists() ? snap.data() : {};
         setVolunteerFormConfig({ customFields: configData.customFields || [] });
       }));
-
-
     } catch (error) {
       console.error("Error setting up listeners:", error);
       setAlertMessage({ message: "שגיאה בטעינת המידע", type: "error" });
       setLoading(false);
       setLoadingFormConfig(false);
     }
-
     return () => unsubscribes.forEach(unsub => unsub && unsub());
   }, []);
 
-  // useEffect for session details
   useEffect(() => {
     if (selectedMatchForDetails && showSessionDetails) {
       setLoadingSessions(true);
@@ -431,8 +412,6 @@ export default function AdminDashboard() {
   }, [selectedMatchForDetails, showSessionDetails]);
 
   const sendMatchConfirmationEmail = (userName, matchedUserName, userEmail) => {
-    console.log("Service ID:", process.env.REACT_APP_EMAILJS_SERVICE_ID);
-    console.log("Template ID:", process.env.REACT_APP_EMAILJS_TEMPLATE_ID_MATCH);
     const serviceID = process.env.REACT_APP_EMAILJS_SERVICE_ID;
     const templateID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID_MATCH; 
 
@@ -442,7 +421,6 @@ export default function AdminDashboard() {
       userEmail: userEmail,
     };
 
-    console.log('Sending match confirmation email:', serviceID);
     emailjs.send(serviceID, templateID, templateParams)
       .then((response) => {
         console.log('Match confirmation email successfully sent!', response.status, response.text);
@@ -506,8 +484,6 @@ export default function AdminDashboard() {
     try {
       const batch = writeBatch(db);
       const matchId = generateRandomId();
-
-      /* ---- create the match ---- */
       batch.set(doc(db, "Matches", matchId), {
         volunteerId: requestData.volunteerId,
         requesterId: requestData.requesterId,
@@ -518,15 +494,11 @@ export default function AdminDashboard() {
         totalSessions: 0,
         notes: ""
       });
-
-      /* ---- update the request ---- */
       batch.update(doc(db, "Requests", requestId), {
         status: "matched",
         matchId,
         matchedAt: new Date()
       });
-
-      /* ---- update the users ---- */
       batch.update(
         doc(db, "Users", "Info", "Volunteers", requestData.volunteerId),
         { activeMatchIds: arrayUnion(matchId) }
@@ -535,21 +507,15 @@ export default function AdminDashboard() {
         doc(db, "Users", "Info", "Requesters", requestData.requesterId),
         { activeMatchId: matchId }
       );
-
       await batch.commit();
-
-      /* ---- fire notifications & e-mails ---- */
       const requester = requesters.find(r => r.id === requestData.requesterId);
       const volunteer = volunteers.find(v => v.id === requestData.volunteerId);
-
       await createNotification(requester.id , `נוצרה עבורך התאמה חדשה עם ${volunteer?.fullName || "מתנדב/ת"}!`, "/requester-dashboard");
       await createNotification(volunteer.id , `נוצרה עבורך התאמה חדשה עם ${requester?.fullName  || "פונה"}!`,         "/volunteer-dashboard");
-
       if (requester && volunteer) {
         sendMatchConfirmationEmail(requester.fullName,  volunteer.fullName,  requester.email);
         sendMatchConfirmationEmail(volunteer.fullName,  requester.fullName,  volunteer.email);
       }
-
       setAlertMessage({ message: "הבקשה אושרה והתאמה נוצרה בהצלחה!", type: "success" });
     } catch (err) {
       console.error("Error approving request:", err);
@@ -557,12 +523,10 @@ export default function AdminDashboard() {
     }
   };
 
-
   const declineRequest = async (requestId) => {
     try {
       const requestRef = doc(db, "Requests", requestId);
       const { volunteerId, requesterId } = (await getDoc(requestRef)).data();
-
       await updateDoc(requestRef, {
         status: "waiting_for_first_approval",
         declinedVolunteers: arrayUnion(volunteerId),
@@ -571,22 +535,18 @@ export default function AdminDashboard() {
         matchId: null,
         matchedAt: null
       });
-
-      /* optional – e-mail notification */
       const requester = requesters.find(r => r.id === requesterId);
       const volunteer = volunteers.find(v => v.id === volunteerId);
       if (requester && volunteer) {
         sendMatchDeclineEmail(requester.fullName, volunteer.fullName, requester.email);
         sendMatchDeclineEmail(volunteer.fullName, requester.fullName, volunteer.email);
       }
-
       setAlertMessage({ message: "הבקשה נדחתה.", type: "info" });
     } catch (err) {
       console.error("Error declining request:", err);
       setAlertMessage({ message: "שגיאה בדחיית הבקשה", type: "error" });
     }
   };
-
 
   const createManualMatch = async (requesterId, volunteerId, requestId = null) => {
     try {
@@ -612,7 +572,6 @@ export default function AdminDashboard() {
       batch.update(doc(db, "Users", "Info", "Volunteers", volunteerId), { activeMatchIds: arrayUnion(matchId) });
       batch.update(doc(db, "Users", "Info", "Requesters", requesterId), { activeMatchId: matchId });
       await batch.commit();
-
       const requester = requesters.find(r => r.id === requesterId);
       const volunteer = volunteers.find(r => r.id === volunteerId);
       await createNotification(
@@ -625,9 +584,7 @@ export default function AdminDashboard() {
         `נוצרה עבורך התאמה חדשה עם ${requester?.fullName || 'פונה'}!`,
         "/volunteer-dashboard"
       );
-
       setAlertMessage({ message: "התאמה נוצרה בהצלחה!", type: "success" });
-
       const matchedVolunteer = volunteers.find(v => v.id === volunteerId);
       if (requester && matchedVolunteer) {
         sendMatchConfirmationEmail(requester.fullName, matchedVolunteer.fullName, requester.email);
@@ -731,7 +688,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // --- Form Customization Handlers ---
   const handleToggleHideNote = async () => {
     const newConfig = { ...requesterFormConfig, hideNoteField: !requesterFormConfig.hideNoteField };
     try {
@@ -794,10 +750,10 @@ export default function AdminDashboard() {
     }
   };
 
-  const renderCustomFieldsList = (roleType, fieldsConfig) => ( // flex-col sm:flex-row sm:items-center
+  const renderCustomFieldsList = (roleType, fieldsConfig) => (
     fieldsConfig.customFields.map(field => (
       <div key={field.name} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 border rounded-md mb-2 bg-gray-50 shadow-sm">
-         <div className="flex-grow flex flex-wrap items-center mb-2 sm:mb-0">
+          <div className="flex-grow flex flex-wrap items-center mb-2 sm:mb-0">
           <span className="font-medium text-gray-700">{field.label}</span>
           <span className="text-xs text-gray-500 ml-2">({field.name})</span>
           <span className="text-xs text-gray-500 ml-2">- {field.type}</span>
@@ -816,7 +772,6 @@ export default function AdminDashboard() {
     setUserSelectedForChat(chatter);
     setMessages([]);
     if (chatter.conversationsWithAdminId) {
-      // Mark all messages from user as seen by admin
       const messagesRef = collection(db, "conversations", chatter.conversationsWithAdminId, "messages");
       const messagesSnapshot = await getDocs(messagesRef);
       
@@ -824,7 +779,6 @@ export default function AdminDashboard() {
       messagesSnapshot.docs.forEach(messageDoc => {
         const messageData = messageDoc.data();
         if (messageData.senderId !== "1" && !messageData.seenByOther) {
-          // Mark messages from user as seen by admin
           batch.update(messageDoc.ref, { seenByOther: true });
         }
       });
@@ -974,7 +928,6 @@ export default function AdminDashboard() {
           <CardContent>
             <h3 className="font-semibold mb-4 text-orange-700 text-center md:text-right">שיוך פונים למתנדבים</h3>
             <div className="flex flex-col lg:flex-row flex-grow gap-4">
-              {/* Requester Info Panel */}
               <div className="w-full lg:w-1/4 border rounded p-4 bg-gray-50/50 h-auto lg:h-[510px] overflow-y-auto">
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי פונה</h3>
                 {selectedRequester && requesters.find(r => r.id === selectedRequester) ? (
@@ -987,7 +940,6 @@ export default function AdminDashboard() {
                 ) : <p className="text-gray-500">בחר פונה כדי לראות פרטים.</p>}
               </div>
 
-              {/* Requesters List */}
               <div className="w-full lg:w-1/4 border rounded p-4 bg-orange-50/50">
                 <div className="relative w-full mb-2">
                     <input type="text" placeholder="חיפוש פונה..." value={requesterSearch} onChange={e => setRequesterSearch(e.target.value)} className="border rounded px-2 py-1 w-full" />
@@ -995,87 +947,102 @@ export default function AdminDashboard() {
                         <button onClick={() => setRequesterSearch('')} className="absolute top-1/2 left-2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600" title="נקה חיפוש">&#x2715;</button>
                     )}
                 </div>
-                 <div className="flex gap-2 mb-2">
-                   <div className="relative w-1/2">
-                    <select value={requesterFilters.gender} onChange={e => setRequesterFilters(f => ({...f, gender: e.target.value}))} className="border rounded px-2 py-1 w-full">
-                        <option value="all">כל המגדרים</option>
-                        <option value="נקבה">נקבה</option>
-                        <option value="זכר">זכר</option>
-                        <option value="אחר">אחר</option>
-                    </select>
-                    {requesterFilters.gender !== 'all' && (
-                        <button onClick={() => setRequesterFilters(f => ({...f, gender: 'all'}))} className="absolute top-1/2 left-2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600" title="נקה סינון">&#x2715;</button>
-                    )}
-                   </div>
-                   <div className="relative w-1/2">
-                    <select value={requesterFilters.ageRange} onChange={e => setRequesterFilters(f => ({...f, ageRange: e.target.value}))} className="border rounded px-2 py-1 w-full">
-                        <option value="all">כל הגילאים</option>
-                        <option value="0-18">0-18</option>
-                        <option value="19-30">19-30</option>
-                        <option value="31-50">31-50</option>
-                        <option value="51+">51+</option>
-                    </select>
-                    {requesterFilters.ageRange !== 'all' && (
-                        <button onClick={() => setRequesterFilters(f => ({...f, ageRange: 'all'}))} className="absolute top-1/2 left-2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600" title="נקה סינון">&#x2715;</button>
-                    )}
-                   </div>
-                 </div>
-                 <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
-                 <ul className="space-y-2 h-[250px] lg:h-[400px] overflow-y-scroll">
-                   {requesters.filter(r => {
-                      if (r.activeMatchId || r.personal) return false;
-                      if (requesterSearch && !r.fullName?.toLowerCase().includes(requesterSearch.toLowerCase()) && !r.email?.toLowerCase().includes(requesterSearch.toLowerCase())) return false;
-                      if (requesterFilters.gender !== 'all' && r.gender !== requesterFilters.gender) return false;
-                      if (requesterFilters.ageRange !== 'all') {
-                        const [minStr, maxStr] = requesterFilters.ageRange.split('-');
-                        const min = Number(minStr);
-                        const age = Number(r.age);
-                        if (isNaN(age)) return false;
-                        if (maxStr) {
-                          const max = Number(maxStr);
-                          if (age < min || age > max) return false;
-                        } else {
-                          if (age < min) return false;
-                        }
+                <div className="flex flex-col items-center mb-2">
+                    <div className="flex gap-2 w-full">
+                      <div className="relative w-1/2">
+                       <select value={requesterFilters.gender} onChange={e => setRequesterFilters(f => ({...f, gender: e.target.value}))} className="border rounded px-2 py-1 w-full">
+                           <option value="all">כל המגדרים</option>
+                           <option value="נקבה">נקבה</option>
+                           <option value="זכר">זכר</option>
+                           <option value="אחר">אחר</option>
+                       </select>
+                      </div>
+                      <div className="relative w-1/2">
+                       <select value={requesterFilters.ageRange} onChange={e => setRequesterFilters(f => ({...f, ageRange: e.target.value}))} className="border rounded px-2 py-1 w-full">
+                           <option value="all">כל הגילאים</option>
+                           <option value="0-18">0-18</option>
+                           <option value="19-30">19-30</option>
+                           <option value="31-50">31-50</option>
+                           <option value="51+">51+</option>
+                       </select>
+                      </div>
+                    </div>
+                    <div className="relative w-1/2 mt-2">
+                        <select value={requesterFilters.maritalStatus} onChange={e => setRequesterFilters(f => ({...f, maritalStatus: e.target.value}))} className="border rounded px-2 py-1 w-full">
+                            <option value="all">כל מצב משפחתי</option>
+                            {maritalStatuses.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
+                <ul className="space-y-2 h-[250px] lg:h-[400px] overflow-y-scroll">
+                  {requesters.filter(r => {
+                    if (r.activeMatchId || !r.personal) return false;
+                    if (requesterSearch && !r.fullName?.toLowerCase().includes(requesterSearch.toLowerCase()) && !r.email?.toLowerCase().includes(requesterSearch.toLowerCase())) return false;
+                    if (requesterFilters.gender !== 'all' && r.gender !== requesterFilters.gender) return false;
+                    if (requesterFilters.maritalStatus !== 'all' && r.maritalStatus !== requesterFilters.maritalStatus) return false;
+                    if (requesterFilters.ageRange !== 'all') {
+                      const [minStr, maxStr] = requesterFilters.ageRange.split('-');
+                      const min = Number(minStr);
+                      const age = Number(r.age);
+                      if (isNaN(age)) return false;
+                      if (maxStr) {
+                        const max = Number(maxStr);
+                        if (age < min || age > max) return false;
+                      } else {
+                        if (age < min) return false;
                       }
-                      return true;
-                   })
-                     .map(req => (
-                     <li key={req.id} className={`p-2 rounded shadow cursor-pointer ${selectedRequester === req.id ? 'border-2 border-orange-500' : 'bg-white'}`} onClick={() => setSelectedRequester(selectedRequester === req.id ? null : req.id)}>
-                       <strong className="text-orange-800">{req.fullName}</strong>
-                     </li>
+                    }
+                    return true;
+                  })
+                  .map(req => (
+                  <li key={req.id} className={`p-2 rounded shadow cursor-pointer ${selectedRequester === req.id ? 'border-2 border-orange-500' : 'bg-white'}`} onClick={() => setSelectedRequester(selectedRequester === req.id ? null : req.id)}>
+                    <strong className="text-orange-800">{req.fullName}</strong>
+                  </li>
                   ))}
                 </ul>
               </div>
 
-              {/* Volunteers List */}
               <div className="w-full lg:w-1/4 border rounded p-4 bg-orange-50/50">
                 <div className="relative w-full mb-2">
                   <input type="text" placeholder="חיפוש מתנדב..." value={volunteerSearch} onChange={e => setVolunteerSearch(e.target.value)} className="border rounded px-2 py-1 w-full" />
                   {volunteerSearch && (
-                        <button onClick={() => setVolunteerSearch('')} className="absolute top-1/2 left-2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600" title="נקה חיפוש">&#x2715;</button>
+                      <button onClick={() => setVolunteerSearch('')} className="absolute top-1/2 left-2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600" title="נקה חיפוש">&#x2715;</button>
                   )}
                 </div>
-                 <div className="flex gap-2 mb-2">
-                    <div className="relative w-1/2">
-                      <select value={volunteerFilters.gender} onChange={e => setVolunteerFilters(f => ({...f, gender: e.target.value}))} className="border rounded px-2 py-1 w-full">
-                        <option value="all">כל המגדרים</option>
-                        <option value="נקבה">נקבה</option>
-                        <option value="זכר">זכר</option>
-                        <option value="אחר">אחר</option>
-                      </select>
-                      {volunteerFilters.gender !== 'all' && (
-                        <button onClick={() => setVolunteerFilters(f => ({...f, gender: 'all'}))} className="absolute top-1/2 left-2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600" title="נקה סינון">&#x2715;</button>
-                      )}
+                <div className="flex flex-col gap-2 mb-2">
+                    <div className="flex gap-2">
+                        <div className="relative w-1/2">
+                          <select value={volunteerFilters.gender} onChange={e => setVolunteerFilters(f => ({...f, gender: e.target.value}))} className="border rounded px-2 py-1 w-full">
+                              <option value="all">כל המגדרים</option>
+                              <option value="נקבה">נקבה</option>
+                              <option value="זכר">זכר</option>
+                              <option value="אחר">אחר</option>
+                          </select>
+                        </div>
+                        <div className="relative w-1/2">
+                          <select value={volunteerFilters.profession} onChange={e => setVolunteerFilters(f => ({...f, profession: e.target.value}))} className="border rounded px-2 py-1 w-full">
+                              <option value="all">כל המקצועות</option>
+                              {professions.map(p => <option key={p} value={p}>{p}</option>)}
+                          </select>
+                        </div>
                     </div>
-                    <div className="relative w-1/2">
-                      <select value={volunteerFilters.profession} onChange={e => setVolunteerFilters(f => ({...f, profession: e.target.value}))} className="border rounded px-2 py-1 w-full">
-                        <option value="all">כל המקצועות</option>
-                        {professions.map(p => <option key={p} value={p}>{p}</option>)}
-                      </select>
-                      {volunteerFilters.profession !== 'all' && (
-                        <button onClick={() => setVolunteerFilters(f => ({...f, profession: 'all'}))} className="absolute top-1/2 left-2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600" title="נקה סינון">&#x2715;</button>
-                      )}
+                    <div className="flex gap-2">
+                        <div className="relative w-1/2">
+                            <select value={volunteerFilters.ageRange} onChange={e => setVolunteerFilters(f => ({...f, ageRange: e.target.value}))} className="border rounded px-2 py-1 w-full">
+                                <option value="all">כל הגילאים</option>
+                                <option value="0-18">0-18</option>
+                                <option value="19-30">19-30</option>
+                                <option value="31-50">31-50</option>
+                                <option value="51+">51+</option>
+                            </select>
+                        </div>
+                        <div className="relative w-1/2">
+                            <select value={volunteerFilters.maritalStatus} onChange={e => setVolunteerFilters(f => ({...f, maritalStatus: e.target.value}))} className="border rounded px-2 py-1 w-full">
+                                <option value="all">כל מצב משפחתי</option>
+                                {maritalStatuses.map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                        </div>
                     </div>
                  </div>
                  <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
@@ -1094,7 +1061,6 @@ export default function AdminDashboard() {
                 </ul>
               </div>
 
-              {/* Volunteer Info Panel */}
               <div className="w-full lg:w-1/4 border rounded p-4 bg-gray-50/50 h-auto lg:h-[510px] overflow-y-auto">
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי מתנדב</h3>
                 {selectedVolunteer && volunteers.find(v => v.id === selectedVolunteer) ? (
@@ -1228,10 +1194,8 @@ export default function AdminDashboard() {
                           })
                           .sort((a, b) => {
                             if (!matchSortColumn) return 0;
-
                             let aValue;
                             let bValue;
-
                             if (matchSortColumn === 'requesterInfo.fullName') {
                               aValue = a.requesterInfo?.fullName || '';
                               bValue = b.requesterInfo?.fullName || '';
@@ -1242,7 +1206,6 @@ export default function AdminDashboard() {
                               aValue = a[matchSortColumn];
                               bValue = b[matchSortColumn];
                             }
-
                             if (typeof aValue === 'string' && typeof bValue === 'string') {
                               return matchSortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
                             } else {
@@ -1328,7 +1291,6 @@ export default function AdminDashboard() {
         </Card>
       )}
 
-      {/* All Users Table */}
       {activeTab === "users" && (
         <Card>
           <CardContent>
@@ -1343,7 +1305,6 @@ export default function AdminDashboard() {
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-4 mb-4">
-              {/* Role Filter */}
               <div className="flex flex-col">
                 <label htmlFor="roleFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי תפקיד:</label>
                 <select
@@ -1360,7 +1321,6 @@ export default function AdminDashboard() {
                 </select>
               </div>
 
-              {/* Status Filter */}
               <div className="flex flex-col">
                 <label htmlFor="statusFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי סטטוס:</label>
                 <select
@@ -1377,7 +1337,6 @@ export default function AdminDashboard() {
                 </select>
               </div>
 
-              {/* Personal Filter */}
               <div className="flex flex-col">
                 <label htmlFor="personalFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי אישי:</label>
                 <select
@@ -1392,7 +1351,6 @@ export default function AdminDashboard() {
                 </select>
               </div>
 
-              {/* Active Matches Filter */}
               <div className="flex flex-col">
                 <label htmlFor="activeMatchesFilter" className="text-sm font-medium text-gray-700 mb-1">סנן לפי התאמות פעילות:</label>
                 <select
@@ -1477,8 +1435,8 @@ export default function AdminDashboard() {
                           isDisabled={u.approved === "declined"}
                         />
                       </td>
-                      <td className="border border-orange-100 p-1 sm:p-2 text-center">                       
-                         <button
+                      <td className="border border-orange-100 p-1 sm:p-2 text-center">                             
+                          <button
                           className="p-2 rounded-full text-red-600 hover:text-white hover:bg-red-600 focus:outline-none transition-colors duration-200 flex items-center justify-center mx-auto"
                           onClick={() => { 
                             setshowDeleteUserModal(true);
@@ -1486,11 +1444,11 @@ export default function AdminDashboard() {
                             setSelectedUserForDelete(u);
                           }}
                           title="מחק משתמש"
-                         >
+                          >
                           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
-                         </button>
+                          </button>
                       </td>
                     </tr>
                   ))}
@@ -1522,8 +1480,7 @@ export default function AdminDashboard() {
 
       {activeTab === 'EventCreation' && <EventCreation/>}
       {activeTab === 'EventList' && <AdminEventList/>}
-
-      {/* Form Customization Tab */}
+      
       {activeTab === "formCustomization" && (
         <Card className="shadow-lg">
           <CardContent className="p-6 space-y-8">
@@ -1548,9 +1505,8 @@ export default function AdminDashboard() {
         </Card>
       )}
 
-      {/* Analytics Tab */}
       {activeTab === "analytics" && (
-            <AdminAnalyticsTab />
+          <AdminAnalyticsTab />
       )}
 
       {showFieldEditor && <CustomFieldEditor field={editingField} onSave={handleSaveCustomField} onCancel={() => { setShowFieldEditor(false); setEditingField(null); }} />}
