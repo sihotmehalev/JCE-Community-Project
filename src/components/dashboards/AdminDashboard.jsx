@@ -287,7 +287,7 @@ export default function AdminDashboard() {
   const totalApprovalPages = Math.ceil(filteredPendingRequests.length / approvalsPerPage);
 
   const professions = useMemo(() => {
-    const allProfessions = volunteers.map(v => v.profession).filter(Boolean);
+    const allProfessions = volunteers.filter(v => !v.personal).map(v => v.profession).filter(Boolean);
     return [...new Set(allProfessions)].sort();
   }, [volunteers]);
 
@@ -332,6 +332,7 @@ export default function AdminDashboard() {
           return { id: doc.id, ...data, role: "volunteer", derivedDisplayStatus: volunteerDerivedStatus, lastActivity: lastActivityTimestamp };
         });
         setVolunteers(v);
+        console.log("Volunteers loaded:", v);
         setAllUsers(prev => [...prev.filter(u => u.role !== 'volunteer'), ...v]);
       }));
 
