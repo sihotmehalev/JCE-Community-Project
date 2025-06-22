@@ -125,7 +125,6 @@ export default function Navbar() {
     if (!user || !role) {
       // If there was a previous listener, ensure it's cleaned up when user/role become null.
       if (currentUnsubscribeNotif) {
-        console.log("[Navbar] Cleaning up previous notifications listener due to user/role change.");
         currentUnsubscribeNotif();
         setCurrentUnsubscribeNotif(null);
       }
@@ -140,12 +139,10 @@ export default function Navbar() {
     // A more robust check might involve comparing the `user.uid` and `role` with some stored state
     // indicating the currently active listener, but for simplicity, we rely on `newUnsubscribe` in the cleanup.
     
-    console.log("[Navbar] Setting up notifications listener for user:", user.uid, "with role:", role);
     const q = query(collection(db, "notifications"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
     
     // onSnapshot returns the unsubscribe function
     const newUnsubscribe = onSnapshot(q, (snapshot) => {
-      console.log("[Navbar] Notifications snapshot received.");
       setNotifications(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     }, (error) => {
       console.error("[Navbar] Error listening to notifications:", error);
@@ -160,7 +157,6 @@ export default function Navbar() {
     // The cleanup function for THIS effect instance. This will be called when the component unmounts
     // or before the effect re-runs (if user or role change).
     return () => {
-        console.log("[Navbar] Cleaning up notifications listener.");
         newUnsubscribe();
         // Do NOT set setCurrentUnsubscribeNotif(null) here, as it would cause an infinite loop.
         // The next run of the effect will handle setting it if needed.
@@ -230,43 +226,52 @@ export default function Navbar() {
   return (
     <nav className="bg-white/20 backdrop-blur-sm shadow-lg sticky top-0 z-50" dir="rtl">
       <div className="w-full flex justify-between items-center py-2 px-4">
-        {/* Section 1: Navigation Buttons (Desktop) - Visual right on desktop, hidden on mobile */}
-        <div className="hidden md:flex items-center space-x-4 rtl:space-x-reverse order-3 md:order-1">
-          {/* Order these from right to left in JSX to achieve desired visual order from right to left */}
-          {!user ? (
-            <>
-              {/* Login is the rightmost item */}
-              <Link to="/login" className="mr-5 px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">התחברות</Link>
-              {/* Register is next */}
-              <div className="relative inline-block" ref={dropdownRef}>
-                <button onClick={() => setIsOpen(!isOpen)} className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">הרשמה</button>
-                {isOpen && (
-                  <div className="absolute right-0 mt-2 bg-white shadow-lg rounded-md p-2 z-[9999] min-w-[150px]" dir="rtl">
-                    <Link to="/register-requester" className="block px-4 py-2 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200 rounded-md whitespace-nowrap" onClick={() => setIsOpen(false)}>הרשמה כפונה</Link>
-                    <div className="my-1 border-t border-orange-200/60" />
-                    <Link to="/register-volunteer" className="block px-4 py-2 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200 rounded-md whitespace-nowrap" onClick={() => setIsOpen(false)}>הרשמה כמתנדב</Link>
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Dashboard is the rightmost item */}
-              <Link to={dashboardLink} className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">לוח בקרה</Link>
-              {/* Logout is next */}
-              <button onClick={handleLogout} className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">התנתקות</button>
-            </>
-          )}
-          {/* About is next */}
-          <Link to="/about" className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">אודות</Link>
-          {/* Events is next */}
-          <Link to="/events" className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">אירועים</Link>
-          {/* Whatsapp is the leftmost item */}
-          <a href="https://chat.whatsapp.com/L5kE8M2lzSj0Spr7gJKcV6" target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-md border-2 border-green-600 text-green-700 hover:bg-green-600 hover:text-white transition-all duration-200"><FontAwesomeIcon icon={faWhatsapp} size="lg" /></a>
+        {/* Right Side: Nav links (Desktop) or Hamburger (Mobile) */}
+        <div className="flex items-center gap-4">
+          {/* Hamburger (Mobile) */}
+          <div className="md:hidden">
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-orange-600 hover:text-orange-700 focus:outline-none">
+              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
+
+          {/* Nav Links (Desktop) */}
+          <div className="hidden md:flex items-center space-x-4 rtl:space-x-reverse">
+            {!user ? (
+              <>
+                {/* Login is the rightmost item */}
+                <Link to="/login" className="mr-5 px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">התחברות</Link>
+                {/* Register is next */}
+                <div className="relative inline-block" ref={dropdownRef}>
+                  <button onClick={() => setIsOpen(!isOpen)} className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">הרשמה</button>
+                  {isOpen && (
+                    <div className="absolute right-0 mt-2 bg-white shadow-lg rounded-md p-2 z-[9999] min-w-[150px]" dir="rtl">
+                      <Link to="/register-requester" className="block px-4 py-2 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200 rounded-md whitespace-nowrap" onClick={() => setIsOpen(false)}>הרשמה כפונה</Link>
+                      <div className="my-1 border-t border-orange-200/60" />
+                      <Link to="/register-volunteer" className="block px-4 py-2 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200 rounded-md whitespace-nowrap" onClick={() => setIsOpen(false)}>הרשמה כמתנדב</Link>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Dashboard is the rightmost item */}
+                <Link to={dashboardLink} className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">לוח בקרה</Link>
+                {/* Logout is next */}
+                <button onClick={handleLogout} className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">התנתקות</button>
+              </>
+            )}
+            {/* About is next */}
+            <Link to="/about" className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">אודות</Link>
+            {/* Events is next */}
+            <Link to="/events" className="px-4 py-2 rounded-md border-2 border-orange-600 text-orange-700 hover:bg-orange-600 hover:text-white transition-all duration-200">אירועים</Link>
+            {/* Whatsapp is the leftmost item */}
+            <a href="https://chat.whatsapp.com/L5kE8M2lzSj0Spr7gJKcV6" target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-md border-2 border-green-600 text-green-700 hover:bg-green-600 hover:text-white transition-all duration-200"><FontAwesomeIcon icon={faWhatsapp} size="lg" /></a>
+          </div>
         </div>
 
-        {/* Section 2: Logo + Notifications (Responsive) - Visual left on both desktop and mobile */}
-        <div className="ml-4 flex items-center gap-4 order-2 md:order-2" dir="ltr">
+        {/* Left Side: Logo & Notifications */}
+        <div className="flex items-center gap-4" dir="ltr">
           <Link to="/" className="flex-shrink-0">
             <img src="/images/logo.png" alt="שיחות מהלב Logo" className="h-16" />
           </Link>
@@ -310,56 +315,6 @@ export default function Navbar() {
               )}
             </div>
           )}
-        </div>
-
-        {/* Mobile Hamburger & Bell (always on the left for mobile) */}
-        <div className="md:hidden flex items-center gap-4" dir="ltr">
-          {user && (
-            <div className="relative" ref={notifRef}>
-              <button onClick={() => { setNotifOpen(!notifOpen); if(!notifOpen) markAllRead(); }} className="text-orange-600 hover:text-orange-700 focus:outline-none">
-                <Bell className="h-6 w-6" />
-                {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs w-4 h-4 flex items-center justify-center">{unreadCount}</span>}
-              </button>
-              {notifOpen && (
-                <div className="absolute left-0 mt-2 bg-white shadow-lg rounded-md p-2 z-[9999] w-60 max-h-80 overflow-y-auto flex flex-col">
-                  {notifications.length === 0 ? (
-                    <div className="text-center text-gray-500 py-4">אין התראות</div>
-                  ) : (
-                    <>
-                      <div className="flex-grow overflow-y-auto">
-                        {notifications.map((n) => (
-                          <div
-                            key={n.id}
-                            onClick={() => handleNotificationClick(n.link)} // Use new handler
-                            className="block py-2 px-3 hover:bg-gray-100 rounded-md cursor-pointer"
-                          >
-                            <p className="text-sm">{n.message}</p>
-                            <p className="text-xs text-gray-400">
-                              {n.createdAt?.toDate() ? new Date(n.createdAt.toDate()).toLocaleString("he-IL") : ""}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="border-t border-gray-200 mt-2 pt-2">
-                        <div
-                          onClick={clearAllNotifications}
-                          className="text-center text-red-500 hover:bg-red-50 rounded-md py-1 text-sm cursor-pointer"
-                        >
-                          נקה הכל
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        {/* Section 3: Mobile Hamburger (Mobile Only) - Visual right on mobile, hidden on desktop */}
-        <div className="mr-4 md:hidden flex items-center gap-4 order-1 md:order-3" dir="ltr">
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-orange-600 hover:text-orange-700 focus:outline-none">
-            {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
         </div>
       </div>
 

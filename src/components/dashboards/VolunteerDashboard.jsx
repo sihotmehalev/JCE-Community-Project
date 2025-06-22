@@ -197,16 +197,12 @@ export default function VolunteerDashboard() {
           where("status",      "==", "waiting_for_admin_approval")
         ),
         async (snap) => {
-          console.log("[DEBUG] Admin approval requests snapshot received, docs count:", snap.docs.length);
-          console.log("[DEBUG] Admin approval requests raw data:", snap.docs.map(d => ({ id: d.id, ...d.data() })));
 
           const arr = [];
           for (const d of snap.docs) {
             const rqData = d.data();
-            console.log("[DEBUG] Processing admin approval request:", { id: d.id, ...rqData });
 
             const rqUser = await fetchRequester(rqData.requesterId);
-            console.log("[DEBUG] Fetched requester for admin approval request:", rqUser);
 
             // Assuming these requests also come from requesters with personal: false, or this filter is not needed here
             if (rqUser) { // No personal filter needed here, as these are assigned requests
@@ -236,14 +232,12 @@ export default function VolunteerDashboard() {
             }
 
             const rqUser = await fetchRequester(rqData.requesterId);
-            console.log("[DEBUG] Fetched requester for pool request:", rqUser);
 
             if (rqUser && rqUser.personal === false) {
               arr.push({ id: d.id, ...rqData, requester: rqUser });
             } 
           }
 
-          console.log("[DEBUG] Final pool array:", arr);
           setPool(arr);
         }
       );
@@ -297,7 +291,6 @@ export default function VolunteerDashboard() {
           initiatedBy: null, // Clear initiation
         });
         setAlertMessage({message: "הבקשה נדחתה בהצלחה", type: "success"});
-        console.log("[DEBUG] Request declined successfully - added to declinedVolunteers");
 
         // Update local state to remove the request from direct list
         const updatedDirect = direct.filter(r => r.id !== req.id);
@@ -310,7 +303,6 @@ export default function VolunteerDashboard() {
           initiatedBy: user.uid,          status:      "waiting_for_admin_approval",
         });
         setAlertMessage({message: "הבקשה נלקחה בהצלחה", type: "success"});
-        console.log("[DEBUG] Request taken successfully");
 
         // Update local state
         const updatedPool = pool.filter(r => r.id !== req.id);
@@ -329,7 +321,6 @@ export default function VolunteerDashboard() {
           initiatedBy: null, // Clear initiation
           status:      "waiting_for_first_approval",        });
         setAlertMessage({message: "הבקשה בוטלה בהצלחה", type: "success"});
-        console.log("[DEBUG] Request withdrawn successfully");
 
         // Update local state
         const updatedAdminApprovalRequests = adminApprovalRequests.filter(r => r.id !== req.id);
@@ -799,13 +790,11 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
   useEffect(() => {
     const fetchRequesterConfig = async () => {
       if (match?.requesterId) {
-        console.log(`[MatchCard - VolunteerDashboard] Attempting to fetch requester_config for requesterId: ${match.requesterId}`);
         try {
           const configDocRef = doc(db, "admin_form_configs", "requester_config");
           const configSnap = await getDoc(configDocRef);
           if (configSnap.exists()) {
             const configData = configSnap.data();
-            console.log("[MatchCard - VolunteerDashboard] Successfully fetched requester_config data:", JSON.stringify(configData, null, 2));
             // Ensure customFields is an array
             setRequesterAdminConfig({
               ...configData,
@@ -871,12 +860,9 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
           <h4 className="font-semibold text-orange-800 text-md mb-2">מידע נוסף מהפונה:</h4>
           <div className="space-y-1 text-sm">
             {(() => {
-              console.log("[MatchCard - VolunteerDashboard] START Rendering Shared Fields. Requester Data:", JSON.stringify(requester, null, 2));
-              console.log("[MatchCard - VolunteerDashboard] Using Requester Admin Config:", JSON.stringify(requesterAdminConfig, null, 2));
               return null; // Or <></>
             })()}
             {Object.entries(requester).map(([key, value]) => {
-              // console.log(`[MatchCard - VolunteerDashboard] Processing requester field - Key: ${key}, Value: ${JSON.stringify(value)}`);
 
               // Find the definition for this key in the admin config
               const fieldDef = requesterAdminConfig.customFields.find(
@@ -884,11 +870,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
               );
 
               if (fieldDef && fieldDef.shareWithPartner === true) {
-                console.log(`[MatchCard - VolunteerDashboard] --- RENDERING SHARED FIELD ---`);
-                console.log(`[MatchCard - VolunteerDashboard] Key: ${key}`);
-                console.log(`[MatchCard - VolunteerDashboard] Label from Config: ${fieldDef.label}`);
-                console.log(`[MatchCard - VolunteerDashboard] Value from Requester: ${JSON.stringify(value)}`);
-                console.log(`[MatchCard - VolunteerDashboard] shareWithPartner flag: ${fieldDef.shareWithPartner}`);
 
                 let displayValue = value;
                 if (Array.isArray(value)) {
@@ -904,7 +885,6 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
                   </p>
                 );
               } else if (fieldDef) {
-                // console.log('[MatchCard - VolunteerDashboard] Field '${key}' found in config but shareWithPartner is NOT true (Value: ${fieldDef.shareWithPartner})`);
               }
               return null;
             })}
@@ -1215,7 +1195,6 @@ function SessionCompletionModal({ session, onClose, onSubmit }) {
               rows={4}
               className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
               placeholder="מה עלה במפגש? האם יש דברים שחשוב שהמנהל יידע?"
-              required
             />
           </div>
 

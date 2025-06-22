@@ -395,7 +395,11 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (selectedMatchForDetails && showSessionDetails) {
       setLoadingSessions(true);
-      const sessionsRef = query(collection(db, `Matches/${selectedMatchForDetails}/Sessions`), orderBy("scheduledTime"));
+      const sessionsRef = query(
+        collection(db, "Sessions"),
+        where("matchId", "==", selectedMatchForDetails),
+        orderBy("scheduledTime")
+      );
       const unsubscribe = onSnapshot(sessionsRef, (snapshot) => {
         setMatchSessions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
         setLoadingSessions(false);
@@ -1040,32 +1044,19 @@ export default function AdminDashboard() {
                             </select>
                         </div>
                     </div>
-                </div>
-                <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
-                <ul className="space-y-2 h-[250px] lg:h-[400px] overflow-y-scroll">
-                  {volunteers.filter(v => {
-                    if (v.approved !== "true" || !v.personal) return false;
-                    if (volunteerSearch && !v.fullName?.toLowerCase().includes(volunteerSearch.toLowerCase()) && !v.email?.toLowerCase().includes(volunteerSearch.toLowerCase())) return false;
-                    if (volunteerFilters.gender !== 'all' && v.gender !== volunteerFilters.gender) return false;
-                    if (volunteerFilters.profession !== 'all' && v.profession !== volunteerFilters.profession) return false;
-                    if (volunteerFilters.maritalStatus !== 'all' && v.maritalStatus !== volunteerFilters.maritalStatus) return false;
-                    if (volunteerFilters.ageRange !== 'all') {
-                        const [minStr, maxStr] = volunteerFilters.ageRange.split('-');
-                        const min = Number(minStr);
-                        const age = Number(v.age);
-                        if (isNaN(age)) return false;
-                        if (maxStr) {
-                          const max = Number(maxStr);
-                          if (age < min || age > max) return false;
-                        } else {
-                          if (age < min) return false;
-                        }
-                    }
-                    return true;
-                  }).map(v => (
-                  <li key={v.id} className={`p-2 rounded shadow cursor-pointer ${selectedVolunteer === v.id ? 'border-2 border-orange-500' : 'bg-white'} ${!selectedRequester ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => selectedRequester && setSelectedVolunteer(selectedVolunteer === v.id ? null : v.id)}>
-                    <strong className="text-orange-800">{v.fullName}</strong>
-                  </li>
+                 </div>
+                 <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
+                 <ul className="space-y-2 h-[250px] lg:h-[400px] overflow-y-scroll">
+                   {volunteers.filter(v => {
+                      if (v.approved !== "true" || v.personal) return false;
+                      if (volunteerSearch && !v.fullName?.toLowerCase().includes(volunteerSearch.toLowerCase()) && !v.email?.toLowerCase().includes(volunteerSearch.toLowerCase())) return false;
+                      if (volunteerFilters.gender !== 'all' && v.gender !== volunteerFilters.gender) return false;
+                      if (volunteerFilters.profession !== 'all' && v.profession !== volunteerFilters.profession) return false;
+                      return true;
+                   }).map(v => (
+                     <li key={v.id} className={`p-2 rounded shadow cursor-pointer ${selectedVolunteer === v.id ? 'border-2 border-orange-500' : 'bg-white'} ${!selectedRequester ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => selectedRequester && setSelectedVolunteer(selectedVolunteer === v.id ? null : v.id)}>
+                       <strong className="text-orange-800">{v.fullName}</strong>
+                     </li>
                   ))}
                 </ul>
               </div>
