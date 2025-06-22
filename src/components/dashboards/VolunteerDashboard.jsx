@@ -1215,7 +1215,6 @@ function SessionCompletionModal({ session, onClose, onSubmit }) {
               rows={4}
               className="w-full rounded-md border border-orange-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
               placeholder="מה עלה במפגש? האם יש דברים שחשוב שהמנהל יידע?"
-              required
             />
           </div>
 
