@@ -1019,7 +1019,7 @@ export default function AdminDashboard() {
                  <h4 className="font-bold mb-2 text-orange-700">פונים</h4>
                  <ul className="space-y-2 h-[250px] lg:h-[400px] overflow-y-scroll">
                    {requesters.filter(r => {
-                      if (r.activeMatchId || !r.personal) return false;
+                      if (r.activeMatchId || r.personal) return false;
                       if (requesterSearch && !r.fullName?.toLowerCase().includes(requesterSearch.toLowerCase()) && !r.email?.toLowerCase().includes(requesterSearch.toLowerCase())) return false;
                       if (requesterFilters.gender !== 'all' && r.gender !== requesterFilters.gender) return false;
                       if (requesterFilters.ageRange !== 'all') {
@@ -1077,7 +1077,7 @@ export default function AdminDashboard() {
                  <h4 className="font-bold mb-2 text-orange-700">מתנדבים</h4>
                  <ul className="space-y-2 h-[250px] lg:h-[400px] overflow-y-scroll">
                    {volunteers.filter(v => {
-                      if (v.approved !== "true" || !v.personal) return false;
+                      if (v.approved !== "true" || v.personal) return false;
                       if (volunteerSearch && !v.fullName?.toLowerCase().includes(volunteerSearch.toLowerCase()) && !v.email?.toLowerCase().includes(volunteerSearch.toLowerCase())) return false;
                       if (volunteerFilters.gender !== 'all' && v.gender !== volunteerFilters.gender) return false;
                       if (volunteerFilters.profession !== 'all' && v.profession !== volunteerFilters.profession) return false;
