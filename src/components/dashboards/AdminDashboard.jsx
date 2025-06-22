@@ -414,7 +414,11 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (selectedMatchForDetails && showSessionDetails) {
       setLoadingSessions(true);
-      const sessionsRef = query(collection(db, `Matches/${selectedMatchForDetails}/Sessions`), orderBy("scheduledTime"));
+      const sessionsRef = query(
+        collection(db, "Sessions"),
+        where("matchId", "==", selectedMatchForDetails),
+        orderBy("scheduledTime")
+      );
       const unsubscribe = onSnapshot(sessionsRef, (snapshot) => {
         setMatchSessions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
         setLoadingSessions(false);
