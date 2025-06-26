@@ -931,14 +931,26 @@ export default function AdminDashboard() {
             <div className="flex flex-col lg:flex-row flex-grow gap-4">
               <div className="w-full lg:w-1/4 border rounded p-4 bg-gray-50/50 h-auto lg:h-[510px] overflow-y-auto">
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי פונה</h3>
-                {selectedRequester && requesters.find(r => r.id === selectedRequester) ? (
-                  <div className="space-y-2 text-base">
-                    <p><strong>שם:</strong> {getRequesterDisplayName(requesters.find(r => r.id === selectedRequester))}</p>
-                    <p><strong>אימייל:</strong> {requesters.find(r => r.id === selectedRequester)?.email}</p>
-                    <p><strong>סיבת פנייה:</strong> {requesters.find(r => r.id === selectedRequester)?.reason}</p>
-                    {renderCustomFieldsForAdmin(requesters.find(r => r.id === selectedRequester), requesterFormConfig)}
-                  </div>
-                ) : <p className="text-gray-500">בחר פונה כדי לראות פרטים.</p>}
+                {(() => {
+                  const requester = selectedRequester ? requesters.find(r => r.id === selectedRequester) : null;
+                  if (requester) {
+                    return (
+                      <div className="space-y-2 text-base">
+                        <p><strong>שם:</strong> {getRequesterDisplayName(requester)}</p>
+                        <p><strong>אימייל:</strong> {requester.email}</p>
+                        <p><strong>סיבת פנייה:</strong> {requester.reason}</p>
+                        {requester.maritalStatus && <p><strong>מצב משפחתי:</strong> {requester.maritalStatus}</p>}
+                        {requester.chatPref?.length > 0 && <p><strong>העדפות שיחה:</strong> {requester.chatPref.join(', ')}</p>}
+                        {requester.preferredTimes?.length > 0 && <p><strong>זמנים מועדפים:</strong> {requester.preferredTimes}</p>}
+                        {requester.frequency && <p><strong>תדירות:</strong> {requester.frequency.join(', ')}</p>}
+                        {requester.needs?.length > 0 && <p><strong>צרכים:</strong> {requester.needs}</p>}
+                        {requester.volunteerPrefs && <p><strong>העדפות למתנדב:</strong> {requester.volunteerPrefs}</p>}
+                        {renderCustomFieldsForAdmin(requester, requesterFormConfig)}
+                      </div>
+                    );
+                  }
+                  return <p className="text-gray-500">בחר פונה כדי לראות פרטים.</p>;
+                })()}
               </div>
 
               <div className="w-full lg:w-1/4 border rounded p-4 bg-orange-50/50">
@@ -998,7 +1010,7 @@ export default function AdminDashboard() {
                   })
                   .map(req => (
                   <li key={req.id} className={`p-2 rounded shadow cursor-pointer ${selectedRequester === req.id ? 'border-2 border-orange-500' : 'bg-white'}`} onClick={() => setSelectedRequester(selectedRequester === req.id ? null : req.id)}>
-                    <strong className="text-orange-800">{req.fullName}</strong>
+                    <strong className="text-orange-800">{getRequesterDisplayName(req)}</strong>
                   </li>
                   ))}
                 </ul>
@@ -1064,14 +1076,24 @@ export default function AdminDashboard() {
 
               <div className="w-full lg:w-1/4 border rounded p-4 bg-gray-50/50 h-auto lg:h-[510px] overflow-y-auto">
                 <h3 className="font-semibold mb-4 text-gray-700">פרטי מתנדב</h3>
-                {selectedVolunteer && volunteers.find(v => v.id === selectedVolunteer) ? (
-                  <div className="space-y-2 text-base">
-                    <p><strong>שם:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.fullName}</p>
-                    <p><strong>מקצוע:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.profession}</p>
-                    <p><strong>התאמות פעילות:</strong> {volunteers.find(v => v.id === selectedVolunteer)?.activeMatchIds?.length || 0}</p>
-                    {renderCustomFieldsForAdmin(volunteers.find(v => v.id === selectedVolunteer), volunteerFormConfig)}
-                  </div>
-                ) : <p className="text-gray-500">בחר מתנדב כדי לראות פרטים.</p>}
+                {(() => {
+                  const volunteer = selectedVolunteer ? volunteers.find(v => v.id === selectedVolunteer) : null;
+                  if (volunteer) {
+                    return (
+                      <div className="space-y-2 text-base">
+                        <p><strong>שם:</strong> {volunteer.fullName}</p>
+                        <p><strong>מקצוע:</strong> {volunteer.profession}</p>
+                        {volunteer.experience && <p><strong>ניסיון:</strong> {volunteer.experience}</p>}
+                        {volunteer.motivation && <p><strong>מוטיבציה:</strong> {volunteer.motivation}</p>}
+                        {volunteer.availableDays?.length > 0 && <p><strong>ימים פנויים:</strong> {volunteer.availableDays.join(', ')}</p>}
+                        {volunteer.availableHours?.length > 0 && <p><strong>שעות פנויות:</strong> {volunteer.availableHours.join(', ')}</p>}
+                        <p><strong>התאמות פעילות:</strong> {volunteer.activeMatchIds?.length || 0}</p>
+                        {renderCustomFieldsForAdmin(volunteer, volunteerFormConfig)}
+                      </div>
+                    );
+                  }
+                  return <p className="text-gray-500">בחר מתנדב כדי לראות פרטים.</p>;
+                })()}
               </div>
             </div>
             <div className="mt-4 flex flex-col sm:flex-row justify-center gap-2 w-full">
