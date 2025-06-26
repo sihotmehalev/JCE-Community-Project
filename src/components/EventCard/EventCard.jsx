@@ -40,12 +40,12 @@ export const EventCard = ({ event }) => {
     return (
         <div className="flex justify-center items-center w-full h-full"> {/* Outer container for centering */}
             <div className="w-full lg:w-[450px] rounded-xl overflow-hidden shadow-lg transform transition-transform duration-200 bg-gradient-to-br from-white to-orange-50">
-                <div className="relative h-36">
+                <div className="relative h-36 flex items-center justify-center bg-gray-100">
                     <img 
                         src={imageUrl}
                         alt={description}
                         onError={handleImageError}
-                        className="w-full h-full object-cover"
+                        className="w-auto h-full max-h-36 w-full h-full object-center mx-auto transition-all duration-200"
                     />
                     {event.status && (
                         <div className={`absolute top-2 right-2 px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1
