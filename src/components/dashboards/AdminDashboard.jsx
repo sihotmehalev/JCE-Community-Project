@@ -35,6 +35,7 @@ import ChatPanel from "../ui/ChatPanel";
 import CustomFieldEditor from "../admin/CustomFieldEditor";
 import { AdminAnalyticsTab } from "../analytics/AnalyticsTab";
 import AdminChatButton from '../ui/AdminChatButton';
+import { Dropdown } from '../ui/Dropdown'; // Import the new Dropdown component
 
 const createNotification = async (userId, message, link) => {
   if (!userId) return;
@@ -824,21 +825,99 @@ export default function AdminDashboard() {
     <div className="p-4 sm:p-6 space-y-6 mt-[-1rem] sm:mt-[-2rem]">
       <h2 className="text-2xl sm:text-3xl font-bold text-orange-800 text-center">לוח ניהול</h2>
       <div className="flex gap-2 mb-4 justify-center flex-wrap">
-        <Button variant={activeTab === "volunteers" ? "default" : "outline"} onClick={() => setActiveTab("volunteers")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">מתנדבים לאישור ({volunteers.filter(v => v.approved === "pending").length})</Button>
-        <Button variant={activeTab === "approvals" ? "default" : "outline"} onClick={() => setActiveTab("approvals")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">התאמות ממתינות לאישור ({pendingRequests.length})</Button>
-        <Button variant={activeTab === "matching" ? "default" : "outline"} onClick={() => setActiveTab("matching")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">התאמה כללית ({requesters.filter(req => !req.activeMatchId).length})</Button>
-        <Button variant={activeTab === "matches" ? "default" : "outline"} onClick={() => setActiveTab("matches")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">פיקוח התאמות ({activeMatches.length})</Button>
-        <Button variant={activeTab === "users" ? "default" : "outline"} onClick={() => {
-          if (activeTab !== "users") {
-            handleSort("unreadMessages");
-            setSortOrder("desc"); // Ensure descending order for unread messages
-          }
-          setActiveTab("users");
-        }} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">כל המשתמשים ({allUsers.length})</Button>
-        <Button variant={activeTab === "EventCreation" ? "default" : "outline"} onClick={() => setActiveTab("EventCreation")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">יצירת אירוע</Button>
-        <Button variant={activeTab === "EventList" ? "default" : "outline"} onClick={() => setActiveTab("EventList")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">רשימת אירועים</Button>
-        <Button variant={activeTab === "formCustomization" ? "default" : "outline"} onClick={() => setActiveTab("formCustomization")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">שינוי תנאי הרשמה</Button>
-        <Button variant={activeTab === "analytics" ? "default" : "outline"} onClick={() => { setActiveTab("analytics"); }} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">סטטיסטיקה</Button>
+        {/* Event Management Dropdown */}
+        <Dropdown
+          title="ניהול אירועים"
+          activeTab={activeTab}
+          tabsInDropdown={["EventCreation", "EventList"]}
+        >
+          <Button
+            variant={activeTab === "EventCreation" ? "default" : "ghost"}
+            onClick={() => setActiveTab("EventCreation")}
+            className="w-full text-right justify-end py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base mb-1"
+          >
+            יצירת אירוע
+          </Button>
+          <Button
+            variant={activeTab === "EventList" ? "default" : "ghost"}
+            onClick={() => setActiveTab("EventList")}
+            className="w-full text-right justify-end py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base"
+          >
+            רשימת אירועים
+          </Button>
+        </Dropdown>
+
+        {/* User Management Dropdown */}
+        <Dropdown
+          title="ניהול משתמשים"
+          activeTab={activeTab}
+          tabsInDropdown={["users", "volunteers"]}
+        >
+          <Button
+            variant={activeTab === "users" ? "default" : "ghost"}
+            onClick={() => {
+              if (activeTab !== "users") {
+                handleSort("unreadMessages");
+                setSortOrder("desc");
+              }
+              setActiveTab("users");
+            }}
+            className="w-full text-right justify-end py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base mb-1"
+          >
+            כל המשתמשים ({allUsers.length})
+          </Button>
+          <Button
+            variant={activeTab === "volunteers" ? "default" : "ghost"}
+            onClick={() => setActiveTab("volunteers")}
+            className="w-full text-right justify-end py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base"
+          >
+            מתנדבים לאישור ({volunteers.filter(v => v.approved === "pending").length})
+          </Button>
+        </Dropdown>
+
+        {/* Matches Dropdown */}
+        <Dropdown
+          title="התאמות"
+          activeTab={activeTab}
+          tabsInDropdown={["approvals", "matching", "matches"]}
+        >
+          <Button
+            variant={activeTab === "approvals" ? "default" : "ghost"}
+            onClick={() => setActiveTab("approvals")}
+            className="w-full text-right justify-end py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base mb-1"
+          >
+            התאמות ממתינות לאישור ({pendingRequests.length})
+          </Button>
+          <Button
+            variant={activeTab === "matching" ? "default" : "ghost"}
+            onClick={() => setActiveTab("matching")}
+            className="w-full text-right justify-end py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base mb-1"
+          >
+            התאמה כללית ({requesters.filter(req => !req.activeMatchId).length})
+          </Button>
+          <Button
+            variant={activeTab === "matches" ? "default" : "ghost"}
+            onClick={() => setActiveTab("matches")}
+            className="w-full text-right justify-end py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base"
+          >
+            פיקוח התאמות ({activeMatches.length})
+          </Button>
+        </Dropdown>
+
+        <Button
+          variant={activeTab === "formCustomization" ? "default" : "outline"}
+          onClick={() => setActiveTab("formCustomization")}
+          className="h-12 sm:h-14 px-4"
+        >
+          שינוי תנאי הרשמה
+        </Button>
+        <Button
+          variant={activeTab === "analytics" ? "default" : "outline"}
+          onClick={() => { setActiveTab("analytics"); }}
+          className="h-12 sm:h-14 px-4"
+        >
+          סטטיסטיקה
+        </Button>
       </div>
       {activeTab === "volunteers" && (
         <Card>
