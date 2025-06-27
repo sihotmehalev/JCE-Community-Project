@@ -828,7 +828,13 @@ export default function AdminDashboard() {
         <Button variant={activeTab === "approvals" ? "default" : "outline"} onClick={() => setActiveTab("approvals")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">התאמות ממתינות לאישור ({pendingRequests.length})</Button>
         <Button variant={activeTab === "matching" ? "default" : "outline"} onClick={() => setActiveTab("matching")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">התאמה כללית ({requesters.filter(req => !req.activeMatchId).length})</Button>
         <Button variant={activeTab === "matches" ? "default" : "outline"} onClick={() => setActiveTab("matches")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">פיקוח התאמות ({activeMatches.length})</Button>
-        <Button variant={activeTab === "users" ? "default" : "outline"} onClick={() => setActiveTab("users")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">כל המשתמשים ({allUsers.length})</Button>
+        <Button variant={activeTab === "users" ? "default" : "outline"} onClick={() => {
+          if (activeTab !== "users") {
+            handleSort("unreadMessages");
+            setSortOrder("desc"); // Ensure descending order for unread messages
+          }
+          setActiveTab("users");
+        }} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">כל המשתמשים ({allUsers.length})</Button>
         <Button variant={activeTab === "EventCreation" ? "default" : "outline"} onClick={() => setActiveTab("EventCreation")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">יצירת אירוע</Button>
         <Button variant={activeTab === "EventList" ? "default" : "outline"} onClick={() => setActiveTab("EventList")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">רשימת אירועים</Button>
         <Button variant={activeTab === "formCustomization" ? "default" : "outline"} onClick={() => setActiveTab("formCustomization")} className="py-2 px-3 text-sm sm:py-3 sm:px-6 sm:text-base">שינוי תנאי הרשמה</Button>
