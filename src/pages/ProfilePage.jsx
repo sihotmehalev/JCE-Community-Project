@@ -179,6 +179,14 @@ export default function ProfilePage() {
       setMessage("שגיאה: לא ניתן לקבוע את תפקיד המשתמש או נתיב השמירה.");
       return;
     }
+
+    // Validate phone number
+    if (editData.phone && !/^\d{10}$/.test(editData.phone)) {
+      setMessage("מספר הטלפון חייב להכיל 10 ספרות בדיוק.");
+      setTimeout(() => setMessage(""), 4000);
+      return; // Stop the save process
+    }
+
     setLoading(true);
     try {
       let pathSegments = ["Users", "Info"];
