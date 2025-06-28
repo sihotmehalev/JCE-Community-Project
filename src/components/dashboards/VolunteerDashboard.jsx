@@ -1099,6 +1099,12 @@ function SessionModal({ title, sessions, onClose, showCompletionButton = false, 
                   </div>
                 )}
 
+                {session.sessionSummary && (
+                  <div className="text-orange-500 mt-2 bg-white/50 p-2 rounded">
+                    <strong>סיכום:</strong> {session.sessionSummary}
+                  </div>
+                )}
+
                 {!readOnly && session.scheduledTime > now && (
                   <a
                     href={generateGoogleCalendarLink(session, partnerName)}
@@ -1153,7 +1159,7 @@ function SessionCompletionModal({ session, onClose, onSubmit }) {
       const sessionRef = doc(db, "Sessions", session.id);
       await updateDoc(sessionRef, {
         status: "completed",
-        summary: summary,
+        sessionSummary: summary,
         completedAt: serverTimestamp(),
       });
       onSubmit(); // This will trigger handleSessionCompletion in the parent
