@@ -1022,6 +1022,7 @@ export default function AdminDashboard() {
                     return (
                       <div className="space-y-2 text-base">
                         <p><strong>שם:</strong> {getRequesterDisplayName(requester)}</p>
+                        {requester.age && <p><strong>גיל:</strong> {requester.age}</p>}
                         <p><strong>אימייל:</strong> {requester.email}</p>
                         <p><strong>סיבת פנייה:</strong> {requester.reason}</p>
                         {requester.maritalStatus && <p><strong>מצב משפחתי:</strong> {requester.maritalStatus}</p>}
@@ -1167,6 +1168,7 @@ export default function AdminDashboard() {
                     return (
                       <div className="space-y-2 text-base">
                         <p><strong>שם:</strong> {volunteer.fullName}</p>
+                        {volunteer.age && <p><strong>גיל:</strong> {volunteer.age}</p>}
                         <p><strong>מקצוע:</strong> {volunteer.profession}</p>
                         {volunteer.experience && <p><strong>ניסיון:</strong> {volunteer.experience}</p>}
                         {volunteer.motivation && <p><strong>מוטיבציה:</strong> {volunteer.motivation}</p>}
