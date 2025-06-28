@@ -181,7 +181,8 @@ export default function ProfilePage() {
     }
 
     // Validate phone number
-    if (editData.phone && !/^\d{10}$/.test(editData.phone)) {
+    const phoneRegex = /^\d{3}(?:-)?(?:\d{4})(?:-)?(?:\d{3})$/;
+    if (editData.phone && !phoneRegex.test(editData.phone)) {
       setMessage("מספר הטלפון חייב להכיל 10 ספרות בדיוק.");
       setTimeout(() => setMessage(""), 4000);
       return; // Stop the save process

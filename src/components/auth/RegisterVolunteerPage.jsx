@@ -255,6 +255,14 @@ export default function RegisterVolunteerPage() {
       setLoading(false);
       return;
     }
+
+    const phoneRegex = /^\d{3}(?:-)?(?:\d{4})(?:-)?(?:\d{3})$/;
+    if (!formData.phone || !phoneRegex.test(formData.phone)) {
+      setAlertMessage({ message: "יש להזין מספר טלפון תקין בעל 10 ספרות.", type: "error" });
+      setLoading(false);
+      return;
+    }
+
     if (adminConfigLoading) {
       setAlertMessage({ message: "עדיין טוען הגדרות טופס, אנא המתן...", type: "info" });
       setLoading(false);

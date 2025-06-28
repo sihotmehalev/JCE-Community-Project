@@ -182,7 +182,7 @@ export default function HomePage() {
 
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-2xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 lg:py-32 max-w-screen-xl">
+    <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 lg:py-8 max-w-screen-xl">
 
       {/* Hero Section */}
       <motion.div
@@ -265,8 +265,7 @@ export default function HomePage() {
       {/* How It Works Section */}
        <motion.div
         initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.2 }}
+        animate="visible"
         variants={containerVariants}
         className="mt-24 text-center max-w-6xl mx-auto"
       >
