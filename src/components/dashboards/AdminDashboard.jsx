@@ -119,7 +119,7 @@ export default function AdminDashboard() {
   const [showAISuggestions, setShowAISuggestions] = useState(false);
   const [selectedRequestForAI, setSelectedRequestForAI] = useState(null);
   const [aiLoadingRequesterId, setAiLoadingRequesterId] = useState(null);
-  const [activeTab, setActiveTab] = useState("users");
+  const [activeTab, setActiveTab] = useState("matching");
   const [userSearch, setUserSearch] = useState("");
   const [sortColumn, setSortColumn] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc");
