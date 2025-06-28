@@ -555,6 +555,7 @@ export default function AdminDashboard() {
       const batch = writeBatch(db);
       const matchId = generateRandomId();
       let finalRequestId = requestId;
+      console.log("finalRequestId", finalRequestId);
 
       if (!finalRequestId) {
         const q = query(collection(db, "Requests"), where("requesterId", "==", requesterId), where("status", "in", ["waiting_for_first_approval", "declined", "waiting_for_reassignment"]));
@@ -606,7 +607,17 @@ export default function AdminDashboard() {
         setSelectedRequestForAI(null);
         setAiLoadingRequesterId(null);
       } else {
-        await createManualMatch(selectedRequestForAI.requesterId, volunteerId, selectedRequestForAI.id);
+        let requesterId = selectedRequestForAI.id;
+        let requestId = null;
+        try {
+          const querySnapshot = await getDocs(query(collection(db, "Requests"), where("requesterId", "==", requesterId)));
+          if (!querySnapshot.empty) {
+            requestId = querySnapshot.docs[0].id;
+          }
+        } catch (error) {
+          console.error("Error getting requesterId:", error);
+        }
+        await createManualMatch(requesterId, volunteerId, requestId);
         setSelectedRequestForAI(null);
       }
     }
