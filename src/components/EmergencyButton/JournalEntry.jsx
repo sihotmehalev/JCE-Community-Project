@@ -5,8 +5,8 @@ export function JournalEntry() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold text-orange-800">יומן אישי</h3>
-      
+      <h3 className="text-lg font-bold text-orange-800">כתוב את שעל ליבך</h3>
+
       <div className="bg-white p-4 rounded-lg shadow">
         <p className="text-gray-600 mb-3">
           מה עובר עליך עכשיו? לא חייב לשתף, אפשר פשוט להוציא את המחשבות החוצה.

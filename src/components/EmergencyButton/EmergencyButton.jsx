@@ -48,7 +48,7 @@ export default function EmergencyButton({ activeMatch }) {
               active={activeTab === 'journal'}
               onClick={() => setActiveTab('journal')}
             >
-              יומן אישי
+             שחרר את המחשבות
             </TabButton>
           </div>
 
