@@ -724,7 +724,8 @@ function RequestCard({ req, variant, onAction }) {
       </div>
 
       {/* Shared Custom Fields from Requester */}
-      {requesterAdminConfig && requesterAdminConfig.customFields && requesterAdminConfig.customFields.length > 0 && requester && (
+      {requesterAdminConfig && requesterAdminConfig.customFields && requesterAdminConfig.customFields.length > 0 && requester &&
+      requesterAdminConfig.customFields.some(field => field.shareWithPartner === true && requester.hasOwnProperty(field.name)) && (
         <div className="mt-4 pt-4 border-t border-orange-200">
           <h4 className="font-semibold text-orange-800 text-md mb-2">מידע נוסף מהפונה:</h4>
           <div className="space-y-1 text-sm">
@@ -858,21 +859,16 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
       </div>
 
       {/* Shared Custom Fields from Requester */}
-      {requester && requesterAdminConfig && Array.isArray(requesterAdminConfig.customFields) && requesterAdminConfig.customFields.length > 0 && (
+      {requester && requesterAdminConfig && Array.isArray(requesterAdminConfig.customFields) && 
+       requesterAdminConfig.customFields.some(field => field.shareWithPartner === true && requester.hasOwnProperty(field.name)) && (
         <div className="mt-4 pt-4 border-t border-orange-200">
           <h4 className="font-semibold text-orange-800 text-md mb-2">מידע נוסף מהפונה:</h4>
           <div className="space-y-1 text-sm">
-            {(() => {
-              return null; // Or <></>
-            })()}
-            {Object.entries(requester).map(([key, value]) => {
-
-              // Find the definition for this key in the admin config
-              const fieldDef = requesterAdminConfig.customFields.find(
-                (f) => f.name === key
-              );
-
-              if (fieldDef && fieldDef.shareWithPartner === true) {
+            {requesterAdminConfig.customFields.map((fieldDef) => {
+              console.log("[MatchCard - VolunteerDashboard] Checking field:", fieldDef.shareWithPartner, "for requester:", requester);
+              // Check if this field should be shared and if the requester has a value for it
+              if (fieldDef.shareWithPartner === true && requester.hasOwnProperty(fieldDef.name)) {
+                const value = requester[fieldDef.name];
 
                 let displayValue = value;
                 if (Array.isArray(value)) {
@@ -880,14 +876,15 @@ function MatchCard({ match, onOpenChat, onCloseChat, onScheduleSession, activeMa
                 } else if (typeof value === 'boolean') {
                   displayValue = value ? "כן" : "לא";
                 } else if (value === null || value === undefined || value === '') {
-                  displayValue = "—";
+                  // Don't render empty fields
+                  return null;
                 }
+
                 return (
-                  <p key={key} className="text-orange-700">
+                  <p key={fieldDef.name} className="text-orange-700">
                     <strong className="text-orange-800">{fieldDef.label}:</strong> {String(displayValue)}
                   </p>
                 );
-              } else if (fieldDef) {
               }
               return null;
             })}
