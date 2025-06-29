@@ -717,6 +717,9 @@ function RequestCard({ req, variant, onAction }) {
             <Phone className="w-4 h-4 text-orange-600" />
             <h4 className="font-semibold text-orange-800 text-sm">העדפת שיחה</h4>
           </div>
+          <p className="text-orange-700 text-sm">
+            {formatList(requester?.chatPref)}
+          </p>
         </div>
       </div>
 

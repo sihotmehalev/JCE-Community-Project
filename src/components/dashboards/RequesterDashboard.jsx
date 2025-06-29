@@ -589,7 +589,7 @@ const openChat = async (matchId) => {
       </div>
       <Card className="mb-6">
         <div className="flex border-b border-gray-200">
-          {personal && (
+          {!activeMatch && personal && (
             <div className="flex flex-wrap w-full sm:w-auto">
             <button
                 onClick={() => setActiveTab("available")}
