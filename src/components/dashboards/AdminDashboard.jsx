@@ -600,27 +600,12 @@ export default function AdminDashboard() {
   };
 
   const handleAIVolunteerSelection = async (volunteerId) => {
-    if (selectedRequestForAI) {
-      if (selectedRequestForAI.status === "general_matching_ai") {
+    if (volunteerId) {
         setSelectedVolunteer(volunteerId);
         setShowAISuggestions(false);
         setSelectedRequestForAI(null);
         setAiLoadingRequesterId(null);
-      } else {
-        let requesterId = selectedRequestForAI.id;
-        let requestId = null;
-        try {
-          const querySnapshot = await getDocs(query(collection(db, "Requests"), where("requesterId", "==", requesterId)));
-          if (!querySnapshot.empty) {
-            requestId = querySnapshot.docs[0].id;
-          }
-        } catch (error) {
-          console.error("Error getting requesterId:", error);
-        }
-        await createManualMatch(requesterId, volunteerId, requestId);
-        setSelectedRequestForAI(null);
-      }
-    }
+    } 
   };
 
   const cancelMatch = async (match_id) => {
