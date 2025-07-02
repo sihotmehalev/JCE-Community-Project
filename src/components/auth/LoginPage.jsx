@@ -1,15 +1,15 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { signInWithEmailAndPassword, deleteUser } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail} from "firebase/auth";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../config/firebaseConfig";
 import { Card, CardContent } from "../ui/card";
 import { Eye, EyeOff } from 'lucide-react';
 import CustomAlert from "../ui/CustomAlert";
 
-export default function LoginPage() {  const [email, setEmail] = useState("");
+export default function LoginPage() {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
@@ -18,6 +18,30 @@ export default function LoginPage() {  const [email, setEmail] = useState("");
 
   const togglePasswordVisibility = () => {
     setShowPassword(prev => !prev);
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      setAlertMessage("אנא הזן את כתובת האימייל שלך בשדה האימייל כדי לאפס סיסמה.");
+      setAlertType("error");
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setAlertMessage("נשלח אליך אימייל לאיפוס סיסמה. יש לבדוק את תיבת הדואר הנכנס (וגם את תיבת הספאם).");
+      setAlertType("success");
+    } catch (error) {
+      console.error("Error sending password reset email:", error);
+      if (error.code === 'auth/user-not-found') {
+        setAlertMessage("לא נמצא משתמש עם כתובת אימייל זו.");
+        setAlertType("error");
+      } else {
+        setAlertMessage("אירעה שגיאה בתהליך איפוס הסיסמה. נסה שוב.");
+        setAlertType("error");
+      }
+    }
+    setLoading(false);
   };
 
   const checkUserRole = async (uid) => {
@@ -43,25 +67,6 @@ export default function LoginPage() {  const [email, setEmail] = useState("");
 
     return null;
   };
-  // Function to handle deletion of user credentials
-  const handleDeleteUserCredentials = async () => {
-    try {
-      // Get the current user
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        // Delete the user from authentication
-        await deleteUser(currentUser);
-        setAlertMessage("");
-        setMessage("");
-
-        // Redirect to homepage
-        navigate("/");
-      }
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      setMessage("שגיאה בהסרת החשבון: " + error.message);
-    }
-  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -72,7 +77,6 @@ export default function LoginPage() {  const [email, setEmail] = useState("");
       const userInfo = await checkUserRole(uid);
 
       if (!userInfo) {
-        // Instead of throwing an error, show CustomAlert
         setAlertMessage("לא נמצאו נתוני משתמש במערכת.");
         setAlertType("error");
         setLoading(false);
@@ -110,7 +114,8 @@ export default function LoginPage() {  const [email, setEmail] = useState("");
           break;
         case "volunteer":
           if (data.approved !== "true") {
-            setMessage("הבקשה שלך עדיין ממתינה לאישור מנהל.");
+            setAlertMessage("הבקשה שלך עדיין ממתינה לאישור מנהל.");
+            setAlertType("info");
           } else {
             navigate("/volunteer-dashboard");
           }
@@ -120,10 +125,12 @@ export default function LoginPage() {  const [email, setEmail] = useState("");
       }
     } catch (err) {
       console.error(err);
-      setMessage("שגיאה: " + err.message);
+      setAlertMessage("שגיאה: " + err.message);
+      setAlertType("error");
     }
     setLoading(false);
   };
+
   return (
     <div className="flex items-center justify-center p-6">
       <Card className="w-[400px] bg-gradient-to-br from-white to-orange-50/80">
@@ -164,6 +171,16 @@ export default function LoginPage() {  const [email, setEmail] = useState("");
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
+              <div className="text-right mt-2">
+                <button 
+                  type="button" 
+                  onClick={handlePasswordReset}
+                  disabled={loading}
+                  className="text-sm text-orange-700 hover:underline focus:outline-none disabled:opacity-50"
+                >
+                  שכחתי סיסמה
+                </button>
+              </div>
             </div>
             <div className="max-w-[300px] mx-auto pt-2">
               <button
@@ -180,7 +197,6 @@ export default function LoginPage() {  const [email, setEmail] = useState("");
               </button>
             </div>
           </form>
-          {message && <p className="mt-4 text-center text-sm text-orange-600">{message}</p>}
           <p className="mt-6 text-center text-sm text-orange-700">
             אין לך חשבון עדיין?{" "}
             <br></br>
@@ -194,19 +210,11 @@ export default function LoginPage() {  const [email, setEmail] = useState("");
           </p>
         </CardContent>
       </Card>
-      
-      {/* CustomAlert for user not found */}
       {alertMessage && (
         <CustomAlert 
           message={alertMessage} 
           type={alertType} 
-          onClose={() => {
-            if (alertType === "error") {
-              handleDeleteUserCredentials();
-            } else {
-              setAlertMessage("");
-            }
-          }}
+          onClose={() => setAlertMessage("")}
         />
       )}
     </div>
