@@ -114,6 +114,7 @@ export default function RequesterDashboard() {
   const [activeTab, setActiveTab] = useState("available");
   const [alertMessage, setAlertMessage] = useState(null);
   const [declinedVolunteers, setDeclinedVolunteers] = useState([]);
+  // eslint-disable-next-line
   const [requesterFormConfig, setRequesterFormConfig] = useState({
     hideNoteField: false, // Initialize with default structure
     customFields: []

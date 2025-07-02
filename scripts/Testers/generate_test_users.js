@@ -189,11 +189,10 @@ const getRandomDateInLastMonth = () => {
  |                            4. GENERATE                              |
  *─────────────────────────────────────────────────────────────────────*/
 async function generate() {
-  const requesterCount = 1;   // מספר מבקשים
-  const volunteerCount = 1;    // מספר מתנדבים
-  const startId        = 1;    // מתחילים מ-1 לשני הסוגים
+  const requesterCount = 7;   // מספר מבקשים
+  const volunteerCount = 6;    // מספר מתנדבים
+  const startId        = 12;    // מתחילים מ-1 לשני הסוגים
 
-  console.log(`\n➤ יוצר ${requesterCount} מבקשים ו-${volunteerCount} מתנדבים (IDs 1..)…\n`);
 
   // Add pools for behalfName and behalfDetails
   const behalfNamePool = [
@@ -226,7 +225,7 @@ async function generate() {
       age: faker.number.int({ min: 18, max: 90 }),
       maritalStatus: rand(["נשוי","גרוש","אלמן"]),
       location: randCity(),
-      phone: faker.phone.number("05#-###-####"),
+      phone: `05${faker.string.numeric(8)}`,
       reason: rand(reasonPool),
       needs: rand(needsPool),
       chatPref: [rand(chatPrefPool)],
@@ -237,7 +236,7 @@ async function generate() {
       agree2: true,
       agree3: true,
       note: "",
-      personal: true,
+      personal: false,
       activeMatchId: null,
       approved: "true",
       createdAt: new Date(),
@@ -252,7 +251,6 @@ async function generate() {
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    console.log(`   ✓ Requester ${email} נוצר`);
   }
 
   // --- Volunteers ---------------------------------------------------
@@ -265,7 +263,7 @@ async function generate() {
     await db.doc(`Users/Info/Volunteers/${uid}`).set({
       email,
       fullName: randomHebName(),
-      phone: faker.phone.number("05#-###-####"),
+      phone: `05${faker.string.numeric(8)}`,
       location: randCity(),
       age: faker.number.int({ min: 18, max: 60 }),
       gender: randGender(),
@@ -279,8 +277,8 @@ async function generate() {
       strengths: rand(strengthsPool),
       motivation: rand(motivationPool),
       agree: true,
-      approved: "pending",
-      personal: true,
+      approved: "true",
+      personal: false,
       isAvailable: true,
       activeMatchIds: [],
       requestIds: [],

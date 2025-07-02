@@ -107,19 +107,16 @@ export default function RegisterVolunteerPage() {
     if (registrationCompletedAndReadyToSignOut) {
       return () => {
         // This cleanup function is called when the component unmounts
-        console.log("[RegisterVolunteerPage] Unmounting after successful registration, attempting to sign out...");
         // Check if there's actually a user to sign out
         // This can prevent errors if signOut is called when already signed out for some reason
         if (auth.currentUser) { 
           signOut(auth)
             .then(() => {
-              console.log("[RegisterVolunteerPage] User signed out successfully post-registration.");
             })
             .catch((error) => {
               console.error("[RegisterVolunteerPage] Error signing out post-registration:", error);
             });
         } else {
-            console.log("[RegisterVolunteerPage] No current user to sign out during unmount.");
         }
       };
     }
@@ -212,10 +209,8 @@ export default function RegisterVolunteerPage() {
       try {
         const configDocRef = doc(db, "admin_form_configs", "volunteer_config");
         const docSnap = await getDoc(configDocRef);
-        console.log("[RegisterVolunteerPage] Fetched admin_form_configs/volunteer_config snapshot exists:", docSnap.exists());
         if (docSnap.exists()) {
           const configData = docSnap.data() || {};
-          console.log("[RegisterVolunteerPage] Raw configData from Firestore:", configData);
           
           const customFields = Array.isArray(configData.customFields) ? configData.customFields : [];
           setAdminConfig({ customFields });
@@ -233,7 +228,6 @@ export default function RegisterVolunteerPage() {
           setFormData(prev => ({ ...prev, ...initialCustomData }));
 
         } else {
-          console.log("[RegisterVolunteerPage] No admin configuration found for volunteers. Using defaults.");
           setAdminConfig({ customFields: [] });
         }
       } catch (error) {
@@ -312,14 +306,12 @@ export default function RegisterVolunteerPage() {
       batch.set(counterRef, { Volunteers: increment(1) }, { merge: true });
 
       await batch.commit();
-      console.log("[RegisterVolunteerPage] Firestore batch committed successfully.");
 
       // Set the flag to true. This arms the useEffect cleanup for sign-out.
       setRegistrationCompletedAndReadyToSignOut(true);
       
       // Navigate. This will cause the component to unmount, triggering the signOut in useEffect's cleanup.
       // The success message is passed to the HomePage.
-      console.log("[RegisterVolunteerPage] Navigating to home page...");
       navigate("/", { 
         state: { 
           message: "נרשמת בהצלחה! בקשתך תיבדק על ידי מנהל המערכת.", 
@@ -348,7 +340,6 @@ export default function RegisterVolunteerPage() {
       return <p className="text-sm text-orange-600">טוען שדות נוספים...</p>;
     }
     if (!adminConfig || !Array.isArray(adminConfig.customFields) || adminConfig.customFields.length === 0) {
-      console.log("[RegisterVolunteerPage] No custom fields to render or adminConfig.customFields is not an array. Current adminConfig.customFields:", adminConfig?.customFields);
       return null;
     }
 
@@ -357,7 +348,6 @@ export default function RegisterVolunteerPage() {
         console.warn("[RegisterVolunteerPage] Invalid custom field object:", field);
         return null;
       }
-      console.log("[RegisterVolunteerPage] Attempting to render custom field:", field);
       if (!['text', 'textarea', 'select', 'checkbox', 'number', 'date'].includes(field.type)) {
         console.warn(`[RegisterVolunteerPage] Unsupported field type "${field.type}" for field "${field.name}". Skipping.`);
         return null;

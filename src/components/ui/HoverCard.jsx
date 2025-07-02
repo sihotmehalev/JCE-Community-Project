@@ -41,10 +41,6 @@ export function HoverCard({ user, children, adminConfig }) { // Added adminConfi
   };
 
   useEffect(() => {
-    if (show) console.log("[HoverCard] Props received:", { user, adminConfig });
-  }, [show, user, adminConfig]);
-
-  useEffect(() => {
     if (show) {
       updatePosition();
       window.addEventListener('resize', updatePosition);
@@ -120,7 +116,6 @@ export function HoverCard({ user, children, adminConfig }) { // Added adminConfi
           </div>
           {adminConfig.customFields.map(fieldDef => {
             // Log each field definition and whether the user has this property
-            // console.log(`[HoverCard] Checking field: ${fieldDef.name}, Label: ${fieldDef.label}, User has property: ${user && user.hasOwnProperty(fieldDef.name)}`);
             
             if (user && user.hasOwnProperty(fieldDef.name)) {
               const displayValue = formatDisplayValue(user[fieldDef.name]);

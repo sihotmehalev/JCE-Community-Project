@@ -58,10 +58,8 @@ export default function HomePage() {
 
   // useEffect to handle the message from registration or other navigations
   useEffect(() => {
-    console.log("[HomePage] Location state:", location.state); // Log the received state
 
     if (location.state?.message && location.state?.type) {
-      console.log("[HomePage] Displaying message from location state:", location.state.message);
       setAlertMessage({
         message: location.state.message,
         type: location.state.type,
