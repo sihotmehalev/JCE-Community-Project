@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { db } from "../../config/firebaseConfig";
 import {
   collection,
@@ -118,7 +118,6 @@ export default function AdminDashboard() {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [showAISuggestions, setShowAISuggestions] = useState(false);
   const [selectedRequestForAI, setSelectedRequestForAI] = useState(null);
-  const [aiLoadingRequesterId, setAiLoadingRequesterId] = useState(null);
   const [activeTab, setActiveTab] = useState("matching");
   const [userSearch, setUserSearch] = useState("");
   const [sortColumn, setSortColumn] = useState(null);
@@ -150,10 +149,6 @@ export default function AdminDashboard() {
   const [selectedMatchForDetails, setSelectedMatchForDetails] = useState(null);
   const [matchSessions, setMatchSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
-  const [hoveredRequester, setHoveredRequester] = useState(null);
-  const [hoveredVolunteer, setHoveredVolunteer] = useState(null);
-  const requesterHoverTimeoutRef = useRef(null);
-  const volunteerHoverTimeoutRef = useRef(null);
   const [selectedSessionForView, setSelectedSessionForView] = useState(null);
   const [alertMessage, setAlertMessage] = useState(null);
   const [showCancelMatchModal, setShowCancelMatchModal] = useState(false);
@@ -163,6 +158,7 @@ export default function AdminDashboard() {
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState("");
   const [userSelectedForChat, setUserSelectedForChat] = useState(null);
+  // eslint-disable-next-line
   const [userLastChatTimestamps, setUserLastChatTimestamps] = useState({});
   const [unreadCounts, setUnreadCounts] = useState({});
   const [requesterFormConfig, setRequesterFormConfig] = useState({ hideNoteField: false, customFields: [] });
@@ -604,7 +600,6 @@ export default function AdminDashboard() {
         setSelectedVolunteer(volunteerId);
         setShowAISuggestions(false);
         setSelectedRequestForAI(null);
-        setAiLoadingRequesterId(null);
     } 
   };
 
