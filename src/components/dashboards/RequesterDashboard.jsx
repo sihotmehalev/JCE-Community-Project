@@ -180,6 +180,7 @@ export default function RequesterDashboard() {
         openChat(chatWithMatchId);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, matches]);
 
   useEffect(() => {
@@ -1039,44 +1040,6 @@ function SessionModal({ title, sessions, onClose, readOnly = false, partnerName 
       `&output=xml`
     );
   };
-
-
-  // Helper function to format session times in Hebrew
-  const formatSessionTime = (date) => {
-    if (!date) return "—";
-    return new Date(date).toLocaleString('he-IL', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getSessionStatusColor = (session) => {
-    if (session.status === 'completed') {
-      return 'bg-green-50 border-green-100';
-    }
-    if (session.scheduledTime < now && session.status !== 'completed') { // Corrected logic
-      return 'bg-orange-100 border-orange-200';
-    }
-    return 'bg-orange-50 border-orange-100';
-  };
-
-  const getLocationIcon = (location) => {
-    switch (location) {
-      case 'video':
-        return '🎥';
-      case 'phone':
-        return '📱';
-      case 'in_person':
-        return '🤝';
-      default:
-        return '📅';
-    }
-  };
-
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">

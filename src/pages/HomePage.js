@@ -70,25 +70,18 @@ export default function HomePage() {
           window.history.replaceState({}, document.title);
         }
       });
-      // Important: Clear the location.state after processing it
-      // to prevent the message from re-appearing on refresh or if the user navigates back and then forward.
-      // Do this AFTER setting the alert, or in the onClose if you prefer.
-      // window.history.replaceState({}, document.title); // Moved to onClose for better control
+      
     } else if (alertMessage && !location.state?.message) {
       // This case handles if the alert was set, then user navigates away and back
-      // without new state. If you want the alert to persist across such navigations, remove this.
-      // Or, if you want it to clear, this is one way, but clearing in onClose is better.
+      // without new state.
     }
-
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]); // Depend on location.state
 
   // Scroll to top on page load or when navigation state changes
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]); // Depend on pathname to ensure it triggers on navigation
-
-  // Placeholder for your icon path - replace with your actual icon
-  const headlineIconSrc = "/icons/sihot_mehalev_icon.svg";
 
   // Data for the "Why Choose Us" section - Expanded
   // Icons here are considered after Feature Section's User & CalendarDays
