@@ -2,6 +2,8 @@
 
 A volunteer-based support platform built with React and Firebase.
 
+This project was developed by students from Azrieli College of Engineering as part of a course requirement.
+
 ## Features
 
 - User roles: Help Requesters, Volunteers, Managers
