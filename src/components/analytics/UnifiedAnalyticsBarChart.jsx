@@ -23,8 +23,12 @@ const DATA_OPTIONS = [
 function formatDate(date, type) {
   if (type === 'days') return date.toLocaleDateString('he-IL', { weekday: 'short', day: '2-digit', month: '2-digit' });
   if (type === 'weeks') {
-    const week = getWeekNumber(date);
-    return `שבוע ${week} ${date.getFullYear()}`;
+    // Show the first day of the week (Sunday)
+    const firstDay = new Date(date);
+    const day = firstDay.getDay();
+    // In Israel, week starts on Sunday (0)
+    firstDay.setDate(firstDay.getDate() - day);
+    return `${firstDay.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}`;
   }
   if (type === 'months') return date.toLocaleDateString('he-IL', { month: 'short', year: '2-digit' });
   if (type === 'years') return date.getFullYear().toString();
@@ -198,9 +202,27 @@ export default function UnifiedAnalyticsBarChart() {
     setChartData(data);
   }, [matches, sessions, requesters, volunteers, events, timeType, dataType]);
 
+  // Calculate total interested users across all future events only
+  const nowDate = new Date();
+  const totalInterestedUsers = events.reduce((acc, event) => {
+    // Only count if scheduled_time is in the future
+    let eventDate = null;
+    if (event.scheduled_time) {
+      if (typeof event.scheduled_time.toDate === 'function') {
+        eventDate = event.scheduled_time.toDate();
+      } else {
+        eventDate = new Date(event.scheduled_time);
+      }
+    }
+    if (eventDate && eventDate > nowDate && Array.isArray(event.interestedUsers)) {
+      return acc + event.interestedUsers.length;
+    }
+    return acc;
+  }, 0);
+
   return (
     <div>
-      <div className="flex gap-2 mb-4 flex-wrap">
+      <div className="flex gap-2 mb-4 flex-wrap items-center">
         {TIME_OPTIONS.map(opt => (
           <button
             key={opt.value}
@@ -220,6 +242,10 @@ export default function UnifiedAnalyticsBarChart() {
             {opt.label}
           </button>
         ))}
+        {/* Show total interested users for events */}
+        {dataType === 'events' && (
+          <span className="ml-4 text-orange-700 font-semibold whitespace-nowrap">סה"כ מתעניינים: {totalInterestedUsers}</span>
+        )}
       </div>
       {loading ? (
         <div className="text-center text-orange-700">טוען נתונים...</div>
