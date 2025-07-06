@@ -16,8 +16,8 @@ const DATA_OPTIONS = [
   { label: 'פונים', value: 'requesters' },
   { label: 'מתנדבים', value: 'volunteers' },
   { label: 'פונים ומתנדבים', value: 'users' },
-  { label: 'אירועים' , value: 'events' }, // Example for events, if you have such data
-  // Add more options here if needed
+  { label: 'אירועים', value: 'events' },
+  { label: 'מתעניינים באירועים', value: 'interested' }, // New tab for interested users
 ];
 
 function formatDate(date, type) {
@@ -53,6 +53,8 @@ export default function UnifiedAnalyticsBarChart() {
   const [volunteers, setVolunteers] = useState([]);
   const [events, setEvents] = useState([]);
   const [chartData, setChartData] = useState([]);
+  // Add state for time offset (in units of the selected timeType)
+  const [timeOffset, setTimeOffset] = useState(0);
 
   // Fetch all data on mount
   useEffect(() => {
@@ -105,9 +107,9 @@ export default function UnifiedAnalyticsBarChart() {
         const d = doc.data();
         return {
           ...d,
-          Event_added_time: d.Event_added_time?.toDate ? d.Event_added_time.toDate() : (d.Event_added_time ? new Date(d.Event_added_time) : null)
+          scheduled_time: d.scheduled_time?.toDate ? d.scheduled_time.toDate() : (d.scheduled_time ? new Date(d.scheduled_time) : null)
         };
-      }).filter(e => e.Event_added_time);
+      }).filter(e => e.scheduled_time);
 
       // Set all data
       setMatches(matchesData);
@@ -119,6 +121,11 @@ export default function UnifiedAnalyticsBarChart() {
     }
     fetchAll();
   }, []);
+
+  // Reset timeOffset to 0 when timeType changes
+  useEffect(() => {
+    setTimeOffset(0);
+  }, [timeType]);
 
   // Aggregate data for chart
   useEffect(() => {
@@ -141,7 +148,100 @@ export default function UnifiedAnalyticsBarChart() {
       dateField = 'createdAt';
     } else if (dataType === 'events') {
       items = events;
-      dateField = 'Event_added_time';
+      dateField = 'scheduled_time';
+    } else if (dataType === 'interested') {
+      // For each date, count total interested users in all events for that date
+      let data = [];
+      const now = new Date();
+      let baseDate = new Date(now);
+      if (timeType === 'days') {
+        baseDate.setDate(now.getDate() + timeOffset * 7);
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(baseDate);
+          d.setDate(baseDate.getDate() - i);
+          const xLabel = formatDate(d, 'days');
+          // Sum interested users for all events on this day
+          const count = events.reduce((acc, event) => {
+            if (!event.scheduled_time) return acc;
+            const eventDate = event.scheduled_time;
+            if (
+              eventDate.getFullYear() === d.getFullYear() &&
+              eventDate.getMonth() === d.getMonth() &&
+              eventDate.getDate() === d.getDate() &&
+              Array.isArray(event.interestedUsers)
+            ) {
+              return acc + event.interestedUsers.length;
+            }
+            return acc;
+          }, 0);
+          data.push({ label: xLabel, count });
+        }
+      } else if (timeType === 'weeks') {
+        baseDate.setDate(now.getDate() + timeOffset * 4 * 7);
+        for (let i = 3; i >= 0; i--) {
+          const d = new Date(baseDate);
+          d.setDate(baseDate.getDate() - i * 7);
+          const week = getWeekNumber(d);
+          const year = d.getFullYear();
+          const xLabel = formatDate(d, 'weeks');
+          const count = events.reduce((acc, event) => {
+            if (!event.scheduled_time) return acc;
+            const eventDate = event.scheduled_time;
+            const eventWeek = getWeekNumber(eventDate);
+            if (
+              eventDate.getFullYear() === year &&
+              eventWeek === week &&
+              Array.isArray(event.interestedUsers)
+            ) {
+              return acc + event.interestedUsers.length;
+            }
+            return acc;
+          }, 0);
+          data.push({ label: xLabel, count });
+        }
+      } else if (timeType === 'months') {
+        baseDate.setMonth(now.getMonth() + timeOffset * 12);
+        for (let i = 11; i >= 0; i--) {
+          const d = new Date(baseDate);
+          d.setMonth(baseDate.getMonth() - i);
+          const xLabel = formatDate(d, 'months');
+          const count = events.reduce((acc, event) => {
+            if (!event.scheduled_time) return acc;
+            const eventDate = event.scheduled_time;
+            if (
+              eventDate.getFullYear() === d.getFullYear() &&
+              eventDate.getMonth() === d.getMonth() &&
+              Array.isArray(event.interestedUsers)
+            ) {
+              return acc + event.interestedUsers.length;
+            }
+            return acc;
+          }, 0);
+          data.push({ label: xLabel, count });
+        }
+      } else if (timeType === 'years') {
+        baseDate.setFullYear(now.getFullYear() + timeOffset * 10);
+        const years = events.map(event => event.scheduled_time?.getFullYear()).filter(Boolean);
+        const minYear = Math.min(...years);
+        const maxYear = now.getFullYear();
+        for (let y = minYear; y <= maxYear; y++) {
+          const xLabel = y.toString();
+          const count = events.reduce((acc, event) => {
+            if (!event.scheduled_time) return acc;
+            const eventDate = event.scheduled_time;
+            if (
+              eventDate.getFullYear() === y &&
+              Array.isArray(event.interestedUsers)
+            ) {
+              return acc + event.interestedUsers.length;
+            }
+            return acc;
+          }, 0);
+          data.push({ label: xLabel, count });
+        }
+      }
+      setChartData(data);
+      return;
     }
     if (!items.length) {
       setChartData([]);
@@ -151,10 +251,13 @@ export default function UnifiedAnalyticsBarChart() {
     let data = [];
     const now = new Date();
 
+    let baseDate = new Date(now);
+    // Apply timeOffset for navigation
     if (timeType === 'days') {
+      baseDate.setDate(now.getDate() + timeOffset * 7);
       for (let i = 6; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(now.getDate() - i);
+        const d = new Date(baseDate);
+        d.setDate(baseDate.getDate() - i);
         const xLabel = formatDate(d, 'days');
         const count = items.filter(item =>
           item[dateField] &&
@@ -165,9 +268,10 @@ export default function UnifiedAnalyticsBarChart() {
         data.push({ label: xLabel, count });
       }
     } else if (timeType === 'weeks') {
+      baseDate.setDate(now.getDate() + timeOffset * 4 * 7); // 4 weeks per view
       for (let i = 3; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(now.getDate() - i * 7);
+        const d = new Date(baseDate);
+        d.setDate(baseDate.getDate() - i * 7);
         const week = getWeekNumber(d);
         const year = d.getFullYear();
         const xLabel = formatDate(d, 'weeks');
@@ -178,9 +282,10 @@ export default function UnifiedAnalyticsBarChart() {
         data.push({ label: xLabel, count });
       }
     } else if (timeType === 'months') {
+      baseDate.setMonth(now.getMonth() + timeOffset * 12);
       for (let i = 11; i >= 0; i--) {
-        const d = new Date(now);
-        d.setMonth(now.getMonth() - i);
+        const d = new Date(baseDate);
+        d.setMonth(baseDate.getMonth() - i);
         const xLabel = formatDate(d, 'months');
         const count = items.filter(item =>
           item[dateField] &&
@@ -190,6 +295,7 @@ export default function UnifiedAnalyticsBarChart() {
         data.push({ label: xLabel, count });
       }
     } else if (timeType === 'years') {
+      baseDate.setFullYear(now.getFullYear() + timeOffset * 10);
       const years = items.map(item => item[dateField].getFullYear());
       const minYear = Math.min(...years);
       const maxYear = now.getFullYear();
@@ -200,38 +306,32 @@ export default function UnifiedAnalyticsBarChart() {
       }
     }
     setChartData(data);
-  }, [matches, sessions, requesters, volunteers, events, timeType, dataType]);
-
-  // Calculate total interested users across all future events only
-  const nowDate = new Date();
-  const totalInterestedUsers = events.reduce((acc, event) => {
-    // Only count if scheduled_time is in the future
-    let eventDate = null;
-    if (event.scheduled_time) {
-      if (typeof event.scheduled_time.toDate === 'function') {
-        eventDate = event.scheduled_time.toDate();
-      } else {
-        eventDate = new Date(event.scheduled_time);
-      }
-    }
-    if (eventDate && eventDate > nowDate && Array.isArray(event.interestedUsers)) {
-      return acc + event.interestedUsers.length;
-    }
-    return acc;
-  }, 0);
+  }, [matches, sessions, requesters, volunteers, events, timeType, dataType, timeOffset]);
 
   return (
+    <div className="flex flex-col w-full space-y-4">
+      
+                        <div className="bg-white rounded-lg shadow p-6">
+    <h3 className="font-semibold mb-4 text-orange-700">
+            סטטיסטיקה
+            </h3>
     <div>
       <div className="flex gap-2 mb-4 flex-wrap items-center">
+
+        {/* Time and data type selectors */}
         {TIME_OPTIONS.map(opt => (
           <button
             key={opt.value}
-            onClick={() => setTimeType(opt.value)}
+            onClick={() => {
+              setTimeType(opt.value);
+              setTimeOffset(0);
+            }}
             className={`px-3 py-1 rounded ${timeType === opt.value ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-800'}`}
           >
             {opt.label}
           </button>
         ))}
+        
         <span className="mx-2" />
         {DATA_OPTIONS.map(opt => (
           <button
@@ -243,10 +343,8 @@ export default function UnifiedAnalyticsBarChart() {
           </button>
         ))}
         {/* Show total interested users for events */}
-        {dataType === 'events' && (
-          <span className="ml-4 text-orange-700 font-semibold whitespace-nowrap">סה"כ מתעניינים: {totalInterestedUsers}</span>
-        )}
       </div>
+        
       {loading ? (
         <div className="text-center text-orange-700">טוען נתונים...</div>
       ) : (
@@ -267,6 +365,35 @@ export default function UnifiedAnalyticsBarChart() {
           </BarChart>
         </ResponsiveContainer>
       )}
+    </div>
+          {/* Time navigation buttons styled like dashboard pagination */}
+        <div className="flex justify-between items-center mt-4">
+
+          <button
+            onClick={() => setTimeOffset(o => o + 1)}
+            className="py-2 px-4 text-base sm:py-3 sm:px-6 sm:text-lg border border-orange-300 rounded bg-white text-orange-700 hover:bg-orange-700 hover:text-white disabled:opacity-50 transition-all duration-150"
+            style={{ minWidth: '90px' }}
+            disabled={false}
+          >
+            הבא
+          </button>
+          
+          <span className="text-orange-700 font-semibold text-sm">
+            {timeType === 'days' && `שבוע נוכחי${timeOffset > 0 ? ` (${timeOffset} קדימה)` : timeOffset < 0 ? ` (${Math.abs(timeOffset)} אחורה)` : ''}`}
+            {timeType === 'weeks' && `4 שבועות${timeOffset > 0 ? ` (${timeOffset} קדימה)` : timeOffset < 0 ? ` (${Math.abs(timeOffset)} אחורה)` : ''}`}
+            {timeType === 'months' && `12 חודשים${timeOffset > 0 ? ` (${timeOffset} קדימה)` : timeOffset < 0 ? ` (${Math.abs(timeOffset)} אחורה)` : ''}`}
+            {timeType === 'years' && `שנים${timeOffset > 0 ? ` (${timeOffset} קדימה)` : timeOffset < 0 ? ` (${Math.abs(timeOffset)} אחורה)` : ''}`}
+          </span>
+          <button
+            onClick={() => setTimeOffset(o => o - 1)}
+            className="py-2 px-4 text-base sm:py-3 sm:px-6 sm:text-lg border border-orange-300 rounded bg-white text-orange-700 hover:bg-orange-700 hover:text-white disabled:opacity-50 transition-all duration-150"
+            style={{ minWidth: '90px' }}
+            disabled={false}
+          >
+            הקודם
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
