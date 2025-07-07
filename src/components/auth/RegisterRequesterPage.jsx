@@ -31,6 +31,7 @@ export default function RegisterRequesterPage() {
     agree1: false,
     agree2: false,
     agree3: false,
+    agree4: false,
     note: ""
   });
   const [loading, setLoading] = useState(false);
@@ -67,10 +68,8 @@ export default function RegisterRequesterPage() {
       try {
         const configDocRef = doc(db, "admin_form_configs", "requester_config");
         const docSnap = await getDoc(configDocRef);
-        console.log("[RegisterRequesterPage] Fetched admin_form_configs/requester_config snapshot exists:", docSnap.exists());
         if (docSnap.exists()) {
           const configData = docSnap.data() || {}; // Ensure configData is an object
-          console.log("[RegisterRequesterPage] Raw configData from Firestore:", configData);
           
           const customFields = Array.isArray(configData.customFields) ? configData.customFields : [];
           
@@ -94,7 +93,6 @@ export default function RegisterRequesterPage() {
           setFormData(prev => ({ ...prev, ...initialCustomData }));
 
         } else {
-          console.log("[RegisterRequesterPage] No admin configuration found for requesters. Using defaults.");
           setAdminConfig({ hideNoteField: false, customFields: [] }); // Explicitly set defaults
         }
       } catch (error) {
@@ -157,7 +155,7 @@ export default function RegisterRequesterPage() {
             [name]: checked ? [...array, value] : array.filter(v => v !== value)
           };
         }
-        // Handle regular checkboxes (agree1, agree2, agree3)
+        // Handle regular checkboxes (agree1, agree2, agree3, agree4)
         return {
           ...prev,
           [name]: checked
@@ -207,7 +205,7 @@ export default function RegisterRequesterPage() {
     setLoading(true);
     setAlertMessage(null);
 
-    if (!formData.agree1 || !formData.agree2 || !formData.agree3) {
+    if (!formData.agree1 || !formData.agree2 || !formData.agree3 || !formData.agree4) {
       setAlertMessage({ message: "יש לאשר את כל התנאים כדי להמשיך", type: "error" });
       setLoading(false);
       return;
@@ -266,7 +264,6 @@ export default function RegisterRequesterPage() {
       if (adminConfig?.hideNoteField === true) {
         delete finalData.note;
       }
-      console.log("[RegisterRequesterPage] Final data to save:", finalData);
       const userDocRef = doc(db, "Users", "Info", "Requesters", uid);
       batch.set(userDocRef, finalData);
 
@@ -316,7 +313,6 @@ export default function RegisterRequesterPage() {
     }
     // More robust check: ensure adminConfig exists, customFields is an array, and it's not empty.
     if (!adminConfig || !Array.isArray(adminConfig.customFields) || adminConfig.customFields.length === 0) {
-      console.log("[RegisterRequesterPage] No custom fields to render or adminConfig.customFields is not an array. Current adminConfig.customFields:", adminConfig?.customFields);
       return null;
     }
 
@@ -325,7 +321,6 @@ export default function RegisterRequesterPage() {
         console.warn("[RegisterRequesterPage] Invalid custom field object:", field);
         return null;
       }
-      console.log("[RegisterRequesterPage] Attempting to render custom field:", field);
       if (!['text', 'textarea', 'select', 'checkbox', 'number', 'date'].includes(field.type)) {
           console.warn(`[RegisterRequesterPage] Unsupported field type "${field.type}" for field "${field.name}". Skipping.`);
           return null;
@@ -710,6 +705,16 @@ export default function RegisterRequesterPage() {
               className="mt-1 rounded border-orange-300 text-orange-600 focus:ring-orange-400"
             />
             <span className="text-sm">ידוע לי שפנייה לפרויקט הינה מתוך בחירה, לפי שיקול דעת ובאחריות הפונים בלבד</span>
+          </label>
+          <label className="flex items-start gap-2 text-orange-700">
+            <input
+              type="checkbox"
+              name="agree4"
+              checked={formData.agree4}
+              onChange={handleChange}
+              className="mt-1 rounded border-orange-300 text-orange-600 focus:ring-orange-400"
+            />
+            <span className="text-sm">ידוע לי כי הפלטפורמה מאפשרת שיחה עם בינה מלאכותית (AI), וכי השימוש באפשרות זו נעשה באחריותי בלבד. השיחה עם ה-AI אינה מהווה תחליף לייעוץ מקצועי.</span>
           </label>
         </div>
 
