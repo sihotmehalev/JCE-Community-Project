@@ -161,6 +161,7 @@ export default function Navbar() {
         // Do NOT set setCurrentUnsubscribeNotif(null) here, as it would cause an infinite loop.
         // The next run of the effect will handle setting it if needed.
     };
+    // eslint-disable-next-line
   }, [user, role]); // Dependencies: user, role. Removed currentUnsubscribeNotif.
 
   const markAllRead = async () => {

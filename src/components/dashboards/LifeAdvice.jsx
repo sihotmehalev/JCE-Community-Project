@@ -23,6 +23,7 @@ function createTailoredPrompt(questionText, userData, requesterFormConfig) {
     if (userData && userData[field.key]) {
       const fieldDef = requesterFormConfig?.customFields?.find(cf => cf.name === field.key);
       const label = fieldDef?.label || field.label;
+      // eslint-disable-next-line no-useless-escape
       const valueToDisplay = String(userData[field.key]).replace(/`/g, '\`');
       prompt += `- ${label}: ${valueToDisplay}\n`;
     }
@@ -47,6 +48,7 @@ function createTailoredPrompt(questionText, userData, requesterFormConfig) {
           userData[key] !== '') {
           const fieldDef = requesterFormConfig?.customFields?.find(cf => cf.name === key);
           const label = fieldDef?.label || key;
+          // eslint-disable-next-line no-useless-escape
           const valueToDisplay = String(userData[key]).replace(/`/g, '\`');
           prompt += `- ${label}: ${valueToDisplay}\n`;
       }

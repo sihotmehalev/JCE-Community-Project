@@ -4,7 +4,6 @@ import { collection, updateDoc, doc, query, orderBy, deleteDoc, onSnapshot, Time
 import { db } from '../../../config/firebaseConfig';
 import { Card, CardContent } from '../../../components/ui/card';
 import CustomAlert from "../../ui/CustomAlert";
-import { Button } from '../../../components/ui/button';
 
 // Helper function to create notifications for all users
 const notifyAllUsers = async (message, eventId) => { // Added eventId parameter

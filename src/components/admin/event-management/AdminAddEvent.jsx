@@ -1,6 +1,6 @@
 // c/Users/moti/Desktop/talksfromtheheart/18.6/JCE-Community-Project/src/components/admin/event-management/AdminAddEvent.jsx
 import React, { useState } from 'react';
-import { collection, addDoc, Timestamp, getDocs, writeBatch, serverTimestamp, doc, query, setDoc } from 'firebase/firestore'; // Added setDoc
+import { collection, Timestamp, getDocs, writeBatch, serverTimestamp, doc, query, setDoc } from 'firebase/firestore'; // Added setDoc
 import { db } from '../../../config/firebaseConfig';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';

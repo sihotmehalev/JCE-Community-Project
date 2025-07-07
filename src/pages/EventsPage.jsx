@@ -107,6 +107,7 @@ const EventsPage = () => {
                 setScrollingToEvent(false);
             }
         }
+        // eslint-disable-next-line
     }, [location.search, allEvents, navigate]);
 
     const handleInterest = async (eventId) => {
