@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Allow public read access to events collection
+    match /Events/{eventId} {
+      allow read: if true;  // Anyone can read events
+      allow write: if request.auth != null;  // Only authenticated users can create/update/delete events
+    }
+
+    // Rules for admin form configurations
+    // Allow anyone to read these configurations (e.g., for registration forms)
+    // but only authenticated admins (with a custom claim) to write.
+    match /admin_form_configs/{configId} {
+      allow read: if true;
+      // IMPORTANT: Replace `request.auth.token.isAdmin == true` with your actual admin check
+      // If you don't have custom claims, you might temporarily use `request.auth != null`
+      // for write, but implementing a proper admin check is strongly recommended.
+      allow write: if request.auth != null && request.auth.token.isAdmin == true;
+    }
+
+    // Maintain authenticated access for all other collections
+    // This rule will now apply to collections like Users, Requests, Matches, etc., but not admin_form_configs due to the more specific rule above.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
