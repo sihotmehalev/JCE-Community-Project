@@ -1,8 +1,6 @@
 name: Deploy to Firebase Hosting
 on:
-  push:
-    branches:
-      - master
+ workflow_dispatch: # Allows manual trigger from GitHub UI
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
