@@ -22,11 +22,20 @@ This project was developed by students from Azrieli College of Engineering as pa
 npm start
 ```
 
-## Firebase Setup
+## Deployment
 
-Make sure you enable:
-- Authentication (Email/Password + Anonymous if needed)
-- Firestore Database
+You can deploy the application to Firebase Hosting in one of two ways:
+
+1. **Automatic (via GitHub Actions)**  
+   Simply push your changes to the `master` branch. The workflow defined in  
+   `.github/workflows/firebase-deploy.yml` will automatically build and deploy  
+   your app to the `live` channel on Firebase Hosting.
+
+2. **Manual (using a script)**  
+   Run the provided batch script from your project root:
+
+   ```bash
+   ./build-and-deploy.bat
 
 ## .env Example
 
